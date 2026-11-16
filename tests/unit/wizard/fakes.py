@@ -4,7 +4,8 @@
   the next scripted attempt (an async function of ``(hops, prompter)``) and records the hops.
 - Attempt builders: ``key_works``, ``password_works``, ``key_refused``, ``raises``. They drive
   the prompter as the SSH core does (status calls, prompts) and return a ``FakeChain``.
-- ``FakeConn``: ``run`` answers from a handler ``(command, input) -> (stdout, stderr, status)``.
+- ``FakeConn``: ``create_process`` answers from a handler ``(command, input) -> (stdout,
+  stderr, status)``, read back through asyncssh-like streams.
 - ``FakeIO``: the ``WizardIO``; records steps and needs_action messages and answers actions
   from a list. ``Timeline`` collects steps, needs_action and chain closes in order.
 - ``FakeKeys``: a ``KeyProvider`` with generated keys.
@@ -12,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -43,15 +45,58 @@ def script_ok(command: str, stdin: str | None) -> tuple[str, str, int | None]:
     return "portkey-ok\n", "", 0
 
 
+class _FakeReader:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.taken = 0
+
+    async def read(self, n: int = -1) -> str:
+        await asyncio.sleep(0)
+        chunk = self.text[self.taken : self.taken + (n if n > 0 else len(self.text))]
+        self.taken += len(chunk)
+        return chunk
+
+
+class FakeProcess:
+    """The parts of ``asyncssh.SSHClientProcess`` that ``wizard._remote`` uses. The handler
+    runs when stdin ends, as a remote ``sh -s`` reads its whole script first."""
+
+    def __init__(self, conn: FakeConn, command: str) -> None:
+        self.conn = conn
+        self.command = command
+        self.input: list[str] = []
+        self.stdin = SimpleNamespace(write=self.input.append, write_eof=self._eof)
+        self.stdout = _FakeReader("")
+        self.stderr = _FakeReader("")
+        self.exit_status: int | None = None
+        self.closed = False
+
+    def _eof(self) -> None:
+        stdin = "".join(self.input) if self.input else None
+        self.conn.commands.append((self.command, stdin))
+        out, err, self.exit_status = self.conn.handler(self.command, stdin)
+        self.stdout.text, self.stderr.text = out, err
+
+    async def wait_closed(self) -> None:
+        await asyncio.sleep(0)
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class FakeConn:
+    """``create_process`` answers from a handler ``(command, input) -> (stdout, stderr,
+    status)``; ``processes`` keeps every process (``closed`` once the wizard gave up on it)."""
+
     def __init__(self, handler: RunHandler = script_ok) -> None:
         self.handler = handler
         self.commands: list[tuple[str, str | None]] = []
+        self.processes: list[FakeProcess] = []
 
-    async def run(self, command: str, *, input: str | None = None, **_: Any) -> Any:
-        self.commands.append((command, input))
-        stdout, stderr, status = self.handler(command, input)
-        return SimpleNamespace(stdout=stdout, stderr=stderr, exit_status=status)
+    async def create_process(self, command: str, **_: Any) -> FakeProcess:
+        process = FakeProcess(self, command)
+        self.processes.append(process)
+        return process
 
 
 class FakeChain:

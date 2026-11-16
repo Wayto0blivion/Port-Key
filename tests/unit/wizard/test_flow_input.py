@@ -149,7 +149,7 @@ async def test_cancelling_the_run_closes_the_password_connection(
     blocked = asyncio.Event()
 
     class Blocking(FakeConn):
-        async def run(self, command: str, **kw: Any) -> Any:
+        async def create_process(self, command: str, **kw: Any) -> Any:
             blocked.set()
             await asyncio.Event().wait()
 
