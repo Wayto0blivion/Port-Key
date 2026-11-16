@@ -7,8 +7,9 @@ Threading and async rules, for every Protocol below unless a method says otherwi
   directly (thread pool). Async code on a hot path (connecting, terminal sessions, the wizard)
   calls them through ``asyncio.to_thread``: while a thread-pool route holds the lock (a
   1000-id bulk edit takes about 50 ms), a direct call would stall the event loop and every
-  terminal with it. ``services.db.tx()`` is re-entrant on one thread, so several repository
-  calls can share one transaction (see docs/handoff/phase-a.md).
+  terminal with it. ``services.db.tx()`` is re-entrant on one thread (nested calls join the
+  outermost transaction), so several repository calls made inside one ``asyncio.to_thread``
+  function can share one transaction: ``with services.db.tx(): ...``.
 - Anything that touches the network or waits for the browser is ``async``.
 - Errors are the classes in ``portkey.errors`` (HTTP) and ``portkey.ssh.errors`` (SSH/WS).
 - Fingerprints are always ``"SHA256:<base64 without padding>"``.

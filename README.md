@@ -16,8 +16,9 @@ Design: `docs/PLAN.md`, `docs/architecture.md`, `docs/ux-spec.md`. Wire contract
 
 ## Run it on Windows (Docker Desktop)
 
-Requirements: Docker Desktop with the WSL2 backend. An SSH key in `%USERPROFILE%\.ssh` helps
-(Port-Key can generate one if you have none).
+Requirements: Docker Desktop with the WSL2 backend, and Git for Windows (the update below uses
+`git pull`). An SSH key in `%USERPROFILE%\.ssh` helps (Port-Key can generate one if you have
+none); if you have no `.ssh` folder at all, create it first with `mkdir "$env:USERPROFILE\.ssh"`.
 
 ```powershell
 git clone https://github.com/Wayto0blivion/Port-Key.git
@@ -112,7 +113,8 @@ Open the Diagnostics tab (Settings > Open Diagnostics): it shows whether the `.s
 mounted, which key files could not be used and why, and what a host name resolves to from
 inside the container. `docker compose logs portkey` shows the server log; it never contains
 passwords, passphrases, tokens or terminal contents (only the setup code, until a password is
-set). `docs/windows-smoke.md` lists what to send back.
+set). To report a problem, open an issue on GitHub with what the "What to send back" section
+of `docs/windows-smoke.md` lists (never a private key or the contents of your `.ssh` folder).
 
 ## Develop and run checks (Linux dev box)
 
@@ -135,4 +137,10 @@ image from the tree. In e2e the browser opens `http://localhost:8822` as on the 
 `localhost` to the app container), and the specs read the setup code from the app container's
 log (`tests/e2e/harness/app_log.py`). Screenshots of the real app: see `tests/e2e/screens.py`.
 Dependencies are hash-locked: change `pyproject.toml`, then `./mk lock` and `./mk build`.
-Notes for whoever works on it next are in `docs/handoff/`.
+Narrower runs, conventions and what to run before a pull request: `CONTRIBUTING.md`.
+
+## Licence
+
+Port-Key is released under the MIT licence; see `LICENSE`. The vendored xterm.js files in
+`portkey/static/vendor/xterm/` carry their own MIT licence, in
+`portkey/static/vendor/xterm/LICENSE.xterm`.

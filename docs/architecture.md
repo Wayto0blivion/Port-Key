@@ -675,7 +675,11 @@ Mounts, ACLs and networking are covered by the manual checklist in `docs/windows
 
 ## 11. Work packages
 
-| # | Package | Owns | Depends on |
+v1 was built as the work packages below, several in parallel. Code comments, docstrings and
+test names still refer to them by number ("package 7"); this table maps a number to its part of
+the code.
+
+| # | Package | Area | Depends on |
 |---|---|---|---|
 | 0 | Contracts and skeleton | `pyproject` with the lock, `Dockerfile`, compose files, `Makefile`, `api/schemas.py`, `docs/api.md`, `docs/ws-protocol.md`, `ssh/errors.py`, `interfaces.py`, the DB schema in `store/db.py`, frontend stubs, vendored xterm | - |
 | 1 | Security | `security/*`, `routes_auth.py`, `app.py` middleware | 0 |
@@ -689,8 +693,6 @@ Mounts, ACLs and networking are covered by the manual checklist in `docs/windows
 | 8b | Frontend terminal | `terminal/*`, `ws/protocol.js`, `ui/dialogs.js`, `ui/palette.js`, `views/wizard.js` (with its folder and tag fields), `views/sessions.js` | 5, 6, 8a |
 | 9 | End-to-end hardening | Playwright specs, `docs/windows-smoke.md` | all |
 
-File-by-file ownership, including tests, is in `docs/work-packages.md`.
-
 Order: package 0 first and frozen. Then 1, 2, 3, 7 and 8a in parallel. Then 4. Then 5, 6 and 8b
-in parallel. Last, end-to-end hardening. `docs/ux-spec.md` feeds 8a, 8b and all prompt and
-dialog copy.
+in parallel. Last, end-to-end hardening. `docs/ux-spec.md` fed 8a, 8b and all prompt and
+dialog copy. How to run the checks is in `CONTRIBUTING.md`.
