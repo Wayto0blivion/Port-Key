@@ -12,10 +12,10 @@ export HOST_UID HOST_GID
 FILES ?= .
 TESTS ?= tests/unit
 
-.PHONY: help build lint fmt types unit check integration e2e lint-js lock vendor-xterm clean shell
+.PHONY: help build lint fmt types unit check integration e2e frontend lint-js lock vendor-xterm clean shell
 
 help:
-	@echo "make build | lint | fmt | types | unit | check | lint-js | integration | e2e | clean"
+	@echo "make build | lint | fmt | types | unit | check | lint-js | frontend | integration | e2e | clean"
 	@echo "Pass P=<project> for a private compose project (default: portkey)."
 
 build:
@@ -40,6 +40,13 @@ check: lint types unit
 lint-js:
 	$(RUN) lint-js
 
+# Frontend shell tests (tests/frontend): Chromium against a mock API, no network. Narrow with
+# FRONTEND="tests/frontend/test_units.py -k contract".
+FRONTEND ?= tests/frontend
+frontend:
+	$(DC) --profile frontend build frontend
+	$(DC) --profile frontend run --rm --no-deps frontend pytest $(FRONTEND) -p no:cacheprovider
+
 integration:
 	$(DC) --profile integration build sshd integration
 	$(DC) --profile integration run --rm integration; rc=$$?; \
@@ -60,4 +67,4 @@ vendor-xterm:
 	scripts/vendor-xterm.sh
 
 clean:
-	$(DC) --profile integration --profile e2e down -v --remove-orphans
+	$(DC) --profile integration --profile e2e --profile frontend down -v --remove-orphans

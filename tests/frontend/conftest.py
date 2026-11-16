@@ -1,6 +1,6 @@
 """Fixtures for the frontend shell tests (package 8a).
 
-These run in the private Playwright image built from tests/frontend/Dockerfile (see run.sh):
+These run in the Playwright image shared with e2e (``./mk frontend`` or run.sh, no network):
 Chromium loads ``portkey/static`` from an in-process static server with the production CSP,
 and ``mock/server.js`` stands in for the API. Nothing listens outside the container.
 
