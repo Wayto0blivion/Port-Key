@@ -136,7 +136,12 @@ def open_row(page: Page, name: str) -> None:
 
 def row_menu(page: Page, name: str, item: str) -> None:
     """Right-click a sidebar connection and choose ``item`` (its "⋯" shows only on hover)."""
-    sidebar_row(page, name).first.click(button="right")
+    row = sidebar_row(page, name).first
+    # Scroll first and let the scroll event pass: a menu at the pointer closes when the list
+    # it was opened on scrolls, and the event of Playwright's own scroll arrives a frame late.
+    row.scroll_into_view_if_needed()
+    page.wait_for_timeout(100)
+    row.click(button="right")
     page.get_by_role("menu", name=name).get_by_role("menuitem", name=item).click()
 
 
