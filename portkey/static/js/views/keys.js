@@ -22,6 +22,8 @@ import { openGenerateKey as generateDialog, hideKey, unhideKey } from '../parts/
 /** @type {string|null} */
 let selectedFp = null;
 let showHidden = false;
+/** Re-draw the Keys tab now (selection changes); set by renderKeys. */
+let redraw = () => {};
 
 const PROBLEM_TEXT = {
   ppk: 'PuTTY format, not supported', not_private_key: 'Not a private key', unreadable: 'Unreadable',
@@ -31,7 +33,16 @@ const PROBLEM_TEXT = {
 /** @param {HTMLElement} container @returns {void} */
 export function renderKeys(container) {
   container.classList.add('page', 'keys');
-  const render = () => preserveFocus(container, () => draw(container));
+  redraw = () => preserveFocus(container, () => draw(container));
+  /** @type {unknown[]} */
+  let seen = [];
+  const render = () => {
+    const s = store.getState();
+    const now = [s.keys, s.keyProblems, s.defaultFp, s.settings, s.status.keys, s.errors.keys];
+    if (now.every((v, i) => v === seen[i])) return; // nothing the Keys tab shows changed
+    seen = now;
+    redraw();
+  };
   render();
   store.subscribe(render);
   if (store.getState().status.keys === 'idle') store.refreshKeys().catch(() => {});
@@ -42,7 +53,7 @@ export async function openGenerateKey() {
   const made = await generateDialog();
   if (made) {
     selectedFp = made.fp;
-    store.setState({});
+    redraw();
   }
   return made;
 }
@@ -96,7 +107,7 @@ function draw(container) {
   if (hidden.length) {
     container.appendChild(h('button', {
       type: 'button', class: 'link-btn', 'aria-expanded': String(showHidden), dataset: { fkey: 'hidden-toggle' },
-      onClick: () => { showHidden = !showHidden; preserveFocus(container, () => draw(container)); },
+      onClick: () => { showHidden = !showHidden; redraw(); },
     }, showHidden ? 'Hide hidden keys' : `Show hidden keys (${hidden.length})`));
     if (showHidden) {
       container.appendChild(h('ul', { class: 'hidden-keys' }, ...hidden.map((k) => h('li', {},
@@ -142,8 +153,8 @@ function keyTable(keys) {
 /** @param {string} fp @param {boolean} focus */
 function select(fp, focus) {
   selectedFp = fp;
-  store.setState({});
-  if (focus) queueMicrotask(() => /** @type {HTMLElement|null} */ (document.querySelector(`[data-fkey="key:${fp}"]`))?.focus());
+  redraw();
+  if (focus) /** @type {HTMLElement|null} */ (document.querySelector(`[data-fkey="key:${fp}"]`))?.focus();
 }
 
 /** @param {KeyInfo} k @param {import('../store.js').State} state */
