@@ -6,6 +6,7 @@ import importlib
 import pkgutil
 
 import httpx
+import pytest
 from fastapi import FastAPI
 from fastapi.routing import APIWebSocketRoute
 
@@ -94,10 +95,24 @@ async def test_index_is_served(client: httpx.AsyncClient) -> None:
     assert '<script type="module" src="js/main.js"></script>' in r.text
 
 
+# Routes that were stubs when this list was last updated (package 5 owns both). The test uses the
+# first one that still answers 501 and skips once every package has landed.
+STUB_CANDIDATES = (("GET", "/api/sessions"), ("DELETE", "/api/sessions/s_not-a-session"))
+
+
 async def test_stub_route_answers_501_envelope(authed_client: httpx.AsyncClient) -> None:
-    r = await authed_client.get("/api/connections")
-    assert r.status_code == 501
-    assert r.json()["error"]["code"] == "not_implemented"
+    for method, path in STUB_CANDIDATES:
+        body = None if method == "GET" else {}
+        r = await authed_client.request(method, path, json=body)
+        if r.status_code == 501:
+            assert r.json() == {
+                "error": {
+                    "code": "not_implemented",
+                    "message": "This part of Port-Key is not built yet.",
+                }
+            }
+            return
+    pytest.skip("every route is implemented; no stub left to check")
 
 
 async def test_openapi_lists_schemas(client: httpx.AsyncClient) -> None:

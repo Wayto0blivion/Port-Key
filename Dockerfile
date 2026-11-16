@@ -28,9 +28,11 @@ RUN python -m venv /venv \
 
 # ---------------------------------------------------------------------------
 FROM base AS dev
-# Shells used by the remote-script unit tests (dash is /bin/sh already).
+# Shells the remote-script unit tests run under (package 6): dash, bash and busybox sh. dash and
+# bash are already in the slim image (dash is /bin/sh); naming them keeps them if that changes.
+# tests/unit/skeleton/test_dev_image.py checks all three.
 RUN apt-get update \
- && apt-get install --no-install-recommends -y bash busybox \
+ && apt-get install --no-install-recommends -y bash busybox dash \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=dev-deps /venv /venv
 ENV PATH=/venv/bin:$PATH \
