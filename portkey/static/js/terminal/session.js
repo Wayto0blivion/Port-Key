@@ -60,6 +60,7 @@ export class TerminalView {
     this.exitReason = null;
     this.detachedElsewhere = false;
     this.askedPassword = false;
+    this.askedPassphrase = false;
     /** True while the current socket is an attach (a reattach or a restore), not an open. */
     this.attaching = false;
     this.opened = false;
@@ -287,6 +288,7 @@ export class TerminalView {
       if (line) this.chrome.step(line.key, line.text);
     } else if (msg.type === 'prompt') {
       if (msg.hop?.role === 'target' && (msg.kind === 'password' || msg.kind === 'kbdint')) this.askedPassword = true;
+      if (msg.kind === 'passphrase') this.askedPassphrase = true;
     } else if (msg.type === 'ready') {
       this.ready(msg);
     } else if (msg.type === 'exit') {
@@ -302,6 +304,11 @@ export class TerminalView {
     if (msg.reattached && msg.reset) this.term.reset();
     this.received = Number(msg.offset) || 0;
     this.attempt = 0;
+    if (this.askedPassphrase) {
+      // A key may now be held unlocked: the top bar's "1 key unlocked" comes from the key list.
+      this.askedPassphrase = false;
+      store.refreshKeys().catch(() => {});
+    }
     // The replay that follows a reattach is not new output: no activity dot for it.
     this.quietUntil = msg.reattached ? Date.now() + 400 : 0;
     attached(this);
