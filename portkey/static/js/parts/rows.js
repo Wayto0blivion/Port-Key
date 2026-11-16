@@ -34,8 +34,21 @@ export function reachInfo(c) {
 /** @param {Connection} c @returns {HTMLElement} */
 export function reachDot(c) {
   const info = reachInfo(c);
-  return h('span', { class: `dot dot--${info.state}`, title: info.text },
+  return h('span', { class: `dot dot--${info.state}`, title: info.text, dataset: { reach: c.id } },
     h('span', { class: 'visually-hidden' }, `${info.short}.`));
+}
+
+/** Update every reachability dot under `root` in place (after a check, without a re-render). @param {Element} root */
+export function refreshDots(root) {
+  for (const el of /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('.dot[data-reach]'))) {
+    const c = store.connectionById(el.dataset.reach);
+    if (!c) continue;
+    const info = reachInfo(c);
+    el.className = `dot dot--${info.state}`;
+    el.title = info.text;
+    const text = el.firstElementChild;
+    if (text) text.textContent = `${info.short}.`;
+  }
 }
 
 /** @param {Connection} c @returns {Element} */

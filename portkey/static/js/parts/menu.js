@@ -8,7 +8,7 @@
  * with it. Focus returns to the element that opened the menu.
  */
 
-import { h } from '../ui/dom.js';
+import { h, refind } from '../ui/dom.js';
 
 /** @typedef {{label: string, onSelect: () => void, danger?: boolean, disabled?: boolean} | 'separator'} MenuItem */
 
@@ -38,7 +38,7 @@ export function openMenu(opts) {
       'aria-disabled': item.disabled ? 'true' : null,
       onClick: () => {
         if (item.disabled) return;
-        close(false);
+        close(true); // focus goes back first, so a dialog the item opens returns it there
         item.onSelect();
       },
     }, item.label));
@@ -59,7 +59,7 @@ export function openMenu(opts) {
     document.removeEventListener('scroll', onScroll, true);
     window.removeEventListener('resize', onResize);
     if (closeCurrent === closeFn) closeCurrent = null;
-    if (restore && opener?.isConnected) opener.focus({ preventScroll: true });
+    if (restore) refind(opener)?.focus({ preventScroll: true });
   };
   const closeFn = () => close(false);
   const onResize = () => close(false);

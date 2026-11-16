@@ -40,7 +40,7 @@ export function createTagField(opts) {
   seq += 1;
   const id = opts.id ?? `tags-${seq}`;
   const listId = `${id}-list`;
-  const errorId = `${id}-error`;
+  const errorId = `${id}-tagerror`;
   /** @type {string[]} */
   let tags = [...new Set(opts.value.map((t) => normalizeTag(t)).filter((t) => t !== null))].sort();
   /** @type {string[]} */

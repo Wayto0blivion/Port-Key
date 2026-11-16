@@ -18,6 +18,7 @@ import { h, clear, preserveFocus } from '../ui/dom.js';
 import { buildFolderIndex } from '../parts/folders.js';
 import { renderTree, wireTreeKeys } from '../parts/tree.js';
 import { icon } from '../parts/icons.js';
+import { refreshDots } from '../parts/rows.js';
 import { addConnection } from '../parts/actions.js';
 import { renderSuggestions, unsavedSuggestions } from './suggestions.js';
 
@@ -62,8 +63,18 @@ export function renderSidebar(container) {
   });
   wireTreeKeys(tree);
 
+  /** @type {unknown[]} */
+  let seen = [];
   const render = () => {
     const state = store.getState();
+    const now = [state.connections, state.groups, state.tags, state.keys, state.suggestions, state.sessionCounts,
+      state.status, state.filter, state.selectedTags, state.collapsedVersion, state.defaultFp];
+    const same = now.every((v, i) => v === seen[i]);
+    seen = now;
+    if (same) {
+      refreshDots(tree); // only reachability changed
+      return;
+    }
     if (filter.value !== state.filter && document.activeElement !== filter) filter.value = state.filter;
     const loaded = state.status.connections === 'ready';
     filter.disabled = loaded && state.connections.length === 0;

@@ -15,11 +15,14 @@ from tests.frontend.conftest import AppFactory, calls
 
 def run(page: Page, module: str, body: str) -> Any:
     """Evaluate `body` (an expression using `m`, the imported module) in the page."""
-    return page.evaluate(f"async () => {{ const m = await import('/js/{module}'); return {body}; }}")
+    return page.evaluate(
+        f"async () => {{ const m = await import('/js/{module}'); return {body}; }}"
+    )
 
 
 CONNS = """[
-  {id: 'a', name: 'web-prod', host: '192.168.10.42', port: 22, username: 'john', notes: 'Production',
+  {id: 'a', name: 'web-prod', host: '192.168.10.42', port: 22, username: 'john',
+   notes: 'Production',
    group_id: 'g2', tags: ['linux', 'prod'], jump_id: null},
   {id: 'b', name: 'imaging-01', host: '192.168.10.31', port: 2222, username: 'admin', notes: '',
    group_id: 'g3', tags: ['appliance'], jump_id: null},
@@ -46,7 +49,8 @@ def test_filter_connections(app: AppFactory) -> None:
 
     def ids(text: str, tags: str = "[]") -> list[str]:
         result: list[str] = run(
-            page, "views/connections.js",
+            page,
+            "views/connections.js",
             f"[...m.filterConnections({CONNS}, {GROUPS}, {text!r}, {tags})].sort()",
         )
         return result
@@ -65,8 +69,16 @@ def test_filter_connections(app: AppFactory) -> None:
 def test_normalize_tag(app: AppFactory) -> None:
     page = app()
     cases = {
-        "#Prod": "prod", " web ": "web", "##dell": "dell", "v1.2_x-y": "v1.2_x-y",
-        "Bad Tag": None, "-lead": None, "a" * 33: None, "": None, "ok!": None, "a" * 32: "a" * 32,
+        "#Prod": "prod",
+        " web ": "web",
+        "##dell": "dell",
+        "v1.2_x-y": "v1.2_x-y",
+        "Bad Tag": None,
+        "-lead": None,
+        "a" * 33: None,
+        "": None,
+        "ok!": None,
+        "a" * 32: "a" * 32,
     }
     for raw, expected in cases.items():
         assert run(page, "ui/tagfield.js", f"m.normalizeTag({raw!r})") == expected, raw
@@ -76,13 +88,23 @@ def test_address_and_ssh_command(app: AppFactory) -> None:
     page = app()
     base = "{username: 'admin', host: '192.168.10.31', port: 2222, jump_id: null}"
     assert run(page, "ui/dom.js", f"m.formatAddress({base})") == "admin@192.168.10.31:2222"
-    assert run(page, "ui/dom.js", "m.formatAddress({username: 'john', host: '10.8.0.1', port: 22})") == "john@10.8.0.1"
-    assert run(page, "ui/dom.js", "m.formatAddress({username: 'u', host: 'fe80::1', port: 2200})") == "u@[fe80::1]:2200"
+    assert (
+        run(page, "ui/dom.js", "m.formatAddress({username: 'john', host: '10.8.0.1', port: 22})")
+        == "john@10.8.0.1"
+    )
+    assert (
+        run(page, "ui/dom.js", "m.formatAddress({username: 'u', host: 'fe80::1', port: 2200})")
+        == "u@[fe80::1]:2200"
+    )
     assert run(page, "ui/dom.js", f"m.sshCommand({base})") == "ssh -p 2222 admin@192.168.10.31"
-    chain = """m.sshCommand({id: 't', username: 'root', host: '192.168.10.27', port: 22, jump_id: 'j'},
+    chain = """m.sshCommand(
+      {id: 't', username: 'root', host: '192.168.10.27', port: 22, jump_id: 'j'},
       [{id: 'j', username: 'john', host: '192.168.10.20', port: 22, jump_id: 'v'},
        {id: 'v', username: 'john', host: '10.8.0.1', port: 2222, jump_id: null}])"""
-    assert run(page, "ui/dom.js", chain) == "ssh -J john@10.8.0.1:2222,john@192.168.10.20 root@192.168.10.27"
+    assert (
+        run(page, "ui/dom.js", chain)
+        == "ssh -J john@10.8.0.1:2222,john@192.168.10.20 root@192.168.10.27"
+    )
 
 
 def test_format_when(app: AppFactory) -> None:
@@ -111,7 +133,12 @@ def test_folder_index(app: AppFactory) -> None:
     assert out["depth"] == [1, 3, 0]
     assert out["desc"] == ["g2", "g4"]
     assert out["height"] == [3, 1]
-    assert out["order"] == ["Appliances", "Office LAN", "Office LAN / Servers", "Office LAN / Servers / Linux"]
+    assert out["order"] == [
+        "Appliances",
+        "Office LAN",
+        "Office LAN / Servers",
+        "Office LAN / Servers / Linux",
+    ]
 
 
 def test_requests_follow_the_contract(app: AppFactory) -> None:
@@ -134,9 +161,22 @@ def test_requests_follow_the_contract(app: AppFactory) -> None:
 
 def test_api_errors_and_sign_out(app: AppFactory) -> None:
     page = app()
-    page.evaluate("window.__pkMock.failNext('/api/groups', 409, 'name_taken', 'A folder named VPN already exists there.')")
-    err = run(page, "api.js", "m.createGroup('VPN').then(() => null, (e) => ({name: e.name, status: e.status, code: e.code, message: e.message}))")
-    assert err == {"name": "ApiError", "status": 409, "code": "name_taken", "message": "A folder named VPN already exists there."}
+    page.evaluate(
+        "window.__pkMock.failNext('/api/groups', 409, 'name_taken',"
+        " 'A folder named VPN already exists there.')"
+    )
+    err = run(
+        page,
+        "api.js",
+        "m.createGroup('VPN').then(() => null,"
+        " (e) => ({name: e.name, status: e.status, code: e.code, message: e.message}))",
+    )
+    assert err == {
+        "name": "ApiError",
+        "status": 409,
+        "code": "name_taken",
+        "message": "A folder named VPN already exists there.",
+    }
     # A wrong password on login is not a sign-out; an expired token is.
     bad = run(page, "api.js", "m.login('nope').then(() => null, (e) => [e.code, m.getToken()])")
     assert bad == ["bad_password", "mock-token"]

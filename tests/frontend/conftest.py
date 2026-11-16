@@ -17,14 +17,22 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from playwright.sync_api import Browser, Page, sync_playwright
+from playwright.sync_api import Browser, Page, expect, sync_playwright
 
 from tests.frontend.serve import start
 
 HERE = Path(__file__).parent
 MOCK_DATA = HERE / "mock" / "data.js"
 MOCK_SERVER = HERE / "mock" / "server.js"
-TOKEN = "mock-token"  # noqa: S105 - the mock API's fixed test token, not a secret
+TOKEN = "mock-token"
+# Resolves once the store has finished its first load of every area (views render in the
+# same microtask as the store update, so they are drawn by then).
+LOADED = """async () => {
+  const s = await import('/js/store.js');
+  const done = () => Object.values(s.getState().status)
+    .every((v) => v === 'ready' || v === 'error');
+  while (!done()) await new Promise((r) => setTimeout(r, 20));
+}"""
 
 
 @pytest.fixture(scope="session")
@@ -75,6 +83,7 @@ def app(browser: Browser, base_url: str) -> Iterator[AppFactory]:
         page.goto(f"{base_url}/index.html")
         if wait and signed_in:
             page.wait_for_selector(".app .tabstrip [role=tab]")
+            page.evaluate(LOADED)
         pages.append((page, allow_errors))
         return page
 
@@ -93,4 +102,10 @@ def calls(page: Page) -> list[dict[str, Any]]:
 
 
 def toast_text(page: Page) -> str:
-    return page.locator("#toasts .toast").last.inner_text()
+    text: str = page.locator("#toasts .toast").last.inner_text()
+    return text
+
+
+def expect_toast(page: Page, text: str) -> None:
+    """Wait for a toast whose message starts with `text`."""
+    expect(page.locator("#toasts .toast__text").filter(has_text=text).last).to_be_visible()

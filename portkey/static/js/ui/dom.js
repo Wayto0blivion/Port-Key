@@ -10,7 +10,7 @@
  * styles; use classes, or element.style (CSSOM) for computed values.
  *
  * Also exported: svg(), qs(), labelClass(), installCommand(), copyText(), formatWhenLong(),
- * keyTypeLabel(), isIpAddress(), preserveFocus().
+ * keyTypeLabel(), isIpAddress(), preserveFocus(), refind().
  */
 
 /** @typedef {import('../types.js').Connection} Connection */
@@ -245,6 +245,23 @@ export function preserveFocus(container, render) {
     const again = container.querySelector(`[data-fkey="${key.replace(/["\\]/g, '\\$&')}"]`);
     if (again instanceof HTMLElement) again.focus({ preventScroll: true });
   }
+}
+
+/**
+ * The live element for one that a re-render may have replaced: the element itself while it is
+ * in the document, else the element now carrying the same data-key or data-fkey.
+ * @param {HTMLElement|null} el @returns {HTMLElement|null}
+ */
+export function refind(el) {
+  if (!el || el.isConnected) return el;
+  for (const attr of ['key', 'fkey']) {
+    const value = el.dataset[attr];
+    if (!value) continue;
+    const name = attr === 'key' ? 'data-key' : 'data-fkey';
+    const found = document.querySelector(`[${name}="${value.replace(/["\\]/g, '\\$&')}"]`);
+    if (found instanceof HTMLElement) return found;
+  }
+  return null;
 }
 
 /** Plural helper: plural(3, 'connection') -> "3 connections". @param {number} n @param {string} word */

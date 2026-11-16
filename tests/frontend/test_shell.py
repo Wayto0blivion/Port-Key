@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-from tests.frontend.conftest import AppFactory, toast_text
+from tests.frontend.conftest import AppFactory, expect_toast
 
-PASSWORD = "correct horse battery"  # noqa: S105 - the mock API's fictional app password
+PASSWORD = "correct horse battery"
 
 
 def open_menu_item(page: Page, row_name: str, item: str) -> None:
@@ -22,7 +22,7 @@ def test_boot_renders_the_shell(app: AppFactory) -> None:
     expect(page.get_by_role("button", name="Lock")).to_be_visible()
     page.get_by_role("button", name="Lock").click()
     expect(page.locator(".unlocked")).to_be_hidden()
-    assert toast_text(page).startswith("Keys locked.")
+    expect_toast(page, "Keys locked.")
 
 
 def test_set_password_on_first_visit(app: AppFactory) -> None:
@@ -76,14 +76,16 @@ def test_401_keeps_unsaved_input(app: AppFactory) -> None:
     login = page.locator("dialog.login")
     expect(login).to_be_visible()
     expect(login).to_contain_text("Your sign-in has ended")
-    expect(page.locator("dialog.modal .modal__error")).to_have_text("Your sign-in expired. Sign in again, then select Save.")
+    expect(page.locator("dialog.modal .modal__error")).to_have_text(
+        "Your sign-in expired. Sign in again, then select Save."
+    )
     page.fill("#login-pass", PASSWORD)
     page.keyboard.press("Enter")
     expect(login).to_have_count(0)
     expect(page.locator("#ec-name")).to_have_value("web-prod-new")
     page.get_by_role("button", name="Save", exact=True).click()
     expect(page.locator("dialog.modal")).to_have_count(0)
-    assert "Saved changes to web-prod-new." in toast_text(page)
+    expect_toast(page, "Saved changes to web-prod-new.")
     expect(page.locator(".tree").get_by_text("web-prod-new").first).to_be_visible()
 
 
@@ -131,7 +133,9 @@ def test_sidebar_resize_by_keyboard_persists(app: AppFactory) -> None:
     page.keyboard.press("End")
     expect(sep).to_have_attribute("aria-valuenow", "420")
     page.reload()
-    expect(page.get_by_role("separator", name="Resize sidebar")).to_have_attribute("aria-valuenow", "420")
+    expect(page.get_by_role("separator", name="Resize sidebar")).to_have_attribute(
+        "aria-valuenow", "420"
+    )
     width = page.evaluate("document.getElementById('sidebar').getBoundingClientRect().width")
     assert width == 420
 
@@ -159,4 +163,4 @@ def test_quick_connect_reaches_the_palette(app: AppFactory) -> None:
     # Until package 8b lands the palette is a stub; either it opens or the shell says so.
     page.wait_for_selector("dialog[open], #toasts .toast")
     if page.locator("#toasts .toast").count():
-        assert "not built yet" in toast_text(page)
+        expect_toast(page, "not built yet")

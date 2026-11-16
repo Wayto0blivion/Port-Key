@@ -17,7 +17,7 @@ import { renderStrip, shortFp } from '../ui/fpstrip.js';
 import { toast } from '../ui/toast.js';
 import { getActiveTabId, onTabChange } from '../ui/tabstrip.js';
 import { icon } from '../parts/icons.js';
-import { reachDot } from '../parts/rows.js';
+import { reachDot, refreshDots } from '../parts/rows.js';
 import { addConnection, connect } from '../parts/actions.js';
 import { renderConnectionsTable } from '../parts/hometable.js';
 import { filterConnections } from './connections.js';
@@ -30,19 +30,51 @@ import { openEditConnection, newConnectionDraft } from './edit-connection.js';
 
 const REACH_EVERY = 60_000;
 const REACH_CHUNK = 500;
+const FILTER_PAUSE = 150;
 let lastReach = 0;
 
 /** @param {HTMLElement} container @returns {() => void} cleanup (stops reachability polling) */
 export function renderHome(container) {
   container.classList.add('home');
+  // A few hundred table rows take a while to build, so Home re-renders at most once per task,
+  // waits for a pause while the sidebar filter is being typed, only moves the dots when just
+  // reachability changed, and does nothing while hidden (it catches up when shown).
+  let dirty = true;
+  /** @type {unknown[]} */
+  let seen = [];
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  let pending = null;
   const render = () => {
+    if (pending) clearTimeout(pending);
+    pending = null;
+    dirty = false;
     preserveFocus(container, () => draw(container));
     if (!lastReach && store.getState().status.connections === 'ready') pollReachability(true);
   };
+  const schedule = () => {
+    const s = store.getState();
+    const now = [s.connections, s.groups, s.tags, s.keys, s.settings, s.suggestions, s.sessionCounts, s.status,
+      s.defaultFp, s.filter, s.selectedTags];
+    const changed = now.map((v, i) => v !== seen[i]);
+    seen = now;
+    if (!changed.some(Boolean)) {
+      refreshDots(container);
+      return;
+    }
+    dirty = true;
+    if (getActiveTabId() !== 'home') return;
+    const typing = changed[9] || changed[10];
+    if (pending) clearTimeout(pending);
+    pending = setTimeout(render, typing ? FILTER_PAUSE : 0);
+  };
   render();
-  const unsubscribe = store.subscribe(render);
+  const unsubscribe = store.subscribe(schedule);
   const timer = setInterval(() => pollReachability(false), REACH_EVERY);
-  const offTab = onTabChange((id) => { if (id === 'home') pollReachability(true); });
+  const offTab = onTabChange((id) => {
+    if (id !== 'home') return;
+    if (dirty) render();
+    pollReachability(true);
+  });
   const onVisible = () => { if (document.visibilityState === 'visible') pollReachability(true); };
   document.addEventListener('visibilitychange', onVisible);
   pollReachability(true);

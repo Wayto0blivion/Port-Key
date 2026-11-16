@@ -9,7 +9,7 @@
  */
 
 import * as store from '../store.js';
-import { h, clear, formatAddress, formatWhen, plural } from '../ui/dom.js';
+import { h, clear, formatAddress, formatWhen } from '../ui/dom.js';
 import { icon } from './icons.js';
 import { openMenu } from './menu.js';
 import { labelChip, reachDot } from './rows.js';
@@ -24,6 +24,31 @@ const selected = new Set();
 /** @type {{key: SortKey, dir: 1|-1}} */
 let sort = { key: 'name', dir: 1 };
 let lastClicked = -1;
+/**
+ * What the last render built, so selection changes update in place instead of rebuilding
+ * a few hundred rows.
+ * @type {{head: HTMLElement|null, allBox: HTMLInputElement|null, rows: Connection[], total: number,
+ *   matches: Set<string>|null, boxes: Map<string, {tr: HTMLElement, box: HTMLInputElement}>}}
+ */
+const view = { head: null, allBox: null, rows: [], total: 0, matches: null, boxes: new Map() };
+
+function syncSelection() {
+  for (const [id, { tr, box }] of view.boxes) {
+    const on = selected.has(id);
+    box.checked = on;
+    tr.classList.toggle('is-selected', on);
+  }
+  const ids = view.rows.map((c) => c.id);
+  if (view.allBox) {
+    view.allBox.checked = ids.length > 0 && ids.every((id) => selected.has(id));
+    view.allBox.indeterminate = !view.allBox.checked && ids.some((id) => selected.has(id));
+  }
+  if (view.head) {
+    const fresh = header(view.total, view.rows, view.matches);
+    view.head.replaceWith(fresh);
+    view.head = fresh;
+  }
+}
 
 /** @param {Connection} c @param {SortKey} key @returns {string|number} */
 function sortValue(c, key) {
@@ -49,7 +74,8 @@ export function renderConnectionsTable(section, opts) {
     return (x < y ? -1 : x > y ? 1 : a.name.localeCompare(b.name)) * sort.dir;
   });
   clear(section);
-  section.appendChild(header(all.length, rows, opts));
+  Object.assign(view, { head: header(all.length, rows, opts.matches), allBox: null, rows, total: all.length, matches: opts.matches, boxes: new Map() });
+  section.appendChild(/** @type {HTMLElement} */ (view.head));
   if (!rows.length) {
     section.appendChild(h('p', { class: 'muted' }, 'No connections match the sidebar filter.'));
     return;
@@ -61,9 +87,10 @@ export function renderConnectionsTable(section, opts) {
     onChange: (/** @type {Event} */ e) => {
       const on = /** @type {HTMLInputElement} */ (e.target).checked;
       for (const id of visibleIds) on ? selected.add(id) : selected.delete(id);
-      opts.rerender();
+      syncSelection();
     },
   }));
+  view.allBox = allBox;
   allBox.indeterminate = !allBox.checked && visibleIds.some((id) => selected.has(id));
   const th = (/** @type {string} */ label, /** @type {SortKey|null} */ key) => {
     if (!key) return h('th', { scope: 'col' }, label);
@@ -78,7 +105,7 @@ export function renderConnectionsTable(section, opts) {
       }, label, h('span', { class: `th-sort__arrow${on ? ' is-on' : ''}`, 'aria-hidden': 'true' }, on && sort.dir === -1 ? '↓' : '↑')));
   };
   const body = h('tbody');
-  rows.forEach((c, i) => body.appendChild(row(c, i, rows, opts)));
+  rows.forEach((c, i) => body.appendChild(row(c, i, rows)));
   section.appendChild(h('div', { class: 'table-wrap' },
     h('table', { class: 'table table--connections' },
       h('thead', {}, h('tr', {},
@@ -89,12 +116,12 @@ export function renderConnectionsTable(section, opts) {
       body)));
 }
 
-/** @param {number} total @param {Connection[]} rows @param {{matches: Set<string>|null, rerender: () => void}} opts */
-function header(total, rows, opts) {
+/** @param {number} total @param {Connection[]} rows @param {Set<string>|null} matches */
+function header(total, rows, matches) {
   const head = h('div', { class: 'section-head' },
     h('h2', { class: 'section-title', id: 'all-connections' }, 'All connections'),
-    h('span', { class: 'muted' }, opts.matches ? `${rows.length} of ${total} shown, filtered in the sidebar` : String(total)));
-  if (opts.matches) {
+    h('span', { class: 'muted' }, matches ? `${rows.length} of ${total} shown, filtered in the sidebar` : String(total)));
+  if (matches) {
     head.appendChild(h('button', { type: 'button', class: 'link-btn', onClick: () => store.clearFilter() }, 'Clear filter'));
   }
   if (selected.size) {
@@ -108,7 +135,7 @@ function header(total, rows, opts) {
         type: 'button', class: 'icon-btn', 'aria-label': 'Clear selection', title: 'Clear selection',
         onClick: () => {
           selected.clear();
-          opts.rerender();
+          syncSelection();
           /** @type {HTMLElement|null} */ (document.querySelector('[data-fkey="sel:all"]'))?.focus();
         },
       }, icon('close', { size: 14 }))));
@@ -116,13 +143,10 @@ function header(total, rows, opts) {
   return head;
 }
 
-/**
- * @param {Connection} c @param {number} i @param {Connection[]} rows
- * @param {{rerender: () => void}} opts
- */
-function row(c, i, rows, opts) {
+/** @param {Connection} c @param {number} i @param {Connection[]} rows */
+function row(c, i, rows) {
   const on = selected.has(c.id);
-  const check = h('input', {
+  const check = /** @type {HTMLInputElement} */ (h('input', {
     type: 'checkbox', checked: on, 'aria-label': `Select ${c.name}`, dataset: { fkey: `sel:${c.id}` },
     onClick: (/** @type {MouseEvent} */ e) => {
       const box = /** @type {HTMLInputElement} */ (e.target);
@@ -132,9 +156,9 @@ function row(c, i, rows, opts) {
       } else if (box.checked) selected.add(c.id);
       else selected.delete(c.id);
       lastClicked = i;
-      opts.rerender();
+      syncSelection();
     },
-  });
+  }));
   const folder = store.folderPath(c.group_id);
   const auth = store.signsInWith(c);
   const tr = h('tr', { class: on ? 'is-selected' : '' },
@@ -154,6 +178,7 @@ function row(c, i, rows, opts) {
       type: 'button', class: 'icon-btn', 'aria-label': `${c.name} menu`, dataset: { fkey: `menu:${c.id}` },
       onClick: (/** @type {MouseEvent} */ e) => openMenu({ items: connectionMenu(c), label: c.name, anchor: /** @type {HTMLElement} */ (e.currentTarget) }),
     }, icon('more', { size: 16 }))));
+  view.boxes.set(c.id, { tr, box: check });
   tr.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     openMenu({ items: connectionMenu(c), label: c.name, x: e.clientX, y: e.clientY });
@@ -164,9 +189,4 @@ function row(c, i, rows, opts) {
 /** Number of selected rows (tests and the shell). */
 export function selectedCount() {
   return selected.size;
-}
-
-/** @param {number} n */
-export function selectionLabel(n) {
-  return `${plural(n, 'connection')} selected`;
 }

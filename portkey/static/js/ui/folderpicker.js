@@ -83,9 +83,11 @@ export function createFolderPicker(opts) {
       /** @type {HTMLInputElement|null} */ (creator.querySelector('input'))?.focus();
       return;
     }
-    closeCreator();
-    current = select.value || null;
-    wrap.dataset.value = select.value;
+    const chosen = select.value;
+    creator?.remove();
+    creator = null;
+    current = chosen || null;
+    wrap.dataset.value = chosen;
     opts.onChange(current);
   });
   return wrap;

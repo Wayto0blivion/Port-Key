@@ -14,6 +14,7 @@ import { h } from './dom.js';
 import { icon } from '../parts/icons.js';
 
 const MAX_TOASTS = 4;
+let seq = 0;
 
 /** @returns {HTMLElement} */
 function host() {
@@ -40,7 +41,9 @@ export function toast(message, opts = {}) {
   let started = Date.now();
   let gone = false;
 
-  const text = h('span', { class: 'toast__text', role: kind === 'error' ? 'alert' : null }, message);
+  seq += 1;
+  const textId = `toast-${seq}`;
+  const text = h('span', { id: textId, class: 'toast__text', role: kind === 'error' ? 'alert' : null }, message);
   const el = h('div', { class: `toast toast--${kind}` }, text);
   const dismiss = () => {
     if (gone) return;
@@ -55,6 +58,7 @@ export function toast(message, opts = {}) {
     el.appendChild(h('button', {
       type: 'button',
       class: 'toast__action',
+      'aria-describedby': textId,
       onClick: () => {
         dismiss();
         undo();

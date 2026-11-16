@@ -160,6 +160,12 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text-strong
 
 .tree-conn[draggable="true"]:active { cursor: grabbing; }
 
+/* Rows off screen skip layout and paint, which keeps a few hundred rows quick to filter. */
+.tree-conn {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--row-h);
+}
+
 .dot {
   width: var(--dot);
   height: var(--dot);

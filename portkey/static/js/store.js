@@ -46,6 +46,7 @@ import { buildFolderIndex } from './parts/folders.js';
  * @property {number} connectedSessions
  * @property {string} filter          sidebar filter text
  * @property {string[]} selectedTags  selected tag chips
+ * @property {number} collapsedVersion bumps when a folder opens or closes
  */
 
 /** @type {State} */
@@ -66,6 +67,7 @@ const state = {
   connectedSessions: 0,
   filter: '',
   selectedTags: [],
+  collapsedVersion: 0,
 };
 
 /** @type {Set<(state: State) => void>} */
@@ -226,6 +228,7 @@ export function setFolderCollapsed(groupId, value) {
   } catch {
     // per-browser state only; nothing to do
   }
+  state.collapsedVersion += 1;
   notify();
 }
 

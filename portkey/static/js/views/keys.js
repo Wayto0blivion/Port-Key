@@ -40,7 +40,10 @@ export function renderKeys(container) {
 /** @returns {Promise<import('../types.js').KeyInfo|null>} */
 export async function openGenerateKey() {
   const made = await generateDialog();
-  if (made) selectedFp = made.fp;
+  if (made) {
+    selectedFp = made.fp;
+    store.setState({});
+  }
   return made;
 }
 

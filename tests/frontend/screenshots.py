@@ -17,7 +17,9 @@ from tests.frontend.conftest import MOCK_DATA, MOCK_SERVER, TOKEN
 from tests.frontend.serve import start
 
 WIDTHS = (1440, 800)
-FONT_FIX = ":root { --font-ui: 'Liberation Sans', sans-serif; --font-mono: 'Liberation Mono', monospace; }"
+FONT_FIX = (
+    ":root { --font-ui: 'Liberation Sans', sans-serif; --font-mono: 'Liberation Mono', monospace; }"
+)
 
 
 def _keys(page: Page) -> None:
@@ -37,7 +39,9 @@ def _diagnostics(page: Page) -> None:
 
 
 def _edit(page: Page) -> None:
-    page.locator(".table--connections .name-btn", has_text="web-prod").locator("xpath=../../..").click(button="right")
+    page.locator(".table--connections .name-btn", has_text="web-prod").locator(
+        "xpath=../../.."
+    ).click(button="right")
     page.click(".menu >> text=Edit")
     page.wait_for_selector("dialog.modal[open]")
 

@@ -24,7 +24,7 @@
  * Helpers: confirmDialog() and promptDialog() for small yes/no and one-field dialogs.
  */
 
-import { h, clear } from './dom.js';
+import { h, clear, refind } from './dom.js';
 
 /** @typedef {{label: string, kind?: 'primary'|'secondary'|'danger', value: string, disabled?: boolean}} ModalButton */
 
@@ -99,7 +99,7 @@ export function openModal(spec) {
     if (dialog.open) dialog.close();
     dialog.remove();
     resolve(value ?? null);
-    if (opener && opener.isConnected) opener.focus({ preventScroll: true });
+    refind(opener)?.focus({ preventScroll: true });
   };
   /** @type {Map<HTMLButtonElement, boolean>} */
   const before = new Map();
