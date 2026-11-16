@@ -242,6 +242,10 @@ A 2px frame in the connection's colour runs around the terminal. The terminal is
 - **Disconnected.** The scrollback stays. A bar at the bottom of the terminal reads one of:
   - "Disconnected from web-prod at 14:32. The remote host closed the connection."
   - "Connection to web-prod lost at 14:32. No response for 90 seconds."
+  - "Disconnected from web-prod. The session ended while this page was away." (restored after
+    a reload, already gone)
+  - "Disconnected from web-prod. Port-Key restarted, or the session ended while this page
+    could not reach Port-Key." (live in this page, gone when it reattached)
 
   The bar continues "Press Enter or select Reconnect to open a new shell." and has [Reconnect]
   and [Close tab]. The tab dot turns grey and the tab text is muted. Port-Key never reconnects
@@ -522,7 +526,8 @@ the palette falls back to Ctrl+Shift+Space.
 - Right-click copies when text is selected and pastes otherwise.
 - Ctrl+Insert and Shift+Insert always work.
 - Pasting more than one line asks first: "Paste 14 lines into web-prod?" with [Paste] and
-  [Cancel].
+  [Cancel]. One line ending in a line break asks too when the shell has bracketed paste off
+  (it would run at once): "Paste and run 1 line in web-prod?" with [Paste and run].
 
 ### Confirmation rules
 

@@ -121,6 +121,21 @@ def test_attached_elsewhere_does_not_reattach_on_its_own(term: TermFactory) -> N
     assert sent(page)[1]["type"] == "attach"
 
 
+def test_a_session_gone_after_a_drop_in_this_page_says_port_key_restarted(
+    term: TermFactory,
+) -> None:
+    # Review finding: after a Port-Key restart every tab said the session ended "while this
+    # page was away", though the page never went away.
+    page = term()
+    connected(page, "web-prod")
+    sid = session_ids(page)[0]
+    page.evaluate("(id) => { __pkWs.drop(id); __pkWs.sessions.delete(id); }", sid)
+    bar = panel(page).locator(".session__bottom")
+    expect(bar).to_contain_text("Disconnected from web-prod")
+    expect(bar).to_contain_text("Port-Key restarted, or the session ended")
+    expect(bar).not_to_contain_text("while this page was away")
+
+
 def test_close_tab_while_open_in_another_tab_leaves_that_shell_alone(term: TermFactory) -> None:
     # Review finding: Close tab in a tab marked "open in another tab" sent DELETE
     # /api/sessions and ended the shell the owner was using in the other window.

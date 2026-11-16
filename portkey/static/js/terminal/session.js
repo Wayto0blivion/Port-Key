@@ -63,6 +63,8 @@ export class TerminalView {
     this.askedPassphrase = false;
     /** True while the current socket is an attach (a reattach or a restore), not an open. */
     this.attaching = false;
+    /** True once this page has shown a live session here (a later 4410 is not "page away"). */
+    this.everReady = false;
     this.opened = false;
     this.disposed = false;
     this.attempt = 0;
@@ -301,6 +303,7 @@ export class TerminalView {
   /** @param {Record<string, any>} msg */
   ready(msg) {
     this.sessionId = msg.session_id;
+    this.everReady = true;
     if (msg.reattached && msg.reset) this.term.reset();
     this.received = Number(msg.offset) || 0;
     this.attempt = 0;

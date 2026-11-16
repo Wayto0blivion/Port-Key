@@ -46,7 +46,7 @@ export function onSocketClose(view, socket, code, reason) {
   } else if (view.detachedElsewhere) {
     showDetached(view);
   } else if (state === 'gone') {
-    showDisconnected(view, 'gone');
+    showDisconnected(view, vanished(view));
   } else {
     if (state === 'signed_out') signOut();
     scheduleReattach(view);
@@ -149,7 +149,16 @@ async function editConnection(view) {
   if (saved) view.refreshInfo(saved);
 }
 
-/** @param {TerminalView} view @param {'closed'|'lost'|'killed'|'gone'} reason */
+/**
+ * Why a session this tab attaches to is gone: `gone` (the page was away: a restore after a
+ * reload that never got `ready`) or `ended` (it was live here; most often Port-Key restarted).
+ * @param {TerminalView} view @returns {'gone'|'ended'}
+ */
+function vanished(view) {
+  return view.everReady ? 'ended' : 'gone';
+}
+
+/** @param {TerminalView} view @param {'closed'|'lost'|'killed'|'gone'|'ended'} reason */
 export function showDisconnected(view, reason) {
   view.reset();
   view.sessionId = null;
@@ -186,13 +195,13 @@ export function showDetached(view) {
 export function scheduleReattach(view) {
   if (view.disposed) return;
   if (!view.sessionId) {
-    showDisconnected(view, 'gone');
+    showDisconnected(view, vanished(view));
     return;
   }
   const first = droppedAt.get(view) ?? Date.now();
   droppedAt.set(view, first);
   if (Date.now() - first > GIVE_UP_MS) {
-    showDisconnected(view, 'gone');
+    showDisconnected(view, vanished(view));
     return;
   }
   if (view.state !== 'reattaching') {

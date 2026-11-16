@@ -49,8 +49,10 @@ export function statusLine(s) {
 }
 
 /**
- * The Disconnected bar after `exit` (reason closed, lost or killed) or a vanished session.
- * @param {string} name @param {'closed'|'lost'|'killed'|'gone'} reason @param {Date} at
+ * The Disconnected bar after `exit` (reason closed, lost or killed) or a vanished session:
+ * `gone` when this page had not shown it yet (restored after a reload), `ended` when it was live
+ * here and vanished while the link to Port-Key was down (a Port-Key restart, most often).
+ * @param {string} name @param {'closed'|'lost'|'killed'|'gone'|'ended'} reason @param {Date} at
  * @returns {{title: string, body: string}}
  */
 export function disconnectedText(name, reason, at) {
@@ -59,6 +61,7 @@ export function disconnectedText(name, reason, at) {
   if (reason === 'lost') return { title: `Connection to ${name} lost at ${t}`, body: `No response for 90 seconds. ${next}` };
   if (reason === 'killed') return { title: `Disconnected from ${name} at ${t}`, body: `The session was closed in Port-Key. ${next}` };
   if (reason === 'gone') return { title: `Disconnected from ${name}`, body: `The session ended while this page was away. ${next}` };
+  if (reason === 'ended') return { title: `Disconnected from ${name}`, body: `Port-Key restarted, or the session ended while this page could not reach Port-Key. ${next}` };
   return { title: `Disconnected from ${name} at ${t}`, body: `The remote host closed the connection. ${next}` };
 }
 
