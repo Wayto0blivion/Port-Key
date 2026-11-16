@@ -7,11 +7,35 @@ most once a minute per token). Expired rows are purged opportunistically.
 
 from __future__ import annotations
 
+import hashlib
+import re
+import secrets
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 from portkey.models import IssuedToken
-from portkey.store.db import Database
+from portkey.store.db import Database, from_iso, to_iso
+
+TOKEN_BYTES = 32
+# Sliding renewal writes at most this often per token, so a busy page does not write on every
+# request.
+RENEW_EVERY = 60.0
+# token_urlsafe(32) is 43 characters; anything far outside the alphabet or length is rejected
+# before it reaches SQLite.
+_TOKEN_SHAPE = re.compile(r"[A-Za-z0-9_-]{16,256}")
+
+
+def token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("ascii")).hexdigest()
+
+
+def well_formed(token: object) -> bool:
+    return isinstance(token, str) and _TOKEN_SHAPE.fullmatch(token) is not None
+
+
+def _iso(ts: float) -> str:
+    return to_iso(datetime.fromtimestamp(ts, UTC))
 
 
 class SqliteTokenStore:
@@ -21,13 +45,54 @@ class SqliteTokenStore:
         self.clock = clock
 
     def issue(self) -> IssuedToken:
-        raise NotImplementedError("package 1")
+        token = secrets.token_urlsafe(TOKEN_BYTES)
+        now = int(self.clock())
+        expires = now + int(self.ttl)
+        with self.db.tx() as c:
+            c.execute("DELETE FROM tokens WHERE expires_at <= ?", (_iso(now),))
+            c.execute(
+                "INSERT INTO tokens (token_hash, created_at, expires_at, last_used_at)"
+                " VALUES (?, ?, ?, ?)",
+                (token_hash(token), _iso(now), _iso(expires), _iso(now)),
+            )
+        return IssuedToken(token=token, expires_at=datetime.fromtimestamp(expires, UTC))
 
     def verify(self, token: str) -> bool:
-        raise NotImplementedError("package 1")
+        if not well_formed(token):
+            return False
+        digest = token_hash(token)
+        now = self.clock()
+        with self.db.tx() as c:
+            row = c.execute(
+                "SELECT expires_at, last_used_at FROM tokens WHERE token_hash = ?", (digest,)
+            ).fetchone()
+            if row is None:
+                return False
+            if from_iso(row["expires_at"]).timestamp() <= now:
+                c.execute("DELETE FROM tokens WHERE token_hash = ?", (digest,))
+                return False
+            if now - from_iso(row["last_used_at"]).timestamp() >= RENEW_EVERY:
+                c.execute(
+                    "UPDATE tokens SET expires_at = ?, last_used_at = ? WHERE token_hash = ?",
+                    (_iso(now + self.ttl), _iso(now), digest),
+                )
+        return True
+
+    def expires_at(self, token: str) -> datetime | None:
+        """Current expiry of a stored token (tests and diagnostics); None if unknown."""
+        if not well_formed(token):
+            return None
+        row = self.db.query_one(
+            "SELECT expires_at FROM tokens WHERE token_hash = ?", (token_hash(token),)
+        )
+        return from_iso(row["expires_at"]) if row else None
 
     def revoke(self, token: str) -> None:
-        raise NotImplementedError("package 1")
+        if not well_formed(token):
+            return
+        self.db.execute("DELETE FROM tokens WHERE token_hash = ?", (token_hash(token),))
 
     def revoke_all_except(self, token: str) -> int:
-        raise NotImplementedError("package 1")
+        keep = token_hash(token) if well_formed(token) else ""
+        cur = self.db.execute("DELETE FROM tokens WHERE token_hash <> ?", (keep,))
+        return int(cur.rowcount)

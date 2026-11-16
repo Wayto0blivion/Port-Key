@@ -96,6 +96,16 @@ def create_app(config: Config | None = None) -> FastAPI:
     # ===== MIDDLEWARE (package 1 owns this section) ==============================================
     # Host/Origin guard (outermost), security headers, log redaction, and the 422 handler that
     # strips request input. Middleware added last runs first, so add HostGuardMiddleware last.
+    from fastapi.exceptions import RequestValidationError
+
+    from portkey.security.headers import SecurityHeadersMiddleware
+    from portkey.security.hostguard import HostGuardMiddleware
+    from portkey.security.redact import install_log_redaction, validation_exception_handler
+
+    install_log_redaction()
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(HostGuardMiddleware, config=config)
     # ===== END MIDDLEWARE =========================================================================
 
     app.add_exception_handler(PortKeyError, portkey_error_handler)
