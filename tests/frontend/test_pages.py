@@ -211,3 +211,23 @@ def test_diagnostics(app: AppFactory) -> None:
     page.get_by_label("Host name or address").fill("john@nas")
     page.get_by_role("button", name="Check", exact=True).click()
     expect(page.locator("#dg-host-error")).to_contain_text("without spaces, @ or /")
+
+
+def test_settings_keep_typing_when_the_key_list_changes(app: AppFactory) -> None:
+    # Against the real backend the key scan can finish after Settings opened; that used to
+    # redraw the whole page and wipe what was typed and the "Saved" note.
+    page = app()
+    page.get_by_role("button", name="Settings", exact=True).click()
+    font = page.get_by_label("Terminal font size")
+    font.fill("17")
+    font.press("Tab")
+    expect(page.locator(".save-status").first).to_have_text("Saved")
+    page.get_by_label("Current password").fill("half typed")
+    options = page.locator("#st-key option")
+    expect(options).to_have_count(4)  # Automatic + 3 keys
+    page.evaluate(
+        "import('/js/store.js').then((s) => s.setState({keys: s.getState().keys.slice(1)}))"
+    )
+    expect(options).to_have_count(3)
+    expect(page.get_by_label("Current password")).to_have_value("half typed")
+    expect(page.locator(".save-status").first).to_have_text("Saved")

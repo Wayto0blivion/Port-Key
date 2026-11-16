@@ -5,8 +5,10 @@
  * warning, change password, trusted host keys with typed-name Forget, Diagnostics link, About.
  *
  * Each preference saves on change (PATCH /api/settings with that one field) and says
- * "Saved" next to it. The page is built once per settings load so typing is never disturbed;
- * the host-key list re-renders on its own.
+ * "Saved" next to it. The page is built once per settings load so typing is never disturbed:
+ * when the key list arrives or changes later, only the Default key options are refreshed (a
+ * full redraw wiped half-typed passwords and the "Saved" note when keys loaded after the tab
+ * opened). The host-key list re-renders on its own.
  */
 
 import * as api from '../api.js';
@@ -29,19 +31,28 @@ export function setDiagnosticsOpener(fn) { openDiagnostics = fn; }
 export function renderSettings(container) {
   container.classList.add('page', 'settings');
   let built = '';
+  let keysBuilt = '';
+  /** @type {() => void} */
+  let syncKeys = () => {};
   const render = () => {
     const state = store.getState();
-    const sig = `${state.status.settings}|${state.status.keys}|${state.keys.map((k) => `${k.fp}${k.hidden}`).join()}`;
-    if (sig === built) return;
-    built = sig;
-    draw(container);
+    const sig = `${state.status.settings}|${state.settings ? 'loaded' : ''}`;
+    const keysSig = `${state.status.keys}|${state.keys.map((k) => `${k.fp}${k.hidden}`).join()}`;
+    if (sig !== built) {
+      built = sig;
+      keysBuilt = keysSig;
+      syncKeys = draw(container);
+    } else if (keysSig !== keysBuilt) {
+      keysBuilt = keysSig;
+      syncKeys();
+    }
   };
   render();
   store.subscribe(render);
   if (store.getState().status.settings === 'idle') store.refreshSettings().catch(() => {});
 }
 
-/** @param {HTMLElement} container */
+/** @param {HTMLElement} container @returns {() => void} refreshes the Default key options */
 function draw(container) {
   const state = store.getState();
   clear(container);
@@ -51,10 +62,12 @@ function draw(container) {
       container.append(h('p', { class: 'error-text' }, `Couldn't load settings. ${state.errors.settings ?? ''}`),
         h('button', { type: 'button', class: 'btn btn--secondary', onClick: () => store.refreshSettings().catch(() => {}) }, 'Try again'));
     } else container.appendChild(h('p', { class: 'muted', role: 'status' }, 'Loading settings…'));
-    return;
+    return () => {};
   }
   const s = state.settings;
-  container.append(preferences(s), passwordSection(), hostKeysSection(), about(s));
+  const prefs = preferences(s);
+  container.append(prefs.section, passwordSection(), hostKeysSection(), about(s));
+  return prefs.syncKeys;
 }
 
 /**
@@ -77,7 +90,7 @@ async function save(control, status, patch) {
   }
 }
 
-/** @param {Settings} s */
+/** @param {Settings} s @returns {{section: HTMLElement, syncKeys: () => void}} */
 function preferences(s) {
   const status = () => h('span', { class: 'save-status', 'aria-live': 'polite' });
   const fontStatus = status();
@@ -100,11 +113,15 @@ function preferences(s) {
     save(user, userStatus, { default_user: user.value.trim() });
   });
   const keyStatus = status();
-  const keys = store.getState().keys.filter((k) => !k.hidden);
-  const key = /** @type {HTMLSelectElement} */ (h('select', { id: 'st-key', class: 'select' },
-    h('option', { value: '' }, 'Automatic: id_ed25519, id_ecdsa or id_rsa'),
-    ...keys.map((k) => h('option', { value: k.fp }, k.name))));
-  key.value = s.default_key_fp ?? '';
+  const key = /** @type {HTMLSelectElement} */ (h('select', { id: 'st-key', class: 'select' }));
+  // The stored setting decides the selection, so options that arrive late still show it.
+  const syncKeys = () => {
+    const state = store.getState();
+    key.replaceChildren(h('option', { value: '' }, 'Automatic: id_ed25519, id_ecdsa or id_rsa'),
+      ...state.keys.filter((k) => !k.hidden).map((k) => h('option', { value: k.fp }, k.name)));
+    key.value = state.settings?.default_key_fp ?? s.default_key_fp ?? '';
+  };
+  syncKeys();
   key.addEventListener('change', () => save(key, keyStatus, { default_key_fp: key.value || null }));
 
   const toggle = (/** @type {string} */ id, /** @type {string} */ label, /** @type {boolean} */ value, /** @type {'windows_copy_paste'|'leave_warning'} */ prop) => {
@@ -114,7 +131,7 @@ function preferences(s) {
     return h('div', { class: 'field' }, h('label', { class: 'check' }, box, h('span', {}, label)), st,
       h('span', { class: 'field__error', hidden: true }));
   };
-  return h('section', { class: 'panel settings__section', 'aria-labelledby': 'st-prefs' },
+  const section = h('section', { class: 'panel settings__section', 'aria-labelledby': 'st-prefs' },
     h('h2', { id: 'st-prefs', class: 'section-title' }, 'Preferences'),
     h('div', { class: 'form' },
       h('div', { class: 'form__row' },
@@ -125,6 +142,7 @@ function preferences(s) {
         field({ id: 'st-key', label: 'Default key', control: key, className: 'field--grow' }), keyStatus),
       toggle('st-copy', 'Ctrl+C copies and Ctrl+V pastes, like Windows Terminal', s.windows_copy_paste, 'windows_copy_paste'),
       toggle('st-leave', 'Warn before leaving with connected sessions', s.leave_warning, 'leave_warning')));
+  return { section, syncKeys };
 }
 
 function passwordSection() {
