@@ -5,9 +5,11 @@
 # Mounts:
 #   %USERPROFILE%\.ssh            -> /ssh             read-only; Port-Key never edits your files
 #   %USERPROFILE%\.ssh\port-key   -> /keys-generated  keys generated in Port-Key (create-only)
-#   named volume portkey-data     -> /data            SQLite database (never on a Windows bind mount)
+#   named volume portkey-data     -> /data            SQLite database (never on a Windows bind mount);
+#                                                     Docker names it portkey_portkey-data
 #
-# To use a different .ssh folder, set PORTKEY_SSH_DIR before `docker compose up`.
+# To use a different .ssh folder, put PORTKEY_SSH_DIR=D:\keys\.ssh in a .env file next to this
+# file (compose reads it on every run). Backup and restore: README.md.
 name: portkey
 
 services:

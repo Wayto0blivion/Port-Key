@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 import uvicorn
 
 from portkey.__main__ import server_options
@@ -9,9 +11,12 @@ from portkey.config import Config
 
 
 def test_uvicorn_accepts_every_option() -> None:
-    config = uvicorn.Config("portkey.app:create_app", **server_options(Config()))
-    assert config.ws_max_size == 64 * 1024
-    assert config.server_header is False
+    # Checked against the signature: building a uvicorn.Config would apply log_config to the
+    # whole test process (dictConfig) and break later tests' log capture.
+    accepted = set(inspect.signature(uvicorn.Config).parameters)
+    options = server_options(Config())
+    assert set(options) <= accepted
+    assert (options["ws_max_size"], options["server_header"]) == (64 * 1024, False)
 
 
 def test_shutdown_does_not_wait_forever_for_open_sockets() -> None:

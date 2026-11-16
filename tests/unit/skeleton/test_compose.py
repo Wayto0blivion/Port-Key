@@ -27,6 +27,16 @@ def test_read_only_without_capabilities() -> None:
     assert "no-new-privileges:true" in svc["security_opt"]
 
 
+def test_the_readme_names_the_volume_docker_really_creates() -> None:
+    # Review finding: the README said `portkey-data`, but compose prefixes the project name.
+    compose = yaml.safe_load((REPO / "compose.yaml").read_text())
+    [volume] = compose["volumes"]
+    real = f"{compose['name']}_{volume}"
+    readme = (REPO / "README.md").read_text()
+    assert f"{real}:/data" in readme  # the backup and restore commands
+    assert f"Docker volume `{real}`" in readme
+
+
 def test_memory_and_process_limits() -> None:
     # Security review: without them one runaway request or command could take the whole
     # Docker Desktop VM's memory, and with it every open terminal session.

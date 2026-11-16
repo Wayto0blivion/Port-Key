@@ -80,7 +80,7 @@ Why asyncssh and not paramiko:
 |---|---|---|---|
 | `${PORTKEY_SSH_DIR:-${USERPROFILE}/.ssh}` | `/ssh` | read-only | The owner's keys and `known_hosts`. Nothing can damage them. |
 | `${USERPROFILE}/.ssh/port-key` | `/keys-generated` | read-write, create-only | Keys generated in Port-Key. Windows `ssh -i ~/.ssh/port-key/<name>` can use them. |
-| Named volume `portkey-data` | `/data` | read-write | SQLite database and app trust records. |
+| Named volume `portkey-data` (Docker's name: `portkey_portkey-data`) | `/data` | read-write | SQLite database and app trust records. Backup and restore: README. |
 
 Rules:
 

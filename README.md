@@ -37,8 +37,14 @@ a name of its own.
 - `%USERPROFILE%\.ssh` is mounted read-only: Port-Key never changes or deletes your files.
 - Keys generated in Port-Key are saved to `%USERPROFILE%\.ssh\port-key` (Docker creates the
   folder on first start), so Windows `ssh -i ~\.ssh\port-key\<name> user@host` (PowerShell) can use them too.
-- The database lives in the Docker volume `portkey-data`, never on a Windows folder.
-- Another `.ssh` folder: `$env:PORTKEY_SSH_DIR = "D:\keys\.ssh"; docker compose up -d`.
+- The database lives in the Docker volume `portkey_portkey-data` (compose prefixes the
+  project name, `portkey`, to the `portkey-data` volume in `compose.yaml`), never on a Windows
+  folder. Back it up: see "Back up and restore" below.
+- Another `.ssh` folder: create a file named `.env` next to `compose.yaml` with the line
+  `PORTKEY_SSH_DIR=D:\keys\.ssh`, then `docker compose up -d`. Compose reads `.env` on every
+  run (git ignores it), so the setting survives updates and new PowerShell windows; a
+  `$env:PORTKEY_SSH_DIR` set in one window does not, and the next update would mount
+  `%USERPROFILE%\.ssh` again.
 - Host names that only exist in the Windows hosts file may not resolve inside the container.
   Diagnostics > "Check a host" shows what the container sees; add missing names under
   `extra_hosts:` in `compose.yaml`, or save the connection with its IP address.
@@ -51,13 +57,41 @@ git pull
 docker compose up -d --build
 ```
 
-Saved connections, trusted host keys and settings stay in the `portkey-data` volume. Open
-terminal sessions end when the container restarts; open them again from the sidebar.
+Saved connections, trusted host keys and settings stay in the `portkey_portkey-data` volume.
+Open terminal sessions end when the container restarts; open them again from the sidebar.
+
+### Back up and restore
+
+Everything Port-Key knows (connections, folders, tags, trusted host keys, settings, the app
+password's hash) is one SQLite database in the `portkey_portkey-data` volume. Your key files are
+not in it; they stay in `.ssh`. A Docker Desktop reset, a WSL reset or `docker compose down -v`
+deletes the volume, so keep a backup. Stop Port-Key first: SQLite keeps recent changes in a
+side file while it runs.
+
+Back up to `portkey-data.tgz` in the current folder (PowerShell, in the `Port-Key` folder):
+
+```powershell
+docker compose stop portkey
+docker run --rm --entrypoint tar -v portkey_portkey-data:/data:ro -v "${PWD}:/backup" portkey:local czf /backup/portkey-data.tgz -C /data .
+docker compose start portkey
+```
+
+Restore it (this replaces what the volume holds now):
+
+```powershell
+docker compose stop portkey
+docker run --rm --entrypoint sh -v portkey_portkey-data:/data -v "${PWD}:/backup" portkey:local -c "rm -f /data/portkey.db /data/portkey.db-wal /data/portkey.db-shm && tar xzf /backup/portkey-data.tgz -C /data"
+docker compose start portkey
+```
+
+Both use the Port-Key image itself, so nothing else is downloaded. After a restore, browsers
+that were signed in stay signed in only if their token is in the backup; otherwise sign in
+again.
 
 ### Stop
 
 `docker compose down`. Add `-v` only if you want to delete the saved connections, host keys and
-settings as well (your key files are never touched).
+settings as well (your key files are never touched); back up first if you may want them back.
 
 ### Forgot the app password
 

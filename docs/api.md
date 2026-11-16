@@ -121,7 +121,8 @@ Connection object:
 | `POST /api/connections/bulk` (below) | `200 {"connections": [updated...]}`; atomic; 404; 422 `group_unknown`, `tag_invalid` (over 32 tags), `validation` |
 | `POST /api/connections/reachability {"ids": [...]}` | `200 {"results": [...]}` |
 
-Create body (defaults shown):
+Create body. `name`, `host`, `username` and `auth_method` are required; every other field is
+optional and shown with its default:
 
 ```json
 {"name": "web-prod", "host": "192.168.10.42", "port": 22, "username": "john", "auth_method": "key",
