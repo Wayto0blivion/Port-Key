@@ -37,7 +37,7 @@ def test_evil_origin_page_reports_its_attempt(
     result = evil_origin(timeout_ms=3000)
     assert result["origin"] == evil_url
     assert result["done"] is True
-    assert result["ws"]["url"] == "ws://app:8000/ws/terminal"
+    assert result["ws"]["url"] == "ws://localhost:8822/ws/terminal"
     assert result["ws"]["done"] is True
     assert result["fetch"]["done"] is True
     assert isinstance(result["fetch"]["blocked"], bool)

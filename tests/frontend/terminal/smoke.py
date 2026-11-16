@@ -21,10 +21,11 @@ from typing import Any
 
 from playwright.sync_api import Page, expect, sync_playwright
 
+from tests.e2e.conftest import browser_args
 from tests.e2e.harness.app_api import AppApi
 from tests.fixtures import testbed as tb
 
-BASE = os.environ.get("PORTKEY_BASE_URL", "http://app:8000")
+BASE = os.environ.get("PORTKEY_BASE_URL", "http://localhost:8822")
 COOP_NOISE = "Cross-Origin-Opener-Policy header has been ignored"
 STAMP = str(int(time.time()))[-6:]
 
@@ -203,7 +204,7 @@ def main() -> int:
         connected(page)
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch()
+        browser = pw.chromium.launch(args=browser_args(BASE))
         context = browser.new_context(viewport={"width": 1440, "height": 900})
         context.add_init_script(script=f"localStorage.setItem('portkey.token', {token!r});")
         page = context.new_page()

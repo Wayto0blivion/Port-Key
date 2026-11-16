@@ -2,8 +2,9 @@
 <!-- TEST-ONLY page for the Port-Key e2e suite (package 7). It plays a malicious website open in
      the same browser: from its own origin it tries to open the app's terminal WebSocket and to
      send a mutating API request. Query parameters:
-       ws      WebSocket URL to attack       (default ws://app:8000/ws/terminal)
-       api     HTTP base URL of the app      (default http://app:8000)
+       ws      WebSocket URL to attack       (default ws://localhost:8822/ws/terminal)
+       api     HTTP base URL of the app      (default http://localhost:8822)
+     The e2e browser maps localhost to the app container, so these are the PC's URLs.
        token   a token to send if the socket opens (simulates a stolen token)
      The outcome is in window.__evilResult and, as JSON, in #result once data-done="true". -->
 <html lang="en">

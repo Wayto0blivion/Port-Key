@@ -1,8 +1,9 @@
 """End-to-end harness (package 7); the specs (``tests/e2e/test_*.py``) are package 9's.
 
 Run with ``./mk e2e P=<project>``: it builds and starts the TEST-ONLY sshd containers, the
-``app`` service (the real runtime image, ``PORTKEY_ALLOWED_HOSTS=app:8000``, the fixture .ssh
-directory copied to a 0777 tmpfs at /ssh, data in a tmpfs) and the ``evil-origin`` page, then
+``app`` service (the real runtime image with the PC's Host/Origin allowlist, listening on 8822,
+the fixture .ssh directory copied to a 0777 tmpfs at /ssh, data in a tmpfs) and the
+``evil-origin`` page, then
 runs ``pytest tests/e2e -m e2e`` in the Playwright container. Every test under ``tests/e2e`` is
 marked ``e2e`` automatically. State lives for the whole run: once a test sets the app password
 (``app_token``), the first-run screen is gone, so a first-run spec must not use ``app_token``
@@ -10,7 +11,9 @@ and must run first (name its file so it sorts first, e.g. ``test_00_first_run.py
 
 Fixtures
 
-- ``base_url`` (``http://app:8000``), ``evil_url`` (``http://evil-origin:8080``).
+- ``base_url`` (``http://localhost:8822``, the PC's URL: Chromium maps ``localhost`` to the
+  ``app`` container, see ``browser_args``, and ``AppApi`` connects to ``$PORTKEY_CONNECT_TO``),
+  ``evil_url`` (``http://evil-origin:8080``).
 - ``app_api``: ``AppApi`` (httpx with allowed Host, Origin and ``X-Port-Key``), app healthy.
 - ``app_token``: a bearer token; sets ``testbed.APP_PASSWORD`` on first use.
 - ``browser`` (Chromium, headless, session), ``context`` (per test, ``base_url`` set,
@@ -29,6 +32,7 @@ import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
@@ -59,7 +63,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) ->
 
 @pytest.fixture(scope="session")
 def base_url() -> str:
-    return os.environ.get("PORTKEY_BASE_URL", "http://app:8000").rstrip("/")
+    return os.environ.get("PORTKEY_BASE_URL", "http://localhost:8822").rstrip("/")
 
 
 @pytest.fixture(scope="session")
@@ -112,9 +116,23 @@ def playwright_driver() -> Iterator[Playwright]:
         yield driver
 
 
+def browser_args(base_url: str) -> list[str]:
+    """Chromium flags that send ``base_url``'s host to ``$PORTKEY_CONNECT_TO``'s host.
+
+    The browser then opens http://localhost:8822 as the owner's browser does: a secure context
+    (async clipboard, Cross-Origin-Opener-Policy honoured), the PC's Host and Origin, and a
+    same-origin ws://localhost:8822 under the CSP's connect-src 'self'."""
+    connect_to = os.environ.get("PORTKEY_CONNECT_TO", "")
+    shown = urlsplit(base_url).hostname or ""
+    target = connect_to.rsplit(":", 1)[0]
+    if not target or target == shown:
+        return []
+    return [f"--host-resolver-rules=MAP {shown} {target}"]
+
+
 @pytest.fixture(scope="session")
-def browser(playwright_driver: Playwright) -> Iterator[Browser]:
-    instance = playwright_driver.chromium.launch(headless=True)
+def browser(playwright_driver: Playwright, base_url: str) -> Iterator[Browser]:
+    instance = playwright_driver.chromium.launch(headless=True, args=browser_args(base_url))
     yield instance
     instance.close()
 

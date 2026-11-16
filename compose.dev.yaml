@@ -113,6 +113,9 @@ services:
   # The real runtime image against the TEST-ONLY fixture .ssh directory. A Windows bind mount
   # shows every file as 0777, so the fixture is copied into a tmpfs and opened up to 0777
   # before the app starts (the copy is per container, so parallel runs do not collide).
+  # It runs with the PC's own Host/Origin allowlist (localhost:8822 and friends) and listens on
+  # 8822, so the e2e browser opens http://localhost:8822 exactly as the owner's browser does
+  # (a secure context, the real ws:// origin) with "localhost" mapped to this container.
   app:
     profiles: ["e2e"]
     build:
@@ -120,8 +123,8 @@ services:
       target: runtime
     image: portkey:local
     environment:
-      PORTKEY_PUBLIC_PORT: "8000"
-      PORTKEY_ALLOWED_HOSTS: "app:8000"
+      PORTKEY_PUBLIC_PORT: "8822"
+      PORTKEY_LISTEN_PORT: "8822"
       PORTKEY_SSH_DIR_DISPLAY: 'C:\Users\john\.ssh'
       PORTKEY_KEYS_DIR_DISPLAY: 'C:\Users\john\.ssh\port-key'
     command:
@@ -175,7 +178,9 @@ services:
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /src
     environment:
-      PORTKEY_BASE_URL: "http://app:8000"
+      # What the browser and the API client use (the PC's URL), and where that really is.
+      PORTKEY_BASE_URL: "http://localhost:8822"
+      PORTKEY_CONNECT_TO: "app:8822"
       PORTKEY_EVIL_URL: "http://evil-origin:8080"
       HOME: /tmp
     volumes:

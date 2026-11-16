@@ -2,7 +2,7 @@
 
 Written at the phase A integration to check the seams the mock API cannot: auth headers, error
 envelopes and field names as the real server sends them. Package 9 owns it now and may fold it
-into its own specs. Routes of packages 4 to 6 still answer 501; the shell must not throw there.
+into its own specs.
 
 Every page records page errors, console errors and every /api response of 400 or more; each
 test checks them against what it expects. Chromium logs a failed HTTP status to the console as
@@ -15,42 +15,15 @@ import re
 from typing import Any
 
 import pytest
-from playwright.sync_api import Page, Response, expect
+from playwright.sync_api import Page, expect
 
 from tests.e2e.harness.app_api import AppApi
 from tests.e2e.harness.browser import sign_in_ui, sign_in_with_token, stored_token
+from tests.e2e.helpers import Watch
 from tests.fixtures import testbed as tb
 
 FOLDER = "Seam lab"
 DIRECT, ALT_PORT, INNER = "seam-direct", "seam-alt-port", "seam-inner"
-
-
-class Watch:
-    def __init__(self, page: Page) -> None:
-        self.errors: list[str] = []
-        self.failures: list[tuple[int, str, str]] = []
-        page.on("pageerror", lambda e: self.errors.append(f"pageerror: {e}"))
-        page.on("console", self._console)
-        page.on("response", self._response)
-
-    def _console(self, msg: Any) -> None:
-        if msg.type != "error" or msg.text.startswith("Failed to load resource"):
-            return
-        # The app sends Cross-Origin-Opener-Policy. Chromium ignores it, with this console
-        # error, on an origin it does not consider trustworthy, such as http://app:8000 in this
-        # test bed. The owner's http://localhost:8822 is trustworthy, so it does not appear there.
-        if msg.text.startswith("The Cross-Origin-Opener-Policy header has been ignored"):
-            return
-        self.errors.append(f"console: {msg.text}")
-
-    def _response(self, response: Response) -> None:
-        path = response.url.split("://", 1)[-1].split("/", 1)[-1]
-        if path.startswith("api/") and response.status >= 400:
-            self.failures.append((response.status, response.request.method, "/" + path))
-
-    def check(self, *allowed: tuple[int, str, str]) -> None:
-        assert self.errors == []
-        assert [f for f in self.failures if f not in allowed] == []
 
 
 @pytest.fixture(scope="module")
@@ -258,21 +231,27 @@ def test_settings_and_diagnostics_over_the_real_api(
     watch.check((401, "POST", "/api/auth/password"), (429, "POST", "/api/auth/password"))
 
 
-def test_unbuilt_routes_degrade_quietly(page: Page, base_url: str, app_token: str) -> None:
-    """Sessions, the wizard and the terminal are packages 4 to 6: the API answers 501 and the
-    frontend's stubs say so, without a page error."""
+def test_session_routes_from_the_page(page: Page, base_url: str, app_token: str) -> None:
+    """Every route is built now (the phase A version of this spec expected 501 here): the
+    session list answers from the page's own origin, and an unknown session is 404."""
     watch = Watch(page)
     sign_in_with_token(page, base_url, app_token)
     expect(page.get_by_role("tab", name="Home")).to_have_attribute("aria-selected", "true")
-    status = page.evaluate(
-        "async (token) => (await fetch('/api/sessions',"
-        " {headers: {Authorization: 'Bearer ' + token}})).status",
+    listed = page.evaluate(
+        "async (token) => { const r = await fetch('/api/sessions',"
+        " {headers: {Authorization: 'Bearer ' + token}}); return [r.status, await r.json()]; }",
         app_token,
     )
-    assert status == 501
-    page.get_by_role("button", name=DIRECT, exact=True).first.click()  # open a session (8b)
-    expect(page.locator("#toasts")).to_contain_text("not built yet")
-    watch.check((501, "GET", "/api/sessions"))
+    assert listed[0] == 200
+    assert isinstance(listed[1]["sessions"], list)
+    gone = page.evaluate(
+        "async (token) => { const r = await fetch('/api/sessions/s_not-a-session', {method:"
+        " 'DELETE', body: '{}', headers: {Authorization: 'Bearer ' + token, 'X-Port-Key': '1',"
+        " 'Content-Type': 'application/json'}}); return [r.status, (await r.json()).error.code]; }",
+        app_token,
+    )
+    assert gone == [404, "session_gone"]
+    watch.check((404, "DELETE", "/api/sessions/s_not-a-session"))
 
 
 def test_expired_token_opens_the_sign_in_dialog(

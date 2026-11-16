@@ -8,6 +8,7 @@ non-GET request.
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 from urllib.parse import urlsplit
@@ -18,12 +19,17 @@ from tests.fixtures import testbed as tb
 
 
 class AppApi:
-    def __init__(self, base_url: str, timeout: float = 15.0) -> None:
+    """``base_url`` is the app as the browser sees it (``http://localhost:8822``); it sets the
+    Host and Origin headers. ``connect_to`` (``host:port``, default ``$PORTKEY_CONNECT_TO``) is
+    where that really is when it differs, such as ``app:8822`` in the e2e network."""
+
+    def __init__(self, base_url: str, timeout: float = 15.0, connect_to: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.host = urlsplit(self.base_url).netloc
+        connect_to = connect_to or os.environ.get("PORTKEY_CONNECT_TO") or self.host
         self.client = httpx.Client(
-            base_url=self.base_url,
-            headers={"Origin": self.base_url, "X-Port-Key": "1"},
+            base_url=f"http://{connect_to}",
+            headers={"Host": self.host, "Origin": self.base_url, "X-Port-Key": "1"},
             timeout=timeout,
         )
 

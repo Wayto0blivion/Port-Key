@@ -2,8 +2,8 @@
 (function () {
   'use strict';
   var params = new URLSearchParams(window.location.search);
-  var wsUrl = params.get('ws') || 'ws://app:8000/ws/terminal';
-  var apiUrl = params.get('api') || 'http://app:8000';
+  var wsUrl = params.get('ws') || 'ws://localhost:8822/ws/terminal';
+  var apiUrl = params.get('api') || 'http://localhost:8822';
   var token = params.get('token') || 'stolen-token';
   var timeoutMs = Number(params.get('timeout') || 5000);
 
