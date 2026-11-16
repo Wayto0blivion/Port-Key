@@ -88,7 +88,7 @@ def build_services(config: Config) -> Services:
     vault = MemoryKeyVault()
     keys = FsKeyProvider(config, keys_meta, settings, vault)
     known_hosts = FileKnownHosts(config.known_hosts_path)
-    tokens = SqliteTokenStore(db, limits.token_ttl)
+    tokens = SqliteTokenStore(db, limits.token_ttl, max_age=limits.token_max_age)
     connector = ChainConnector(connections, keys, host_keys, known_hosts, events, settings, limits)
     return Services(
         config=config,

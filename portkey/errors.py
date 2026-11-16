@@ -29,7 +29,7 @@ class ErrorCode(StrEnum):
     MISSING_CSRF_HEADER = "missing_csrf_header"  # 403, X-Port-Key: 1 absent
     UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"  # 415, non-JSON mutating request
     UNAUTHORIZED = "unauthorized"  # 401, token missing/expired/revoked
-    BAD_PASSWORD = "bad_password"  # 401 on login only
+    BAD_PASSWORD = "bad_password"  # 401 on login and password change only (not a sign-out)
     RATE_LIMITED = "rate_limited"  # 429, carries ``retry_after``
     ALREADY_SETUP = "already_setup"  # 409
     NOT_SETUP = "not_setup"  # 409, login before a password exists

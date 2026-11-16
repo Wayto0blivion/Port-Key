@@ -3,8 +3,12 @@
 Threading and async rules, for every Protocol below unless a method says otherwise:
 
 - Repositories (``*Repo``, ``HostKeyStore``, ``EventLog``, ``TokenStore``) are synchronous and
-  thread-safe. They are called from sync FastAPI routes (thread pool) and directly from async
-  code; each call is one short SQLite transaction, so calling them on the event loop is allowed.
+  thread-safe: one SQLite connection behind a re-entrant lock. Sync FastAPI routes call them
+  directly (thread pool). Async code on a hot path (connecting, terminal sessions, the wizard)
+  calls them through ``asyncio.to_thread``: while a thread-pool route holds the lock (a
+  1000-id bulk edit takes about 50 ms), a direct call would stall the event loop and every
+  terminal with it. ``services.db.tx()`` is re-entrant on one thread, so several repository
+  calls can share one transaction (see docs/handoff/phase-a.md).
 - Anything that touches the network or waits for the browser is ``async``.
 - Errors are the classes in ``portkey.errors`` (HTTP) and ``portkey.ssh.errors`` (SSH/WS).
 - Fingerprints are always ``"SHA256:<base64 without padding>"``.
@@ -275,12 +279,14 @@ class KeyProvider(Protocol):
 
 
 class TokenStore(Protocol):
-    """Bearer tokens; only SHA-256 hashes are stored. 30-day sliding expiry."""
+    """Bearer tokens; only SHA-256 hashes are stored. 30-day sliding expiry, never past an
+    absolute lifetime of 90 days from issue (``Limits.token_max_age``)."""
 
     def issue(self) -> IssuedToken: ...
 
     def verify(self, token: str) -> bool:
-        """True if valid; extends expiry (sliding). Never raises for a bad token."""
+        """True if valid; extends expiry (sliding, capped by the absolute lifetime). Never
+        raises for a bad token."""
 
     def revoke(self, token: str) -> None: ...
 
@@ -299,7 +305,9 @@ class AppAuth(Protocol):
         (bad_password)``, ``RateLimited``, ``Conflict(not_setup)``."""
 
     def change_password(self, token: str, old: str, new: str) -> None:
-        """Raises ``Unauthorized(bad_password)``. Revokes every token except ``token``."""
+        """Raises ``Unauthorized(bad_password)``, or ``RateLimited`` after repeated wrong old
+        passwords (they share one backoff bucket, so a stolen token cannot brute-force the
+        password). Revokes every token except ``token``."""
 
     def authenticate(self, authorization: str | None) -> str:
         """Validate an ``Authorization: Bearer`` header value; returns the token. Raises

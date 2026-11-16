@@ -50,7 +50,8 @@ class Limits:
     max_auth_attempts: int = 3
     terminal_min_size: int = 1
     terminal_max_size: int = 1000
-    token_ttl: float = 30 * 24 * 3600.0
+    token_ttl: float = 30 * 24 * 3600.0  # sliding: each use moves expiry this far ahead
+    token_max_age: float = 90 * 24 * 3600.0  # absolute: no token outlives its creation by more
     events_cap: int = 5000
     reachability_timeout: float = 2.0
     reachability_max_ids: int = 500

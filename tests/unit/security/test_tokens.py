@@ -1,4 +1,5 @@
-"""Bearer tokens: random, hash-only storage, 30-day sliding expiry, revocation."""
+"""Bearer tokens: random, hash-only storage, 30-day sliding expiry capped at 90 days from
+creation, revocation."""
 
 from __future__ import annotations
 
@@ -9,7 +10,8 @@ from typing import Any
 
 import pytest
 
-from portkey.security.tokens import RENEW_EVERY, SqliteTokenStore
+from portkey.config import Limits
+from portkey.security.tokens import MAX_AGE, RENEW_EVERY, SqliteTokenStore
 from portkey.store.db import Database
 
 DAY = 24 * 3600.0
@@ -78,11 +80,60 @@ def test_expiry_boundary(tokens: SqliteTokenStore, wall: Any) -> None:
 
 def test_sliding_renewal_keeps_an_active_token_alive(tokens: SqliteTokenStore, wall: Any) -> None:
     issued = tokens.issue()
-    for _ in range(4):  # 4 x 29 days = 116 days, used every 29 days
+    for _ in range(2):  # used every 29 days; 58 + 30 days is still inside the 90-day lifetime
         wall.advance(29 * DAY)
         assert tokens.verify(issued.token)
     expires = tokens.expires_at(issued.token)
     assert expires == datetime.fromtimestamp(int(wall.now + TTL), UTC)
+
+
+def test_absolute_lifetime_caps_sliding_renewal(
+    tokens: SqliteTokenStore, wall: Any, db: Database
+) -> None:
+    start = int(wall.now)
+    issued = tokens.issue()
+    for _ in range(3):  # days 29, 58, 87: still valid
+        wall.advance(29 * DAY)
+        assert tokens.verify(issued.token)
+    # Sliding would give day 117; the absolute lifetime stops it at day 90.
+    assert tokens.expires_at(issued.token) == datetime.fromtimestamp(start + MAX_AGE, UTC)
+    wall.advance(3 * DAY - 1)  # one second before day 90
+    assert tokens.verify(issued.token)
+    wall.advance(1)
+    assert not tokens.verify(issued.token)
+    assert db.query("SELECT * FROM tokens") == []
+
+
+def test_absolute_lifetime_applies_to_rows_written_without_it(
+    tokens: SqliteTokenStore, wall: Any, db: Database
+) -> None:
+    issued = tokens.issue()
+    far = datetime.fromtimestamp(int(wall.now + 400 * DAY), UTC)
+    db.execute("UPDATE tokens SET expires_at = ?", (far.strftime("%Y-%m-%dT%H:%M:%SZ"),))
+    wall.advance(MAX_AGE)
+    assert not tokens.verify(issued.token)
+
+
+def test_issue_purges_rows_past_their_lifetime(
+    tokens: SqliteTokenStore, wall: Any, db: Database
+) -> None:
+    tokens.issue()
+    far = datetime.fromtimestamp(int(wall.now + 400 * DAY), UTC)
+    db.execute("UPDATE tokens SET expires_at = ?", (far.strftime("%Y-%m-%dT%H:%M:%SZ"),))
+    wall.advance(MAX_AGE)
+    tokens.issue()
+    assert len(db.query("SELECT * FROM tokens")) == 1
+
+
+def test_max_age_shorter_than_ttl_caps_the_first_expiry(db: Database, wall: Any) -> None:
+    store = SqliteTokenStore(db, TTL, clock=wall, max_age=DAY)
+    issued = store.issue()
+    assert issued.expires_at == datetime.fromtimestamp(int(wall.now + DAY), UTC)
+
+
+def test_app_wires_ninety_days(services: Any) -> None:
+    assert Limits().token_max_age == MAX_AGE == 90 * DAY
+    assert services.tokens.max_age == MAX_AGE
 
 
 def test_unused_token_lapses_after_thirty_days(tokens: SqliteTokenStore, wall: Any) -> None:
