@@ -91,6 +91,32 @@ async def test_hide_with_reassign_is_one_transaction(
     assert meta.hidden is False
 
 
+async def test_key_unknown_with_the_real_provider(
+    authed_client: httpx.AsyncClient, started: Services, ssh_dir: Path, kit: Any
+) -> None:
+    """Package 2's key_fp checks against package 3's FsKeyProvider (not a fake): an unknown
+    fingerprint and a hidden key are both 422 key_unknown, for connections and settings."""
+    kit.write_key(ssh_dir, "id_ed25519")
+    spare = kit.write_key(ssh_dir, "spare")
+    unknown = "SHA256:" + "Z" * 43
+    body = {"name": "web-prod", "host": "192.168.10.42", "username": "john"}
+    r = await authed_client.post(
+        "/api/connections", json={**body, "auth_method": "key", "key_fp": unknown}
+    )
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "key_unknown")
+    r = await authed_client.patch(f"/api/keys/{fp_to_id(spare.fp)}", json={"hidden": True})
+    assert r.status_code == 200, r.text
+    r = await authed_client.post(
+        "/api/connections", json={**body, "auth_method": "key", "key_fp": spare.fp}
+    )
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "key_unknown")
+    for fp in (unknown, spare.fp):
+        r = await authed_client.patch("/api/settings", json={"default_key_fp": fp})
+        assert (r.status_code, r.json()["error"]["code"]) == (422, "key_unknown")
+    r = await authed_client.post("/api/connections", json={**body, "auth_method": "key"})
+    assert r.status_code == 201, r.text
+
+
 async def test_hosts_with_real_store(
     authed_client: httpx.AsyncClient, started: Services, ssh_dir: Path, kit: Any
 ) -> None:
