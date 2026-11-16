@@ -9,8 +9,9 @@ app's host guard allows.
 - ``live_server(app)``: async context manager yielding the port; runs the app's lifespan.
 - ``TermClient.connect(port, token)``: an authenticated client. ``json()`` returns the next
   text message (binary frames in between are appended to ``output``), ``until(type)`` skips to
-  a message type, ``read_until(pattern)`` waits for output, ``close_code()`` waits for the
-  close. ``received`` counts output bytes, for the next ``attach``'s ``since``.
+  a message type, ``read_until(pattern)`` / ``read_bytes(n)`` wait for output (text messages
+  meanwhile are kept for ``json``), ``close_code()`` waits for the close. ``received`` counts
+  output bytes, for the next ``attach``'s ``since``. Timeouts are ``seconds=``.
 """
 
 from __future__ import annotations
@@ -137,6 +138,21 @@ class TermClient:
 
         async def wait() -> None:
             while pattern not in self.output:
+                message = await self.ws.recv()
+                if isinstance(message, bytes):
+                    self.output += message
+                    self.frames += 1
+                else:
+                    self._texts.append(message)
+
+        await asyncio.wait_for(wait(), seconds)
+        return bytes(self.output)
+
+    async def read_bytes(self, count: int, seconds: float = 5.0) -> bytes:
+        """Receive until ``output`` holds at least ``count`` bytes."""
+
+        async def wait() -> None:
+            while len(self.output) < count:
                 message = await self.ws.recv()
                 if isinstance(message, bytes):
                     self.output += message

@@ -27,7 +27,7 @@ from typing import Any
 
 from fastapi import APIRouter, WebSocket
 from pydantic import BaseModel
-from starlette.websockets import WebSocketState
+from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from portkey.api.schemas.connections import Connection
 from portkey.api.schemas.ws import (
@@ -147,6 +147,8 @@ class _TerminalSocket:
             ok = await (self._open(first) if isinstance(first, OpenMsg) else self._attach(first))
             if ok and self.session is not None and self.sink is not None:
                 await self._serve(self.session, self.sink)
+        except WebSocketDisconnect:
+            pass  # a send found the client gone: same as a drop
         except Exception as exc:  # WsError -> its code; anything else -> internal, 1011
             await self.sock.error(exc)
         finally:
