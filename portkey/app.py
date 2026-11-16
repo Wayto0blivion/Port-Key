@@ -94,10 +94,12 @@ def create_app(config: Config | None = None) -> FastAPI:
     app.state.services = services
 
     # ===== MIDDLEWARE (package 1 owns this section) ==============================================
-    # Host/Origin guard (outermost), security headers, log redaction, and the 422 handler that
-    # strips request input. Middleware added last runs first, so add HostGuardMiddleware last.
+    # Host/Origin guard (outermost), the request body cap, security headers, log redaction, and
+    # the 422 handler that strips request input. Middleware added last runs first, so add
+    # HostGuardMiddleware last. The body cap runs before anything reads a body (auth included).
     from fastapi.exceptions import RequestValidationError
 
+    from portkey.security.bodylimit import BodyLimitMiddleware
     from portkey.security.headers import SecurityHeadersMiddleware
     from portkey.security.hostguard import HostGuardMiddleware
     from portkey.security.redact import install_log_redaction, validation_exception_handler
@@ -105,6 +107,7 @@ def create_app(config: Config | None = None) -> FastAPI:
     install_log_redaction()
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(BodyLimitMiddleware, max_bytes=config.limits.max_body_bytes)
     app.add_middleware(HostGuardMiddleware, config=config)
     # ===== END MIDDLEWARE =========================================================================
 

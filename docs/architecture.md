@@ -152,6 +152,8 @@ The compose file publishes `127.0.0.1:8822:8000`. uvicorn binds `0.0.0.0` inside
 
 - Non-root uid 1000. `/data` is chowned in the image so a new named volume inherits it.
 - `read_only: true`, tmpfs `/tmp`, `cap_drop: [ALL]`, `no-new-privileges`.
+- `mem_limit: 1g` and `pids_limit: 256`, so a runaway Port-Key cannot take the whole Docker
+  Desktop VM.
 - A healthcheck.
 
 ## 4. Threat model and mitigations
@@ -193,6 +195,12 @@ same site. Instead:
   URLs, because uvicorn logs query strings.
 - With no ambient credentials, CSRF has nothing to ride on. In addition, every mutating request
   must be `Content-Type: application/json` and carry `X-Port-Key: 1`.
+
+**Request body cap.** A local process can fake every header a browser cannot, and FastAPI
+reads the whole body before auth runs. So a middleware inside the host guard refuses any HTTP
+body over 256 KB with 413 `payload_too_large`: at once when `Content-Length` says so, and as
+soon as a chunked body passes the cap, without reading the rest. WebSocket frames are capped
+at 64 KB by uvicorn.
 
 **App login.** Required.
 

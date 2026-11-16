@@ -12,6 +12,8 @@ WebSockets are in `docs/ws-protocol.md`.
   `origin_not_allowed`), `X-Port-Key: 1` (else 403 `missing_csrf_header`) and
   `Content-Type: application/json` (else 415 `unsupported_media_type`) with a JSON body: send
   `{}` when there are no fields, including on DELETE.
+- **Request bodies** are at most 256 KB (else 413 `payload_too_large`, checked before
+  anything reads the body, auth included).
 - **Auth**: `Authorization: Bearer <token>` on everything except `GET /api/health`,
   `GET /api/auth/status`, `POST /api/auth/setup` and `POST /api/auth/login`. Missing, expired or
   revoked token: 401 `unauthorized`. **401 always means "signed out"**; no other failure uses it
@@ -39,6 +41,7 @@ Optional extras: `fields` (422 `validation`: `[{loc, msg, type}]`, never the inp
 | 403 | `origin_not_allowed`, `missing_csrf_header`, `bad_setup_code` |
 | 404 | `not_found`, `key_unknown`, `session_gone` |
 | 409 | `already_setup`, `not_setup`, `setup_needs_restart`, `name_taken`, `jump_in_use`, `key_name_taken`, `key_in_use`, `key_not_encrypted` |
+| 413 | `payload_too_large` |
 | 415 | `unsupported_media_type` |
 | 421 | `host_not_allowed` |
 | 422 | `validation`, `jump_cycle`, `jump_too_deep`, `jump_unknown`, `group_unknown`, `group_too_deep`, `group_cycle`, `tag_invalid`, `key_unknown`, `key_name_invalid`, `key_unreadable`, `confirm_mismatch` |

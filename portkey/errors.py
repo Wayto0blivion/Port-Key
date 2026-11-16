@@ -28,6 +28,7 @@ class ErrorCode(StrEnum):
     ORIGIN_NOT_ALLOWED = "origin_not_allowed"  # 403
     MISSING_CSRF_HEADER = "missing_csrf_header"  # 403, X-Port-Key: 1 absent
     UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"  # 415, non-JSON mutating request
+    PAYLOAD_TOO_LARGE = "payload_too_large"  # 413, request body over Limits.max_body_bytes
     UNAUTHORIZED = "unauthorized"  # 401, token missing/expired/revoked
     BAD_PASSWORD = "bad_password"  # 401 on login and password change only (not a sign-out)
     RATE_LIMITED = "rate_limited"  # 429, carries ``retry_after``

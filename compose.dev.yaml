@@ -143,6 +143,8 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    mem_limit: 1g  # as in compose.yaml
+    pids_limit: 256
     healthcheck:
       test: ["CMD", "python", "-m", "portkey.healthcheck"]
       interval: 2s

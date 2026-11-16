@@ -44,6 +44,10 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    # A runaway Port-Key can use at most this much, never all of the Docker Desktop VM. Idle it
+    # needs under 100 MB; 32 busy terminal sessions stay under about 200 MB.
+    mem_limit: 1g
+    pids_limit: 256
     # Names that resolve only in the Windows hosts file (or MagicDNS) may not resolve inside the
     # container. Add them here; Diagnostics > "Check a host" shows what the container sees.
     # extra_hosts:

@@ -35,6 +35,7 @@ class Limits:
     max_sessions: int = 32
     ring_buffer_bytes: int = 256 * 1024
     ws_max_frame_bytes: int = 64 * 1024
+    max_body_bytes: int = 256 * 1024  # HTTP request bodies; the biggest real one is ~40 KB
     ws_auth_timeout: float = 5.0
     ws_ping_interval: float = 20.0
     ws_ping_timeout: float = 20.0
