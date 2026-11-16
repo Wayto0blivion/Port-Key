@@ -1,8 +1,7 @@
 # Port-Key work packages: file ownership
 
-Package 0 (contracts and skeleton) is done and frozen. Packages 1, 2, 3, 7 and 8a (phase A) are
-built and integrated; next is 4; then 5, 6 and 8b; then 9. Everyone works in the same tree on
-branch `dev/v1`.
+Package 0 (contracts and skeleton) is done and frozen. Every package (1 to 9) is built; package
+9 (end to end) closed v1 on 2026-11-16. Everyone works in the same tree on branch `dev/v1`.
 
 Before you start, read every file in `docs/handoff/`: `phase-a.md` collects what the phase A
 engineers left for each later package, and each package writes `docs/handoff/<package>.md`
@@ -112,7 +111,8 @@ repositories through `asyncio.to_thread`; see `portkey/interfaces.py` and
 | `tests/integration/ssh/` | 4 |
 | `tests/integration/sessions/` | 5 |
 | `tests/integration/wizard/` | 6 |
-| `tests/e2e/test_*.py` (the Playwright specs) | 9 (`test_shell_seams.py` was written at the phase A integration; 9 owns it now) |
+| `tests/e2e/test_*.py` (the Playwright specs), `tests/e2e/helpers.py`, `tests/e2e/screens.py` | 9 (`test_shell_seams.py` was written at the phase A integration; 9 owns it now) |
+| `portkey/reset_password.py`, `tests/unit/security/test_reset_password.py` | 9 (security review: 1) |
 | `tests/frontend/` (conftest, `mock/`, `serve.py`, `run.sh`, `screenshots.py`, `test_*.py`) | 8a |
 | `tests/frontend/terminal/` (8b's browser tests; they reuse `tests/frontend/conftest.py`, and add WebSocket mocks of their own here) | 8b |
 | `docs/handoff/<package>.md` | that package |
