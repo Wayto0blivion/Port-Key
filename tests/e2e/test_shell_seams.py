@@ -11,6 +11,7 @@ test checks them against what it expects. Chromium logs a failed HTTP status to 
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import pytest
@@ -234,11 +235,15 @@ def test_settings_and_diagnostics_over_the_real_api(
     expect(page.locator(".save-status").first).to_have_text("Saved")
     expect(page.locator(".about")).to_contain_text("C:\\Users\\john\\.ssh\\port-key")
     # A wrong current password is 401 bad_password: an error on the field, not a sign-out.
+    # Wrong current passwords share one backoff for the life of the app process, so after a
+    # few of them (reruns against one stack, or other specs) the answer is 429 instead.
     page.get_by_label("Current password").fill("not the password")
     page.get_by_label("New password").fill("another password")
     page.get_by_label("Confirm").fill("another password")
     page.get_by_role("button", name="Change password").click()
-    expect(page.locator("#st-old-error")).to_have_text("That password is not correct. Try again.")
+    expect(page.locator("#st-old-error")).to_have_text(
+        re.compile(r"^(That password is not correct\. Try again\.|Too many attempts\. .*)$")
+    )
     expect(page.locator("dialog.login")).to_have_count(0)
 
     page.get_by_role("button", name="Open Diagnostics").click()
@@ -250,7 +255,7 @@ def test_settings_and_diagnostics_over_the_real_api(
     result = page.locator(".diag__result")
     expect(result).to_contain_text(f"{tb.SSHD.host} resolves to ")
     expect(result).to_contain_text("Port 22 answered in")
-    watch.check((401, "POST", "/api/auth/password"))
+    watch.check((401, "POST", "/api/auth/password"), (429, "POST", "/api/auth/password"))
 
 
 def test_unbuilt_routes_degrade_quietly(page: Page, base_url: str, app_token: str) -> None:
@@ -277,16 +282,18 @@ def test_expired_token_opens_the_sign_in_dialog(
     own = app_api.login()
     sign_in_with_token(page, base_url, own)
     expect(page.get_by_role("tab", name="Home")).to_have_attribute("aria-selected", "true")
+    page.wait_for_load_state("networkidle")  # first loads and reachability are done
     assert app_api.request("POST", "/api/auth/logout", token=own).status_code == 204
-    page.get_by_role("button", name="Settings", exact=True).click()  # its loads get a 401
+    page.evaluate("import('/js/store.js').then((s) => s.refresh())")  # every read gets a 401
     login = page.locator("dialog.login")
     expect(login).to_be_visible()
     expect(login).to_contain_text("Your sign-in has ended")
     assert stored_token(page) is None
     sign_in_ui(page, tb.APP_PASSWORD)
     expect(login).to_have_count(0)
-    expect(page.get_by_label("Terminal font size")).not_to_have_value("")
     assert stored_token(page) not in (None, own)
-    reads = ("/api/keys", "/api/settings", "/api/hostkeys", "/api/connections", "/api/groups")
-    reads += ("/api/tags", "/api/hosts/suggestions")
-    watch.check(*[(401, "GET", p) for p in reads])
+    page.get_by_role("button", name="Settings", exact=True).click()
+    expect(page.get_by_label("Terminal font size")).not_to_have_value("")
+    reads = ("/api/keys", "/api/settings", "/api/connections", "/api/groups", "/api/tags")
+    allowed = [(401, "GET", p) for p in (*reads, "/api/hosts/suggestions")]
+    watch.check(*allowed, (401, "POST", "/api/connections/reachability"))
