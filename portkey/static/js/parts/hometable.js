@@ -111,7 +111,7 @@ export function renderConnectionsTable(section, opts) {
       h('thead', {}, h('tr', {},
         h('th', { scope: 'col', class: 'col-check' }, allBox),
         th('Name', 'name'), th('Address', 'address'), th('Folder', 'folder'), th('Tags', null),
-        th('Signs in with', 'auth'), th('Last connected', 'last'), th('Notes', null),
+        th('Signs in with', 'auth'), th('Last connected', 'last'), h('th', { scope: 'col', class: 'col-notes' }, 'Notes'),
         h('th', { scope: 'col', class: 'col-menu' }, h('span', { class: 'visually-hidden' }, 'Menu')))),
       body)));
 }

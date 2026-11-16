@@ -84,6 +84,7 @@
 /* --- tables ----------------------------------------------------------------------------------- */
 
 .table-wrap {
+  container-type: inline-size;
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -113,7 +114,12 @@
 .table tr.is-selected td { background: var(--panel-2); }
 .table tr.is-clickable { cursor: pointer; }
 .table tbody tr:hover td { background: var(--panel-2); }
-.table--connections { min-width: 1040px; }
+/* The table sizes to its unwrapped columns. In a pane narrower than about 1000px (a 1280 px
+   laptop screen beside the sidebar) Notes gives way, so every row's menu stays in view without
+   sideways scrolling; notes stay in Edit and the sidebar filter still searches them. */
+@container (max-width: 1000px) {
+  .table--connections .col-notes { display: none; }
+}
 .table--keys { min-width: 820px; }
 .table--keys td { padding: 10px 14px; white-space: nowrap; }
 

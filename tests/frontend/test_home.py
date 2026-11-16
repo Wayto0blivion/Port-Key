@@ -200,10 +200,25 @@ def test_load_error_and_retry(app: AppFactory) -> None:
     )
 
 
-def test_row_menu_stays_open_when_opening_it_scrolls_the_table(app: AppFactory) -> None:
-    # At 1280 px the table is wider than its pane, so the "⋯" button is half hidden; revealing
-    # it scrolls the table after the menu has opened (found against the real backend).
+def test_a_1280_px_window_needs_no_sideways_scroll(app: AppFactory) -> None:
+    # A laptop at 150 % scaling: Notes gives way so the row menus stay in view (package 9).
     page = app(width=1280, height=800)
+    wrap = page.locator(".table-wrap").first
+    assert wrap.evaluate("el => el.scrollWidth - el.clientWidth") <= 0
+    expect(page.locator(".table--connections th.col-notes")).to_be_hidden()
+    expect(
+        table_row(page, "web-prod").get_by_role("button", name="web-prod menu")
+    ).to_be_in_viewport(ratio=1)
+    wide = app(width=1440, height=800)
+    expect(wide.locator(".table--connections th.col-notes")).to_be_visible()
+    assert wide.locator(".table-wrap").first.evaluate("el => el.scrollWidth - el.clientWidth") <= 0
+
+
+def test_row_menu_stays_open_when_opening_it_scrolls_the_table(app: AppFactory) -> None:
+    # At 1100 px the table is wider than its pane, so the "⋯" button is half hidden; revealing
+    # it scrolls the table after the menu has opened (found against the real backend at 1280,
+    # which no longer scrolls: see the next test).
+    page = app(width=1100, height=800)
     wrap_scroll = "document.querySelector('.table-wrap').scrollLeft"
     assert page.evaluate(wrap_scroll) == 0
     table_row(page, "web-prod").get_by_role("button", name="web-prod menu").click()
