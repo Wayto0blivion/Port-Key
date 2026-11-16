@@ -333,8 +333,8 @@ S {"type":"done","connection":{...},"outcome":"installed"}
    was the key the owner just replaced, possibly because it leaked).
 9. The wizard reports progress with fixed step names and codes, and asks for decisions with
    `needs_action` / `action` instead of extra prompt kinds. Key already installed saves and
-   finishes immediately (outcome `already_installed`), as PLAN.md says; the UI's
-   [Save connection] there just moves to the final card.
+   finishes immediately (outcome `already_installed`), as PLAN.md says; the UI says it is
+   saved and its [Continue] just moves to the final card (no Cancel there: nothing to undo).
 10. `start` accepts `group_id`, `tags`, `pinned`, `notes` and `connection_id` so the wizard
     can save a complete connection or reinstall a key on an existing one.
 11. Close codes 4400 (bad message) and 4429 (too many sessions) were added.

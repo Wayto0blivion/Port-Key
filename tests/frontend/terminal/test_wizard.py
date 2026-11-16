@@ -155,6 +155,11 @@ def test_first_seen_host_key_is_step_two(term: TermFactory) -> None:
     expect(wizard.locator(".wizard__foot button")).to_have_text(
         ["Back", "Cancel", "Trust this host"]
     )
+    # Review finding: Trust had focus, so one stray Enter after step 1 trusted the key.
+    expect(wizard.get_by_role("heading", name="Check this host's identity")).to_be_focused()
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(200)
+    expect(wizard.get_by_role("heading", name="Check this host's identity")).to_be_visible()
     wizard.get_by_role("button", name="Back").click()
     expect(wizard.get_by_label("Host", exact=True)).to_have_value("new-host")  # values kept
     wizard.get_by_role("button", name="Next").click()
@@ -187,9 +192,11 @@ def test_key_already_installed(term: TermFactory) -> None:
     wizard.get_by_role("button", name="Next").click()
     expect(wizard).to_contain_text(
         "Your key is already installed on keyed-host. Port-Key signed in with it, "
-        "so no password is needed."
+        "so no password is needed, and has saved the connection."
     )
-    wizard.get_by_role("button", name="Save connection").click()
+    # Review finding: a Cancel here suggested nothing was saved, but the server had saved it.
+    expect(wizard.locator(".wizard__foot button")).to_have_text(["Continue"])
+    wizard.get_by_role("button", name="Continue").click()
     expect(wizard.get_by_role("heading", name="Connection saved")).to_be_visible()
     wizard.get_by_role("button", name="Add another").click()
     expect(wizard.get_by_label("Host", exact=True)).to_have_value("")

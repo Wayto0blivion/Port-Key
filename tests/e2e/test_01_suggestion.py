@@ -49,7 +49,7 @@ def test_add_from_a_known_hosts_suggestion(
     expect(wizard).to_contain_text(
         f"Your key is already installed on {NAME}. Port-Key signed in with it", timeout=20_000
     )
-    wizard.get_by_role("button", name="Save connection").click()
+    wizard.get_by_role("button", name="Continue").click()  # already saved: no Cancel here
     expect(wizard.get_by_role("heading", name="Connection saved")).to_be_visible()
     expect(wizard.locator(".wsummary")).to_contain_text(f"keyonly@{LABEL}")
     expect(wizard.locator(".wsummary")).to_contain_text("id_ed25519")

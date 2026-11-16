@@ -169,7 +169,7 @@ def main() -> int:
         wizard.locator("#wz-name").fill(f"smoke-tfa-{STAMP}")
         wizard.get_by_role("button", name="Next").click()
         first = wizard.get_by_label("Password:")
-        already = wizard.get_by_role("button", name="Save connection")
+        already = wizard.get_by_role("button", name="Continue")
         expect(first.or_(already)).to_be_visible(timeout=20000)
         if already.count():
             print("      (tfa: key already installed by an earlier run)")
@@ -194,7 +194,7 @@ def main() -> int:
         wizard.locator("#wz-name").fill(f"smoke-fresh-{STAMP}")
         wizard.get_by_role("button", name="Next").click()
         field = wizard.locator("#wz-password:not([disabled])")
-        already = wizard.get_by_role("button", name="Save connection")
+        already = wizard.get_by_role("button", name="Continue")
         expect(field.or_(already)).to_be_visible(timeout=20000)
         if already.count():
             print("      (fresh: key already installed by an earlier run)")

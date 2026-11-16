@@ -118,7 +118,7 @@ def test_password_login_disabled(term: TermFactory) -> None:
     assert page.evaluate("navigator.clipboard.readText()").startswith("ssh-ed25519 ")
     expect(buttons(wizard)).to_have_text(["Back", "Cancel", "Check key login"])
     wizard.get_by_role("button", name="Check key login").click()
-    expect(wizard.get_by_role("button", name="Save connection")).to_be_visible()
+    expect(wizard.get_by_role("button", name="Continue")).to_be_visible()
     assert actions(page) == ["check_key"]
 
 

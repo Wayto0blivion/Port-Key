@@ -285,9 +285,12 @@ sessions keep running behind it.
 
 - Skipped, with a small note, when `known_hosts` already has a matching key: "Host key matches
   your known_hosts entry."
-- Otherwise the first-seen confirmation appears (copy in section 4).
-- If the key already works: "Your key is already installed on web-prod. Port-Key signed in with
-  it, so no password is needed." with [Save connection]. This jumps to the final step.
+- Otherwise the first-seen confirmation appears (copy in section 4). Focus goes to the step's
+  heading, never to [Trust this host]: step 1 is submitted with Enter, and a second Enter must
+  not trust a key nobody read.
+- If the key already works, the server has already saved the connection: "Your key is already
+  installed on web-prod. Port-Key signed in with it, so no password is needed, and has saved
+  the connection." with [Continue] only (no Cancel). This jumps to the final step.
 
 **Step 3, "Sign in once"**
 

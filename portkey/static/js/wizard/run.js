@@ -186,9 +186,10 @@ export class WizardRun {
           this.showConnecting();
         },
       }],
-      focus: null,
+      // Focus stays on the step's heading (the render default), never on Trust: step 1 is
+      // submitted with Enter, and a second Enter or key repeat must not trust a key nobody
+      // read. The connection-time dialog does the same with Cancel.
     });
-    /** @type {HTMLElement|null} */ (this.wiz.right.querySelector('[data-key="trust"]'))?.focus();
   }
 
   showSignin() {

@@ -260,14 +260,17 @@ export class Wizard {
     store.refresh().catch(() => {});
   }
 
-  /** Step 2 after try_key found the key working: [Save connection] moves to the final card. */
+  /**
+   * Step 2 after try_key found the key working. The server has saved the connection already
+   * (docs/ws-protocol.md decision 9), so there is no Cancel: [Continue] moves to the final card.
+   */
   showAlready() {
     this.render({
       step: 2,
       content: section('Check host identity',
         h('p', { class: 'wstep__lead' }, 'Your key is already installed on ', h('strong', {}, this.values.name),
-          '. Port-Key signed in with it, so no password is needed.')),
-      right: [this.cancelBtn(), { label: 'Save connection', kind: 'primary', key: 'save', onClick: () => this.showFinal('already_installed', []) }],
+          '. Port-Key signed in with it, so no password is needed, and has saved the connection.')),
+      right: [{ label: 'Continue', kind: 'primary', key: 'continue', onClick: () => this.showFinal('already_installed', []) }],
     });
   }
 
