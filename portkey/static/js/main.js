@@ -12,6 +12,7 @@
 import * as api from './api.js';
 import * as store from './store.js';
 import { h } from './ui/dom.js';
+import { toast } from './ui/toast.js';
 import { renderShell } from './shell.js';
 import { renderLogin } from './views/login.js';
 import { restoreSessions } from './views/sessions.js';
@@ -35,7 +36,10 @@ function showShell(root) {
   shellShown = true;
   root.replaceChildren();
   renderShell(root);
-  restoreSessions().catch(() => { /* package 8b not built yet, or nothing to restore */ });
+  restoreSessions().catch((err) => {
+    console.warn('restoring sessions failed', err);
+    toast("Port-Key couldn't bring back the terminal tabs from before the reload. Open them again from the sidebar.", { kind: 'error' });
+  });
 }
 
 /** @param {HTMLElement} root */

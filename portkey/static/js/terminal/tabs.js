@@ -5,9 +5,8 @@
  * colour stripe, status dot (pulsing amber, green, grey ring), activity dot for background
  * output, focus moves left after close (tabstrip.js does that).
  *
- * The tab strip has one dot per tab, so the activity dot stands in for the status dot while a
- * background tab has unseen output; restoreDot() puts the status dot back when the tab is shown.
- * A disconnected tab also gets muted text, so its state stays visible either way.
+ * The activity dot sits beside the status dot (as in the mockups) and goes when the tab is
+ * shown. A disconnected tab gets muted text and no activity dot.
  */
 
 import { updateTab, getActiveTabId } from '../ui/tabstrip.js';
@@ -32,19 +31,18 @@ export function nextOrdinal(used) {
 /** @param {string} tabId @param {SessionState} state */
 export function setSessionState(tabId, state) {
   states.set(tabId, state);
-  updateTab(tabId, { dot: state, muted: state === 'disconnected' });
+  updateTab(tabId, { dot: state, muted: state === 'disconnected', ...(state === 'disconnected' ? { activity: false } : {}) });
 }
 
 /** New output in a tab: an activity dot unless the tab is in front or disconnected. @param {string} tabId */
 export function markActivity(tabId) {
   if (getActiveTabId() === tabId || states.get(tabId) === 'disconnected') return;
-  updateTab(tabId, { dot: 'activity' });
+  updateTab(tabId, { activity: true });
 }
 
-/** The tab was shown: the status dot replaces the activity dot. @param {string} tabId */
+/** The tab was shown: its output has been seen. @param {string} tabId */
 export function restoreDot(tabId) {
-  const state = states.get(tabId);
-  if (state) updateTab(tabId, { dot: state });
+  updateTab(tabId, { activity: false });
 }
 
 /** @param {string} tabId */

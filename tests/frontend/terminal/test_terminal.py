@@ -93,10 +93,13 @@ def test_switching_tabs_focuses_the_shell_but_not_while_arrowing(term: TermFacto
     expect(panel(page).locator(".xterm-helper-textarea")).to_be_focused()
     page.locator(".tabstrip [role=tab]").first.click()  # Home: background tabs keep their shells
     page.evaluate("(id) => __pkWs.push(id, 'background output\\r\\n')", session_ids(page)[0])
+    # The activity dot sits beside the status dot, which stays green.
+    expect(tab(page, "web-prod").locator(".tab__activity")).to_be_visible()
     expect(tab(page, "web-prod").locator(".tab__dot")).to_have_class(
-        re.compile("tab__dot--activity")
+        re.compile("tab__dot--connected")
     )
     tab(page, "web-prod").click()
+    expect(tab(page, "web-prod").locator(".tab__activity")).to_be_hidden()
     expect(tab(page, "web-prod").locator(".tab__dot")).to_have_class(
         re.compile("tab__dot--connected")
     )

@@ -1,8 +1,9 @@
 """Static file server for the frontend shell tests (package 8a, test-only).
 
-Serves ``portkey/static`` with the production Content-Security-Policy from
-docs/architecture.md, so an inline script or style attribute in the frontend fails here the
-same way it would in the app. The API is not served: tests inject ``mock/server.js``.
+Serves ``portkey/static`` with the app's own Content-Security-Policy
+(``portkey.security.headers.CSP``), so an inline script in the frontend fails here the same way
+it would in the app, and xterm's injected styles pass as they do there. The API is not served:
+tests inject ``mock/server.js``.
 """
 
 from __future__ import annotations
@@ -13,8 +14,9 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from portkey.security.headers import CSP
+
 STATIC = Path(__file__).resolve().parents[2] / "portkey" / "static"
-CSP = "default-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'"
 
 
 class _Handler(SimpleHTTPRequestHandler):

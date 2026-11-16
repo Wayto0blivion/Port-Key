@@ -13,7 +13,7 @@
  * Shared classes other packages may use:
  *   .lbl-red … .lbl-grey   set --lbl to a colour label (stripes, tab edges, terminal frame)
  *   .dot .dot--up/down/unknown/skipped   reachability dots
- *   .tab__dot--connecting/connected/disconnected/activity   tab status dots
+ *   .tab__dot--connecting/connected/disconnected   tab status dots; .tab__activity new output
  *   .menu, .toast, .chip, .badge, .mono, .muted, .brass
  */
 
@@ -302,7 +302,7 @@
 .tab__dot--connecting { background: var(--amber); border-color: var(--amber); animation: pk-pulse 1.2s ease-in-out infinite; }
 .tab__dot--connected { background: var(--green); border-color: var(--green); }
 .tab__dot--disconnected { background: transparent; border-color: var(--subtle); }
-.tab__dot--activity { background: var(--link); border-color: var(--link); width: 6px; height: 6px; border-width: 0; }
+.tab__activity { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--link); }
 
 @keyframes pk-pulse {
   50% { opacity: 0.35; }

@@ -8,10 +8,11 @@
  * Mount point for package 8b (terminal tabs): call addTab() with a TabSpec whose render(panel)
  * builds the terminal inside `panel` once. The panel is a role="tabpanel" element that is
  * hidden (not removed) while another tab is active; onActivate(panel) runs each time the tab
- * becomes active (fit the terminal there). updateTab(id, {title, color, muted, dot}) changes the
- * title, the colour-label top edge (a Color such as "red"), the muted text of a disconnected
- * session and the status dot: "connecting" (pulsing amber), "connected" (green),
- * "disconnected" (grey ring), "activity" (background output) or null.
+ * becomes active (fit the terminal there). updateTab(id, {title, color, muted, dot, activity})
+ * changes the title, the colour-label top edge (a Color such as "red"), the muted text of a
+ * disconnected session, the status dot ("connecting" pulsing amber, "connected" green,
+ * "disconnected" grey ring, or null) and the small blue activity dot after the title (new
+ * output in a background tab; ignored for the active tab and cleared when it is shown).
  *
  * Keyboard: the strip is a tablist with roving focus; Left/Right/Home/End move and activate,
  * Delete closes a closable tab. Closing a tab activates the tab on its left.
@@ -36,7 +37,7 @@ import { icon } from '../parts/icons.js';
  * @property {boolean} [activate] default true: activate the new tab
  */
 
-/** @typedef {{spec: TabSpec, tab: HTMLElement, panel: HTMLElement, title: HTMLElement, dot: HTMLElement}} TabRecord */
+/** @typedef {{spec: TabSpec, tab: HTMLElement, panel: HTMLElement, title: HTMLElement, dot: HTMLElement, activity: HTMLElement}} TabRecord */
 
 /** @type {Map<string, TabRecord>} */
 const tabs = new Map();
@@ -53,7 +54,7 @@ const listeners = new Set();
 /** @type {string|null} */
 let dragging = null;
 
-const DOT_TEXT = { connecting: 'connecting', connected: 'connected', disconnected: 'disconnected', activity: 'new output' };
+const DOT_TEXT = { connecting: 'connecting', connected: 'connected', disconnected: 'disconnected' };
 
 /** Shell only: attach the strip and panel containers. @param {HTMLElement} strip @param {HTMLElement} panels */
 export function mountTabStrip(strip, panels) {
@@ -78,6 +79,7 @@ export function addTab(spec) {
   const tid = domId(spec.id);
   const title = h('span', { class: 'tab__title' }, spec.title);
   const dot = h('span', { class: 'tab__dot', hidden: true });
+  const activity = h('span', { class: 'tab__activity', hidden: true });
   const tab = h('div', {
     id: tid,
     class: `tab${spec.icon ? ' tab--icon' : ''}`,
@@ -92,7 +94,7 @@ export function addTab(spec) {
     tab.setAttribute('aria-label', spec.title);
     tab.appendChild(icon(spec.icon, { size: 15 }));
   } else {
-    tab.append(dot, title);
+    tab.append(dot, title, activity);
   }
   if (spec.closable) {
     tab.appendChild(h('button', {
@@ -121,7 +123,7 @@ export function addTab(spec) {
     id: `${tid}-panel`, class: 'tabpanel', role: 'tabpanel', 'aria-labelledby': tid, hidden: true,
     dataset: { panel: spec.id },
   });
-  const record = { spec, tab, panel, title, dot };
+  const record = { spec, tab, panel, title, dot, activity };
   tabs.set(spec.id, record);
   order.push(spec.id);
   stripEl.appendChild(tab);
@@ -151,7 +153,7 @@ export function activateTab(id) {
     r.panel.hidden = !on;
   }
   active = id;
-  if (record.dot.dataset.state === 'activity') updateTab(id, { dot: null });
+  showActivity(record, false);
   record.tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   record.spec.onActivate?.(record.panel);
   if (changed) for (const fn of listeners) fn(id);
@@ -180,7 +182,15 @@ export function closeTab(id) {
   }
 }
 
-/** @param {string} id @param {{title?: string, color?: string|null, muted?: boolean, dot?: string|null}} patch */
+/** The activity dot; its screen-reader text exists only while it shows. @param {TabRecord} record @param {boolean} on */
+function showActivity(record, on) {
+  if (!record.activity.hidden === on) return;
+  record.activity.hidden = !on;
+  clear(record.activity);
+  if (on) record.activity.appendChild(h('span', { class: 'visually-hidden' }, ', new output'));
+}
+
+/** @param {string} id @param {{title?: string, color?: string|null, muted?: boolean, dot?: string|null, activity?: boolean}} patch */
 export function updateTab(id, patch) {
   const record = tabs.get(id);
   if (!record) return;
@@ -191,8 +201,8 @@ export function updateTab(id, patch) {
   }
   if (patch.color !== undefined) applyColor(record, patch.color);
   if (patch.muted !== undefined) record.tab.classList.toggle('tab--muted', patch.muted);
+  if (patch.activity !== undefined) showActivity(record, patch.activity && active !== id);
   if (patch.dot !== undefined) {
-    if (patch.dot === 'activity' && active === id) return;
     const state = patch.dot ?? '';
     record.dot.dataset.state = state;
     record.dot.className = `tab__dot${state ? ` tab__dot--${state}` : ''}`;
