@@ -1,0 +1,9 @@
+{
+  "name": "portkey-lint-js",
+  "private": true,
+  "description": "Pinned JavaScript lint and type-check tools for portkey/static/js (compose service lint-js).",
+  "devDependencies": {
+    "eslint": "9.17.0",
+    "typescript": "5.7.2"
+  }
+}

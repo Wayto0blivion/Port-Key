@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1
+#
+# Port-Key images.
+#   runtime  the app as it runs on the Windows PC (default target, used by compose.yaml)
+#   dev      runtime dependencies plus test, lint and type-check tools (compose.dev.yaml);
+#            the source is bind-mounted at /src, so code changes need no rebuild.
+
+ARG PYTHON_IMAGE=python:3.12-slim
+
+FROM ${PYTHON_IMAGE} AS base
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN groupadd --gid 1000 portkey \
+ && useradd --uid 1000 --gid 1000 --no-create-home --home-dir /nonexistent \
+        --shell /usr/sbin/nologin portkey
+
+FROM base AS deps
+COPY requirements.lock /tmp/requirements.lock
+RUN python -m venv /venv \
+ && /venv/bin/pip install --require-hashes --no-deps -r /tmp/requirements.lock
+
+FROM base AS dev-deps
+COPY requirements-dev.lock /tmp/requirements-dev.lock
+RUN python -m venv /venv \
+ && /venv/bin/pip install --require-hashes --no-deps -r /tmp/requirements-dev.lock
+
+# ---------------------------------------------------------------------------
+FROM base AS dev
+# Shells used by the remote-script unit tests (dash is /bin/sh already).
+RUN apt-get update \
+ && apt-get install --no-install-recommends -y bash busybox \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=dev-deps /venv /venv
+ENV PATH=/venv/bin:$PATH \
+    PYTHONPATH=/src \
+    MYPY_CACHE_DIR=/tmp/mypy-cache \
+    RUFF_CACHE_DIR=/tmp/ruff-cache \
+    HOME=/tmp
+WORKDIR /src
+USER 1000:1000
+CMD ["pytest"]
+
+# ---------------------------------------------------------------------------
+FROM base AS runtime
+RUN mkdir -p /data /ssh /keys-generated \
+ && chown 1000:1000 /data /keys-generated \
+ && chmod 0700 /data
+COPY --from=deps /venv /venv
+COPY portkey /app/portkey
+RUN /venv/bin/python -m compileall -q /app/portkey
+ENV PATH=/venv/bin:$PATH \
+    PYTHONPATH=/app \
+    PORTKEY_DATA_DIR=/data \
+    PORTKEY_SSH_DIR=/ssh \
+    PORTKEY_KEYS_DIR=/keys-generated \
+    PORTKEY_LISTEN_PORT=8000
+WORKDIR /app
+USER 1000:1000
+VOLUME ["/data"]
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["python", "-m", "portkey.healthcheck"]
+CMD ["python", "-m", "portkey"]

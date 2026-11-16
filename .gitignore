@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+node_modules/
+.env
+.env.*
+*.db
+*.db-wal
+*.db-shm
+test-results/
+playwright-report/
+# Generated at test time by package 7; committed fixtures carry a TEST-ONLY marker instead.
+tests/fixtures/generated/

@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "port-key"
+version = "0.1.0"
+description = "Browser-based SSH connection manager for one person"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.32",
+    "asyncssh[bcrypt]>=2.18",
+    "cryptography>=43",
+    "pydantic>=2.9,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pyotp>=2.9",
+    # Must match the Playwright image used by the e2e service in compose.dev.yaml.
+    "playwright==1.49.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["portkey*"]
+
+[tool.setuptools.package-data]
+portkey = ["static/**/*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["portkey/static"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "SIM", "RUF", "N", "PT"]
+ignore = [
+    "S101",   # assert is fine in tests and for invariants
+    "RUF001", # the UI copy uses typographic characters on purpose
+    "RUF002",
+    "RUF003",
+    "N818",   # exception names follow the domain (HostKeyChanged), not an Error suffix
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "N802"]
+# Error-code names such as BAD_PASSWORD are not credentials.
+"portkey/errors.py" = ["S105"]
+"portkey/ssh/errors.py" = ["S105"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["portkey"]
+warn_unreachable = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["asyncssh.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--import-mode=importlib -p no:cacheprovider -ra"
+testpaths = ["tests/unit"]
+markers = [
+    "integration: needs the sshd containers from compose.dev.yaml",
+    "e2e: Playwright end-to-end tests against the app container",
+]
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]

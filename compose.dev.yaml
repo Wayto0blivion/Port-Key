@@ -1,0 +1,152 @@
+# Development and test services. Always run through the Makefile, which passes a project name:
+#
+#   make check P=portkey-wp3
+#
+# Nothing here publishes a port on the host; services talk over private compose networks.
+# The source tree is bind-mounted at /src, so code changes need no image rebuild.
+#
+# Services marked "package 7" are placeholders that the test-infrastructure package completes.
+
+x-dev: &dev
+  build:
+    context: .
+    target: dev
+  image: portkey-dev:local
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  working_dir: /src
+  volumes:
+    - ./:/src
+  tmpfs:
+    - /tmp:exec,mode=1777
+  networks:
+    - outer
+
+services:
+  # pytest, ruff and mypy.
+  test:
+    <<: *dev
+
+  # Integration runner: pytest against the sshd containers (package 7 completes).
+  integration:
+    <<: *dev
+    profiles: ["integration"]
+    command: ["pytest", "tests/integration", "-m", "integration"]
+    depends_on:
+      sshd:
+        condition: service_started
+      sshd-rekeyed:
+        condition: service_started
+      sshd-inner:
+        condition: service_started
+
+  # eslint and tsc --checkJs on portkey/static/js.
+  lint-js:
+    build:
+      context: tools/lint-js
+    image: portkey-lint-js:local
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /src
+    read_only: true
+    volumes:
+      - ./:/src:ro
+    tmpfs:
+      - /tmp
+    network_mode: none
+
+  # Package 7: Ubuntu 24.04 + OpenSSH + libpam-google-authenticator, host key set A.
+  sshd:
+    profiles: ["integration", "e2e"]
+    build:
+      context: tests/sshd
+    image: portkey-sshd:local
+    environment:
+      HOSTKEY_SET: "a"
+    networks:
+      - outer
+      - inner
+
+  # Package 7: same users as sshd, host key set B (changed-key tests).
+  sshd-rekeyed:
+    profiles: ["integration", "e2e"]
+    image: portkey-sshd:local
+    environment:
+      HOSTKEY_SET: "b"
+    networks:
+      - outer
+
+  # Package 7: reachable only through sshd (jump-host tests).
+  sshd-inner:
+    profiles: ["integration", "e2e"]
+    image: portkey-sshd:local
+    environment:
+      HOSTKEY_SET: "a"
+    networks:
+      - inner
+
+  # The real runtime image with a fixture .ssh directory (package 7 provides the fixtures).
+  app:
+    profiles: ["e2e"]
+    build:
+      context: .
+      target: runtime
+    image: portkey:local
+    environment:
+      PORTKEY_PUBLIC_PORT: "8000"
+      PORTKEY_ALLOWED_HOSTS: "app:8000"
+      PORTKEY_SSH_DIR_DISPLAY: 'C:\Users\john\.ssh'
+      PORTKEY_KEYS_DIR_DISPLAY: 'C:\Users\john\.ssh\port-key'
+    volumes:
+      - ./tests/fixtures/ssh:/ssh:ro
+    tmpfs:
+      - /data:uid=1000,gid=1000,mode=0700
+      - /keys-generated:uid=1000,gid=1000
+      - /tmp
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - outer
+    depends_on:
+      - sshd
+      - sshd-rekeyed
+
+  # Package 7: a static page on another origin that tries to open the app's WebSocket.
+  evil-origin:
+    profiles: ["e2e"]
+    build:
+      context: tests/evil-origin
+    image: portkey-evil-origin:local
+    networks:
+      - outer
+
+  # Package 7 harness, package 9 specs: Playwright for Python, Chromium.
+  e2e:
+    profiles: ["e2e"]
+    build:
+      context: .
+      dockerfile: tests/e2e/Dockerfile
+    image: portkey-e2e:local
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /src
+    environment:
+      PORTKEY_BASE_URL: "http://app:8000"
+      PORTKEY_EVIL_URL: "http://evil-origin:8080"
+      HOME: /tmp
+    volumes:
+      - ./:/src
+    tmpfs:
+      - /tmp:exec,mode=1777
+    shm_size: "1gb"
+    command: ["pytest", "tests/e2e", "-m", "e2e", "-p", "no:cacheprovider"]
+    networks:
+      - outer
+    depends_on:
+      - app
+      - evil-origin
+
+networks:
+  outer: {}
+  inner:
+    internal: true

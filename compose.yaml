@@ -1,0 +1,53 @@
+# Port-Key on Windows (Docker Desktop, WSL2 backend).
+#
+#   docker compose up -d        then open http://localhost:8822
+#
+# Mounts:
+#   %USERPROFILE%\.ssh            -> /ssh             read-only; Port-Key never edits your files
+#   %USERPROFILE%\.ssh\port-key   -> /keys-generated  keys generated in Port-Key (create-only)
+#   named volume portkey-data     -> /data            SQLite database (never on a Windows bind mount)
+#
+# To use a different .ssh folder, set PORTKEY_SSH_DIR before `docker compose up`.
+name: portkey
+
+services:
+  portkey:
+    build:
+      context: .
+      target: runtime
+    image: portkey:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8822:8000"
+    environment:
+      PORTKEY_PUBLIC_PORT: "8822"
+      # Shown in the UI instead of container paths.
+      PORTKEY_SSH_DIR_DISPLAY: "${PORTKEY_SSH_DIR:-${USERPROFILE}/.ssh}"
+      PORTKEY_KEYS_DIR_DISPLAY: "${USERPROFILE}/.ssh/port-key"
+    volumes:
+      - type: bind
+        source: "${PORTKEY_SSH_DIR:-${USERPROFILE}/.ssh}"
+        target: /ssh
+        read_only: true
+      - type: bind
+        source: "${USERPROFILE}/.ssh/port-key"
+        target: /keys-generated
+        bind:
+          create_host_path: true
+      - type: volume
+        source: portkey-data
+        target: /data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Names that resolve only in the Windows hosts file (or MagicDNS) may not resolve inside the
+    # container. Add them here; Diagnostics > "Check a host" shows what the container sees.
+    # extra_hosts:
+    #   - "build-box:192.168.10.20"
+
+volumes:
+  portkey-data:
