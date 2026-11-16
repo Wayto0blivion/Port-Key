@@ -49,9 +49,11 @@ def test_evil_origin_cannot_open_the_websocket(
 
 
 def test_handshake_from_another_origin_is_403(base_url: str) -> None:
-    with pytest.raises(InvalidStatus) as refused:
-        with terminal_socket(base_url, "http://evil-origin:8080"):
-            pass
+    with (
+        pytest.raises(InvalidStatus) as refused,
+        terminal_socket(base_url, "http://evil-origin:8080"),
+    ):
+        pass
     assert refused.value.response.status_code == 403
 
 
