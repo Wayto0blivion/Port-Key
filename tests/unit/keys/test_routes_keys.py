@@ -200,6 +200,21 @@ async def test_hide_reassign_to_password(
     assert (conn.auth_method, conn.key_fp) == ("password", None)
 
 
+async def test_unlock_of_a_key_that_does_not_match_its_pub_is_422(
+    api: httpx.AsyncClient, ssh_dir: Path, tmp_path: Path, kit: Any
+) -> None:
+    # Review finding: an encrypted PEM key next to another key's .pub (listed from the .pub)
+    # decrypts, fails the fingerprint check, and the route answered 500 instead of 422.
+    kit.write_key(ssh_dir, "id_work", fmt="pkcs8-pem", passphrase=kit.passphrase)
+    stray = kit.write_key(tmp_path / "elsewhere", "stray")
+    (ssh_dir / "id_work.pub").write_bytes(stray.public.read_bytes())
+    fp = str(stray.key.get_fingerprint("sha256"))
+    body = {"passphrase": kit.passphrase}
+    r = await api.post(f"/api/keys/{fp_to_id(fp)}/unlock", json=body)
+    assert (r.status_code, r.json()["error"]["code"]) == (422, "key_unreadable")
+    assert "does not match its public key" in r.json()["error"]["message"]
+
+
 async def test_unlock_and_lock(
     api: httpx.AsyncClient,
     wired: Any,

@@ -28,6 +28,7 @@ from portkey.errors import Conflict, ErrorCode, Invalid
 from portkey.keys.discovery import key_unknown, load_private_from_disk, pick_default
 from portkey.models import ConnectionRef, KeyGenSpec, KeyRecord
 from portkey.services import Services
+from portkey.ssh.errors import KeyLocked, KeyUnreadable
 
 router = APIRouter(prefix="/api/keys", tags=["keys"], dependencies=[Depends(require_auth)])
 
@@ -189,7 +190,11 @@ def unlock_key(key_id: str, body: UnlockRequest, services: ServicesDep) -> None:
             f"{record.name} has no passphrase, so there is nothing to unlock.",
             code=ErrorCode.KEY_NOT_ENCRYPTED,
         )
-    key = load_private_from_disk(record, body.passphrase.get_secret_value())
+    try:
+        key = load_private_from_disk(record, body.passphrase.get_secret_value())
+    except (KeyUnreadable, KeyLocked) as exc:
+        # SSH errors carry a WebSocket status (500); over HTTP an unreadable key is 422.
+        raise Invalid(exc.message, code=ErrorCode.KEY_UNREADABLE) from None
     ttl = (
         services.settings.get().passphrase_ttl
         if body.remember
