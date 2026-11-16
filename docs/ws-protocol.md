@@ -292,3 +292,19 @@ S {"type":"done","connection":{...},"outcome":"installed"}
 10. `start` accepts `group_id`, `tags`, `pinned`, `notes` and `connection_id` so the wizard
     can save a complete connection or reinstall a key on an existing one.
 11. Close codes 4400 (bad message) and 4429 (too many sessions) were added.
+
+Decided in package 4 (SSH core, 2026-11-16):
+
+12. `error` `password_not_allowed` carries `methods` too (what the server offered), as
+    `auth_failed` does.
+13. Sign-in order per hop: the hop's key, then password, then keyboard-interactive. A
+    `status` `auth` is sent once per method per hop, when that method starts; the SSH core
+    sends `status` `ready` for the target once the last hop has signed in.
+14. A keyboard-interactive round with no prompts and no name or instructions is answered by
+    the server itself; a round with only text is relayed as `kbdint` with `prompts: []`.
+15. A wrong passphrase, password or keyboard-interactive answer re-prompts with `retry: true`;
+    `kbdint.retry` is true on the first round of a new attempt.
+16. known_hosts matching follows OpenSSH: for a port other than 22 only `[host]:port` lines
+    match, never the port-less `host` line (asyncssh's own matcher would fall back to it).
+17. A reply that lacks what its prompt needs (`accept`, `value`, or one `values` entry per
+    question) is `bad_message`, close 4400.
