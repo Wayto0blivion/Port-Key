@@ -4,7 +4,8 @@
 
     validate -> first connection (key, then password unless assume_installed)
       key works .................................... save, already_installed
-      key refused, assume_installed ................ needs_action key_refused
+      key refused, assume_installed, password
+      or keyboard-interactive offered ............. needs_action key_refused
           install_with_password -> password connection -> install
           save_password_only ...................... save, saved_password_only
       key refused, no password methods ............ needs_action password_not_allowed
@@ -45,7 +46,7 @@ from portkey.ssh.errors import (
 )
 from portkey.wizard import _copy
 from portkey.wizard._remote import run_check, run_install, run_sh
-from portkey.wizard._steps import Attempt, Reporter, StepPrompter
+from portkey.wizard._steps import SECRET_METHODS, Attempt, Reporter, StepPrompter
 from portkey.wizard.remote_script import (
     FIX_PERMS_SCRIPT,
     KeyLine,
@@ -106,7 +107,7 @@ class Run:
                 raise
             await self.steps.ensure_hostkey()
             await self.reporter.send("try_key", "warn", code="refused")
-            if assume:
+            if assume and any(m in SECRET_METHODS for m in exc.methods):
                 return await self._key_refused()
             return await self._password_not_allowed()
         if not self.steps.secret_started:

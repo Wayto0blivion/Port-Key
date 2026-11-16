@@ -117,9 +117,10 @@ async def test_keyonly_with_an_installed_key(svc: Services) -> None:
     assert ("password_login", "running", None) not in io.trail()
 
 
-async def test_keyonly_with_the_unknown_key(svc: Services) -> None:
+@pytest.mark.parametrize("assume", [False, True])
+async def test_keyonly_with_the_unknown_key(svc: Services, assume: bool) -> None:
     unknown = tb.fingerprint(tb.client_public("id_ed25519_portkey"))
-    msg = start("keyonly", key_fp=unknown)
+    msg = start("keyonly", key_fp=unknown, assume_installed=assume)
     exc, io = await run_err(svc, msg, FakePrompter(), ["check_key", "cancel"])
     assert isinstance(exc, PromptCancelled)
     assert [a.code for a in io.asked] == ["password_not_allowed", "password_not_allowed"]

@@ -193,6 +193,13 @@ async def test_assume_installed_refused_then_save_password_only(
     assert ("discard_password", "ok", None) not in io.trail()
 
 
+async def test_assume_installed_refused_by_a_key_only_server(world: Callable[..., World]) -> None:
+    w = world(key_refused(("publickey",)))
+    exc, io = await run_fails(w, start(assume_installed=True), ["cancel"])
+    assert isinstance(exc, PromptCancelled)
+    assert [a.code for a in io.asked] == ["password_not_allowed"]
+
+
 async def test_password_not_allowed_then_check_key(world: Callable[..., World]) -> None:
     w = world(key_refused(), key_refused(quiet=True), key_works())
     _, outcome, io, _ = await run(w, actions=["check_key", "check_key"])
