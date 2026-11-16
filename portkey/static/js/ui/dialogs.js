@@ -198,16 +198,25 @@ async function kbdint(p, ctx) {
     : secretInput({})));
   /** @type {PromptReply|null} */
   let reply = null;
+  // Everything the server chose (name, instructions, questions) is shown as the server's, under
+  // a title Port-Key chose: a hostile server must not be able to dress this up as Port-Key's own
+  // passphrase or sign-in dialog. The host is always named, also for a direct connection.
+  const server = p.hop.name;
+  const name = p.name?.trim() ?? '';
+  const instructions = p.instructions?.trim() ?? '';
   const handle = openModal({
-    title: p.name?.trim() || `Verification for ${p.hop.name}`,
+    title: `Verification for ${server}`,
     width: 460,
     className: 'modal--prompt',
     body: h('div', { class: 'prompt' },
-      hopLabel(p.hop),
-      p.instructions?.trim() ? h('p', { class: 'modal__text prompt__instructions' }, p.instructions.trim()) : null,
-      questions.length ? null : h('p', { class: 'modal__text muted' }, `${p.hop.name} sent a message. Select Continue to go on.`),
+      hopLabel(p.hop) ?? h('p', { class: 'prompt__hop' }, 'Server: ', h('strong', {}, server), h('span', { class: 'mono muted' }, ` ${addr(p.hop.host, p.hop.port)}`)),
+      name || instructions ? h('div', { class: 'prompt__server' },
+        h('p', { class: 'prompt__server-label' }, `Message from ${server}:`),
+        name ? h('p', { class: 'modal__text prompt__server-name' }, name) : null,
+        instructions ? h('p', { class: 'modal__text prompt__instructions' }, instructions) : null) : null,
+      questions.length ? null : h('p', { class: 'modal__text muted' }, `${server} sent a message. Select Continue to go on.`),
       ...questions.map((q, i) => h('div', { class: 'field' },
-        h('label', { class: 'field__label', for: inputs[i].id }, q.text.trim() || 'Answer'), inputs[i]))),
+        h('label', { class: 'field__label', for: inputs[i].id }, `${server} asks: `, h('span', { class: 'prompt__question' }, q.text.trim() || 'Answer')), inputs[i]))),
     buttons: [
       { label: 'Cancel', kind: 'secondary', value: 'cancel' },
       { label: 'Continue', kind: 'primary', value: 'continue' },

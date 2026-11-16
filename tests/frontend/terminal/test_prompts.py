@@ -256,12 +256,21 @@ def test_server_text_is_never_markup(term: TermFactory) -> None:
     dialog = page.get_by_role("dialog", name="Sign in to print-srv")
     dialog.get_by_label("Password for root@192.168.10.15").fill("pa55word")
     page.keyboard.press("Enter")
-    code = page.get_by_role("dialog", name="<b>Bank</b> login")
+    # Security review: the server's name was the dialog title, so a server could make this look
+    # like Port-Key's own passphrase or sign-in dialog. The title is Port-Key's; the server's
+    # text is framed as a message from that host, and each question names the host.
+    code = page.get_by_role("dialog", name="Verification for print-srv")
     expect(code).to_be_visible()
-    expect(code.locator(".prompt__instructions")).to_have_text(
+    expect(code.locator(".prompt__hop")).to_contain_text("Server: print-srv")
+    server = code.locator(".prompt__server")
+    expect(server.locator(".prompt__server-label")).to_have_text("Message from print-srv:")
+    expect(server.locator(".prompt__server-name")).to_have_text("<b>Bank</b> login")
+    expect(server.locator(".prompt__instructions")).to_have_text(
         "<script>alert(1)</script> Enter the code."
     )
-    expect(code.locator(".field__label")).to_have_text("<img src=x onerror=alert(1)>Code:")
+    expect(code.locator(".field__label")).to_have_text(
+        "print-srv asks: <img src=x onerror=alert(1)>Code:"
+    )
     expect(code.locator("img, b, script")).to_have_count(0)
     code.locator("input").fill("492039")
     page.keyboard.press("Enter")

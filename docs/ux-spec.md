@@ -429,6 +429,19 @@ A small dialog when connecting:
 
 While a key is held unlocked, the top-bar indicator offers Lock.
 
+### Verification prompt (keyboard-interactive)
+
+Everything in it but the title and buttons comes from the server, so it is shown as the
+server's: a hostile server must not be able to make it look like Port-Key's own passphrase or
+sign-in dialog.
+
+- Title (Port-Key's): "Verification for web-prod".
+- The host, always (also for a direct connection): "Server: web-prod 192.168.10.42", or the
+  jump-host label in a chain.
+- The server's name and instructions, if any, in a framed box headed "Message from web-prod:".
+- Each question labelled "web-prod asks: Verification code:".
+- Buttons: [Continue] and [Cancel].
+
 ### Quick-connect palette
 
 - A text field over a list of matching connections. Each row shows the colour chip, the name,
