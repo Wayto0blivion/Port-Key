@@ -166,9 +166,7 @@ def test_first_run_without_a_key(app: AppFactory) -> None:
     page = app("nokey")
     home = page.locator(".home")
     expect(home.get_by_role("heading", name="No SSH key found")).to_be_visible()
-    expect(home).to_contain_text(
-        "Port-Key looked in C:\\Users\\john\\.ssh and found no key pair."
-    )
+    expect(home).to_contain_text("Port-Key looked in C:\\Users\\john\\.ssh and found no key pair.")
     home.get_by_role("button", name="Check again").click()
     expect_toast(page, "Still no key pair in C:\\Users\\john\\.ssh.")
     home.get_by_role("button", name="Add connection with a password").click()

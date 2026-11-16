@@ -216,9 +216,7 @@ def test_diagnostics(app: AppFactory) -> None:
     expect(page.get_by_role("tab", name="Diagnostics")).to_have_attribute("aria-selected", "true")
     report = page.locator(".diag__report")
     expect(report).to_contain_text("C:\\Users\\john\\.ssh ✓ found")
-    expect(report).to_contain_text(
-        "C:\\Users\\john\\.ssh\\work.ppk — PuTTY format, not supported"
-    )
+    expect(report).to_contain_text("C:\\Users\\john\\.ssh\\work.ppk — PuTTY format, not supported")
     expect(report).to_contain_text("Port-Key 0.1.0 · Python 3.12.8 · asyncssh 2.18.0")
     page.get_by_label("Host name or address").fill("build-box")
     page.get_by_role("button", name="Check", exact=True).click()

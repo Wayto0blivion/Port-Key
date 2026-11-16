@@ -77,9 +77,7 @@ async def test_declining_a_host_key_is_not_a_failure(world: Callable[..., World]
 def add_jump(w: World) -> str:
     w.connector.jumps = [jump_target()]
     jump = w.connections.create(
-        ConnectionDraft(
-            name="build-box", host="build-box.test", username="john", auth_method="key"
-        )
+        ConnectionDraft(name="build-box", host="build-box.test", username="john", auth_method="key")
     )
     return jump.id
 

@@ -39,7 +39,7 @@ preferred; passwords are a fallback and are never stored.
 | Frontend | Vanilla JS as native ES modules, no build step, vendored xterm.js 5.5 + fit addon |
 | Tests | pytest, sshd test containers, Playwright |
 
-No file over about 400 lines.
+Code size: no file over about 400 lines; a bigger module is split into private modules.
 
 ## Mounts and ports (Windows)
 

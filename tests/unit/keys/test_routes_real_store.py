@@ -61,9 +61,7 @@ async def test_hide_with_reassign_is_one_transaction(
         ConnectionDraft(name="web-prod", host="192.168.10.42", username="john", auth_method="key")
     )
     pinned = started.connections.create(
-        ConnectionDraft(
-            name="build-box", host="192.168.10.20", username="john", auth_method="key"
-        )
+        ConnectionDraft(name="build-box", host="192.168.10.20", username="john", auth_method="key")
     )
     started.connections.update(pinned.id, {"key_fp": ed.fp})
     assert (await authed_client.get("/api/keys")).status_code == 200  # upsert_seen both keys
