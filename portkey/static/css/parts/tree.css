@@ -1,0 +1,226 @@
+/*
+ * parts/tree.css — owner: package 8a. Imported by layout.css.
+ * Sidebar tag chips, folder tree, 44px connection rows, reachability dots, auth glyphs,
+ * session badges and the sidebar suggestions section. Tokens only.
+ */
+
+/* --- chips ------------------------------------------------------------------------------------ */
+
+.tagchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-6) var(--sp-5);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 24px;
+  padding: 0 9px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: var(--fs-md);
+  white-space: nowrap;
+}
+
+button.chip { cursor: pointer; }
+button.chip:hover { border-color: var(--border-strong); color: var(--text-strong); }
+.chip--filter.is-on { background: var(--panel-2); border-color: var(--link); color: var(--text-strong); }
+.chip--more { border-color: transparent; color: var(--muted); }
+
+.chip--small {
+  height: 20px;
+  padding: 0 7px;
+  margin: 1px var(--sp-2) 1px 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.chip--tag { height: 22px; padding: 0 var(--sp-2) 0 var(--sp-4); }
+
+.chip__remove {
+  display: inline-flex;
+  padding: 3px;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip__remove:hover { background: var(--button-bg); color: var(--text-strong); }
+
+/* --- tree ------------------------------------------------------------------------------------- */
+
+.tree,
+.tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree [role="treeitem"]:focus { outline: none; }
+
+.tree [role="treeitem"]:focus-visible > .tree-folder__head,
+.tree [role="treeitem"]:focus-visible > .conn-row {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.tree-folder__head {
+  --indent: 0px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 30px;
+  padding: var(--sp-5) var(--sp-6) var(--sp-2) calc(15px + var(--indent));
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.tree-folder__head:hover .tree-folder__name { color: var(--text-strong); }
+.tree-folder__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.tree-folder__head--virtual .tree-folder__name { color: var(--muted); }
+.tree-folder__head.is-drop { background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--link); }
+
+.tree-chevron { transition: transform 0.1s; }
+[aria-expanded="false"] > .tree-folder__head .tree-chevron,
+[aria-expanded="false"] > .tree-chevron { transform: rotate(-90deg); }
+
+.tree [aria-level="2"] > .tree-folder__head { --indent: var(--tree-indent); }
+.tree [aria-level="3"] > .tree-folder__head { --indent: calc(2 * var(--tree-indent)); }
+.tree [aria-level="3"] > .conn-row { --indent: var(--tree-indent); }
+.tree [aria-level="4"] > .conn-row { --indent: calc(2 * var(--tree-indent)); }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-btn:hover { background: var(--button-bg); color: var(--text-strong); }
+
+.tree-more,
+.row-more { visibility: hidden; margin: -4px 0; }
+
+.tree-folder__head:hover .tree-more,
+[role="treeitem"]:focus-visible > .tree-folder__head .tree-more,
+.conn-row:hover .row-more,
+[role="treeitem"]:focus-visible > .conn-row .row-more { visibility: visible; }
+
+/* --- connection rows -------------------------------------------------------------------------- */
+
+.conn-row {
+  --indent: 0px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  min-height: var(--row-h);
+  padding-right: var(--sp-6);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.conn-row:hover { background: var(--panel-2); }
+.conn-row__stripe { width: var(--label-stripe); align-self: stretch; flex: none; background: var(--lbl); }
+.conn-row .dot { margin-left: var(--indent); }
+.conn-row__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.conn-row__name {
+  font-weight: 600;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-row__addr {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-conn[draggable="true"]:active { cursor: grabbing; }
+
+.dot {
+  width: var(--dot);
+  height: var(--dot);
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--subtle);
+  background: transparent;
+}
+
+.dot--up { border-color: var(--green); background: var(--green); }
+.dot--down { border-color: var(--red); }
+.dot--skipped { border-color: var(--subtle); background: var(--subtle); }
+
+.badge {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+.key-glyph { display: inline-flex; color: var(--brass); }
+
+.pw-glyph {
+  padding: 0 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+.label-chip {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--lbl);
+}
+
+/* --- sidebar suggestions ---------------------------------------------------------------------- */
+
+.sidebar__suggest { margin-top: var(--sp-4); border-top: 1px solid var(--border); }
+
+.sidebar__suggest-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-5) var(--sp-6) var(--sp-5) 15px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: var(--fs-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar__suggest-head:hover { color: var(--text); }
+.sidebar__suggest-label { flex: 1; }
+.sidebar__suggest-body { padding: 0 var(--sp-6) var(--sp-6); }

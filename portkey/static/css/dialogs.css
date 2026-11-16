@@ -3,4 +3,277 @@
  * The modal primitive from ui/modal.js (backdrop, 10px radius, header/body/footer, buttons,
  * form fields, danger variant) and 8a's dialogs: edit connection (folder picker, tags token
  * field), generate key, hide key, forget host key, change password. Tokens only.
+ *
+ * Shared classes (8b's dialogs and wizard build on them):
+ *   .btn .btn--primary/secondary/danger/ghost/outline .btn--sm/xs/lg .btn--block .btn-row
+ *   .input .select .textarea .field .field__label .field__help .field__error .form .form__row
+ *   .check .choice .swatches .tagfield .folderpicker  and the sign-in screen (.login)
  */
+
+/* --- buttons ---------------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  height: var(--button-h);
+  padding: 0 14px;
+  background: var(--button-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: 400;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.btn:hover { border-color: var(--border-strong); color: var(--text-strong); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn:disabled:hover { border-color: var(--border); color: var(--text); }
+.btn--primary { padding: 0 18px; background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); font-weight: 600; }
+.btn--primary:hover { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn--primary:disabled:hover { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
+.btn--secondary { background: var(--button-bg); }
+.btn--strong { color: var(--text-strong); font-weight: 600; }
+.btn--danger { background: transparent; border-color: var(--red); color: var(--red-text); font-weight: 600; }
+.btn--danger:hover:not(:disabled) { background: var(--red); border-color: var(--red); color: var(--on-accent); }
+.btn--ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn--ghost:hover { background: var(--button-bg); border-color: transparent; }
+.btn--outline { background: transparent; }
+.btn--sm { height: 28px; padding: 0 var(--sp-5); font-size: var(--fs-md); }
+.btn--xs { height: 26px; padding: 0 var(--sp-5); font-size: var(--fs-md); }
+.btn--lg { height: 40px; padding: 0 18px; font-size: var(--fs-lg); }
+.btn--block { display: flex; width: 100%; }
+.btn-row { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
+
+/* --- fields ----------------------------------------------------------------------------------- */
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  min-width: 0;
+  height: var(--button-h);
+  padding: 0 var(--sp-5);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-strong);
+}
+
+.select { padding: 0 var(--sp-4); }
+.textarea { height: auto; padding: var(--sp-4) var(--sp-5); resize: vertical; line-height: var(--line); }
+.input.mono, .textarea.mono { font-size: var(--fs-base); }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--link); outline: none; }
+.input:focus-visible, .select:focus-visible, .textarea:focus-visible { outline: 1px solid var(--link); outline-offset: 0; }
+.input[aria-invalid="true"], .select[aria-invalid="true"], .textarea[aria-invalid="true"] { border-color: var(--red); }
+.input:disabled { opacity: 0.6; }
+.input--lg { height: var(--input-h); padding: 0 var(--sp-6); font-size: var(--fs-lg); }
+.input--short { width: 88px; }
+
+.form { display: flex; flex-direction: column; gap: 14px; }
+.form__row { display: flex; flex-wrap: wrap; gap: var(--sp-6); }
+.form__row--end { align-items: flex-end; }
+.form__row > .field--grow { flex: 1 1 200px; }
+.field--port { width: 88px; flex: none; }
+.field--short { flex: none; }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field__label { font-size: var(--fs-md); font-weight: 600; color: var(--text-strong); padding: 0; }
+.field__help { font-size: var(--fs-md); color: var(--muted); }
+.field__error { font-size: var(--fs-md); color: var(--red-text); }
+.field__status { margin-top: -9px; font-size: var(--fs-md); color: var(--green); }
+.field__status:empty { display: none; }
+
+.check { display: flex; align-items: flex-start; gap: var(--sp-4); color: var(--text); cursor: pointer; }
+.check input { margin: 3px 0 0; flex: none; }
+.check__help { display: block; }
+.checklist { display: flex; flex-direction: column; gap: var(--sp-4); margin: 0; padding: 0; border: 0; }
+.checklist legend { margin-bottom: var(--sp-4); }
+
+.choice-list { display: flex; flex-direction: column; gap: var(--sp-4); margin: 0; padding: 0; border: 0; }
+.choice-list legend { padding: 0 0 var(--sp-3); }
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  padding: var(--sp-5) var(--sp-6);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.choice:has(input:checked) { border-color: var(--link); }
+.choice input { margin: 3px 0 0; }
+.choice__title { display: block; font-weight: 600; color: var(--text-strong); }
+.choice__help { display: block; font-size: var(--fs-md); color: var(--muted); }
+
+/* --- colour swatches -------------------------------------------------------------------------- */
+
+.swatches { display: flex; align-items: center; gap: var(--sp-4); min-height: var(--button-h); }
+.swatch { position: relative; display: inline-flex; cursor: pointer; }
+.swatch__input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+
+.swatch__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--lbl);
+  border: 2px solid var(--panel);
+  color: var(--term-bg);
+}
+
+.swatch__dot .icon { visibility: hidden; }
+.swatch__input:checked + .swatch__dot { outline: 2px solid var(--text-strong); }
+.swatch__input:checked + .swatch__dot .icon { visibility: visible; }
+.swatch__input:focus-visible + .swatch__dot { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* --- tag field and folder picker -------------------------------------------------------------- */
+
+.tagfield { position: relative; display: flex; flex-direction: column; gap: 5px; }
+
+.tagfield__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--button-h);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: text;
+}
+
+.tagfield__box:focus-within { border-color: var(--link); }
+.tagfield__chips { display: contents; }
+
+.tagfield__input {
+  flex: 1;
+  min-width: 90px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-strong);
+}
+
+.tagfield__input:focus { outline: none; }
+
+.tagfield__list {
+  position: absolute;
+  top: calc(var(--button-h) + 2px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: var(--sp-2);
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-menu);
+}
+
+.tagfield__option { padding: var(--sp-2) var(--sp-4); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: var(--fs-md); cursor: pointer; }
+.tagfield__option:hover, .tagfield__option.is-active { background: var(--accent-fill); color: var(--on-accent); }
+
+.folderpicker { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.folderpicker__new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.folderpicker__actions { display: flex; justify-content: flex-end; gap: var(--sp-4); }
+
+/* --- modal ------------------------------------------------------------------------------------ */
+
+.modal {
+  width: var(--modal-w, var(--dialog-w));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--shadow-menu);
+  color: var(--text);
+}
+
+.modal::backdrop { background: var(--overlay); }
+
+.modal__box {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 50px);
+  margin: 0;
+}
+
+.modal__head { padding: 18px 22px; border-bottom: 1px solid var(--border); }
+.modal__title { margin: 0; font-size: var(--fs-xl); font-weight: 600; color: var(--text-strong); overflow-wrap: anywhere; }
+.modal__body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; }
+.modal__text { margin: 0; }
+.modal__foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-4); padding: 14px 22px; border-top: 1px solid var(--border); }
+.modal--danger .modal__head { border-bottom-color: var(--red); }
+
+.modal__error {
+  padding: var(--sp-4) var(--sp-6);
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  color: var(--red-text);
+}
+
+/* --- sign-in screen --------------------------------------------------------------------------- */
+
+.login {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0;
+  padding: var(--sp-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+}
+
+.login:not([open]) { display: none; }
+.login::backdrop { background: var(--bg); opacity: 0.97; }
+
+.login__card {
+  width: 100%;
+  max-width: var(--dialog-sm-w);
+  padding: 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-dialog);
+}
+
+.login__form { gap: var(--sp-7); }
+.login__form p { margin: 0; }
+.login__title { margin: 0; font-size: var(--fs-2xl); font-weight: 600; color: var(--text-strong); }
+.login__error { color: var(--red-text); }
+.login__foot { font-size: var(--fs-md); color: var(--muted); }
+.login .wordmark { cursor: default; align-self: flex-start; }
+
+@media (max-width: 599px) {
+  .modal { width: 100vw; max-width: 100vw; max-height: 100vh; margin: auto 0 0; border-radius: var(--radius-dialog) var(--radius-dialog) 0 0; }
+  .modal__box { max-height: 100vh; }
+  .form__row > .field--grow { flex-basis: 100%; }
+  .login { padding: var(--sp-4); }
+  .login__card { padding: var(--sp-8); }
+}
