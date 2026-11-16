@@ -119,7 +119,7 @@ export function failureCopy(err, v) {
 }
 
 /** Codes of a `start` the server could not accept: the form is at fault (close 4400). */
-export const INPUT_CODES = new Set(['name_taken', 'group_unknown', 'jump_cycle', 'jump_too_deep', 'tag_invalid', 'validation']);
+export const INPUT_CODES = new Set(['name_taken', 'group_unknown', 'jump_cycle', 'jump_too_deep', 'tag_invalid', 'validation', 'key_unknown']);
 
 /**
  * The panel for a `needs_action`. The server's message is the same copy with more context (a

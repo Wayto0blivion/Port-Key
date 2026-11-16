@@ -206,7 +206,9 @@ def test_edit_keeps_a_key_missing_from_the_list(app: AppFactory) -> None:
     page.evaluate(FORGET_KEYS)
     page.evaluate("window.__pkMock.failNext('/api/keys', 500, 'internal', 'down')")
     edit(page, "imaging-01")
-    expect(page.locator("#ec-auth option:checked")).to_have_text("SHA256:9dTgV4…mE1s (key not found)")
+    expect(page.locator("#ec-auth option:checked")).to_have_text(
+        "SHA256:9dTgV4…mE1s (key not found)"
+    )
     page.locator("#ec-notes").fill("still on its own key")
     page.get_by_role("button", name="Save", exact=True).click()
     expect(page.get_by_role("dialog")).to_have_count(0)

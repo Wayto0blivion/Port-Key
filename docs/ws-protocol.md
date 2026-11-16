@@ -47,7 +47,8 @@ be answered `{"type": "prompt_reply", "id": "p3", "cancel": true}`, which ends t
 `error` `cancelled` and close 1000. No answer in 120 s -> `error` `prompt_timeout`, close 4408.
 Replies to unknown or stale ids are ignored. Secrets in replies are never logged or echoed.
 
-**`hostkey_new`**: first time this host:port is seen. Nothing has been sent to the host.
+**`hostkey_new`**: first time this host:port is seen on this route (directly, or through this
+jump connection; decision 22). Nothing has been sent to the host.
 
 ```json
 {"type": "prompt", "id": "p1", "kind": "hostkey_new", "hop": {...target...}, "host": "192.168.10.42", "port": 22,
@@ -238,8 +239,8 @@ ends with `error` `cancelled`, close 1000.
 
 A `start` that passes the schema but cannot be saved ends with `error` and close 4400 carrying
 the HTTP API's code for the same problem: `name_taken`, `group_unknown`, `jump_cycle`,
-`jump_too_deep`, `tag_invalid` or `validation` (an unknown `jump_id` is `not_found`, 4404). The
-`message` is ready to show beside the form.
+`jump_too_deep`, `tag_invalid`, `key_unknown` (a hidden key) or `validation` (an unknown
+`jump_id` is `not_found`, 4404). The `message` is ready to show beside the form.
 
 ### Step details
 
@@ -265,7 +266,12 @@ What the server sends, beyond the table above:
   key-only server that refuses the key gives `password_not_allowed`, not `key_refused`.
 - An `action` with nothing waiting is ignored; `ping` before `start` is answered; `close`
   before `start` closes 1000.
-- The saved connection keeps `key_fp` as sent in `start` (null = the default key).
+- A key connection is saved with the fingerprint of the key the wizard installed or verified,
+  also when `start` sent `key_fp: null` (the default key at the time): the host has that key,
+  and a later change of the default key must not switch the connection to another one.
+  *Changed after the backend review (2026-11-16); it kept `null` before.* A hidden key in
+  `start` is refused like a malformed one: close 4400 with `key_unknown`, as the HTTP API
+  answers 422 `key_unknown`.
 
 ### Example: fresh host with 2FA
 
@@ -321,8 +327,10 @@ S {"type":"done","connection":{...},"outcome":"installed"}
 7. `attach` may carry `cols`/`rows`; `open` may carry `force_password`.
 8. The typed host-key name is compared trimmed and ignoring case; the prompt sends the
    expected name as `confirm_name`. Replacing a key whose old record is in the owner's
-   `known_hosts` adds the new key to Port-Key's store; `known_hosts` is never edited, so the
-   old entry also stays trusted.
+   `known_hosts` adds the new key to Port-Key's store; `known_hosts` is never edited.
+   *Changed after the security review (2026-11-16):* the old `known_hosts` key is also marked
+   distrusted on that route in Port-Key's store, so it no longer counts as trusted there (it
+   was the key the owner just replaced, possibly because it leaked).
 9. The wizard reports progress with fixed step names and codes, and asks for decisions with
    `needs_action` / `action` instead of extra prompt kinds. Key already installed saves and
    finishes immediately (outcome `already_installed`), as PLAN.md says; the UI's
@@ -356,3 +364,10 @@ Decided in package 9 (end to end, 2026-11-16), folding in what packages 5, 6 and
 20. /ws/install: the input-rejected codes (close 4400) and the step details above.
 21. The SSH core decides the host key before `status hostkey` and passes the trust `source`
     to its prompter; the wizard's `hostkey` code comes from it instead of a guess.
+
+Decided after the security and backend reviews (2026-11-16):
+
+22. Host-key trust in Port-Key's store is per route: a hop's records are scoped by the saved
+    connection it is reached through (none for a direct hop). `hostkey_new` therefore means
+    "first time on this route", and the same address behind another jump host is checked on
+    its own instead of showing `hostkey_changed`. `known_hosts` applies on every route.

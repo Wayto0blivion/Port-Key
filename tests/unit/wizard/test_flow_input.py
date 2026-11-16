@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -73,6 +74,24 @@ async def test_unknown_key(world: Callable[..., World]) -> None:
     await assert_rejected_before_connecting(
         w, start(key_fp="SHA256:" + "Q" * 43), KeyUnreadable, "key_unreadable"
     )
+
+
+async def test_a_hidden_key_counts_as_unknown(world: Callable[..., World]) -> None:
+    # Review finding: the HTTP API refuses a hidden key (422 key_unknown), the wizard installed
+    # and saved it, breaking "no connection uses a hidden key".
+    w = world()
+    w.keys.records[w.key.fp] = replace(w.key, hidden=True)
+    await assert_rejected_before_connecting(w, start(key_fp=w.key.fp), InputRejected, "key_unknown")
+    assert w.connections.list_all() == []
+
+
+async def test_installed_with_the_default_key_saves_that_key(world: Callable[..., World]) -> None:
+    # Review finding: saved as key_fp null, so a later default-key change switched the
+    # connection to a key the host does not have.
+    w = world(key_works())
+    record, outcome, _, _ = await run(w, start(key_fp=None))
+    assert outcome == "already_installed"
+    assert w.connections.get(record.id).key_fp == w.key.fp
 
 
 async def test_no_key_at_all(world: Callable[..., World]) -> None:

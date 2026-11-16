@@ -101,7 +101,14 @@ def test_wizard_installs_the_key_with_a_password(
     type_command(page, "echo fr-$((40+2)); ls -ld ~/.ssh | cut -c1-10", "drwx------")
 
     saved = api.connections()[name]
-    assert (saved["auth_method"], saved["key_fp"], saved["username"]) == ("key", None, "fresh")
+    # Saved with the key it installed (the default key), not null: a later default-key change
+    # must not switch it to a key the host does not have.
+    default_fp = api.call("GET", "/api/keys")["default_fp"]
+    assert (saved["auth_method"], saved["key_fp"], saved["username"]) == (
+        "key",
+        default_fp,
+        "fresh",
+    )
     watch.check()
 
 

@@ -58,7 +58,8 @@ def test_add_from_a_known_hosts_suggestion(
 
     saved = api.connections()[NAME]
     assert (saved["host"], saved["port"], saved["username"]) == ("sshd", 2222, "keyonly")
-    assert (saved["auth_method"], saved["key_fp"]) == ("key", None)
+    default_fp = api.call("GET", "/api/keys")["default_fp"]
+    assert (saved["auth_method"], saved["key_fp"]) == ("key", default_fp)  # the key that worked
     expect(sidebar_row(page, NAME)).to_have_count(1)
     expect(home.get_by_role("button", name=f"Add {LABEL}", exact=True)).to_have_count(0)
     suggestions = api.call("GET", "/api/hosts/suggestions")["suggestions"]

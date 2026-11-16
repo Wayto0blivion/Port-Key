@@ -49,10 +49,12 @@ async def test_key_already_works(world: Callable[..., World]) -> None:
     assert w.connector.chains[0].closed
     assert w.connector.chains[0].target.commands == []  # no script ran
     saved = w.connections.get(record.id)
+    # start.key_fp was null (the default key): saved with the key that works, not null
+    # (review finding: a later default-key change switched such connections to another key).
     assert (saved.name, saved.auth_method, saved.key_fp, saved.tags) == (
         "web-prod",
         "key",
-        None,
+        w.key.fp,
         ("prod",),
     )
     assert (saved.color, saved.notes) == ("red", "rack 3")

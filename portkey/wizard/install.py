@@ -125,6 +125,12 @@ class InstallWizard:
                 ) from None
         try:
             key = self.keys.resolve(start.key_fp)
+            if key.hidden:  # as the HTTP API: a hidden key counts as unknown
+                raise InputRejected(
+                    f"{key.name} is hidden from Port-Key. Choose another key, or unhide it in "
+                    "Keys first.",
+                    code=ErrorCode.KEY_UNKNOWN,
+                )
         except NotFound:
             raise KeyUnreadable(
                 "Port-Key can't find that key any more. Choose another key, or add the key file "
@@ -145,7 +151,10 @@ class InstallWizard:
     def save(
         self, start: StartMsg, outcome: Outcome, key: KeyRecord, target: HopRef
     ) -> ConnectionRecord:
-        """Create the connection (or update ``connection_id``) and record the event."""
+        """Create the connection (or update ``connection_id``) and record the event. A key
+        connection is saved with the fingerprint of the key that was installed or verified,
+        never ``null`` (the default key): the host has that key, and a later change of the
+        default key must not switch the connection to one the host does not have."""
         auth = "password" if outcome == "saved_password_only" else "key"
         fields = {
             "name": start.name,
@@ -153,7 +162,7 @@ class InstallWizard:
             "port": start.port,
             "username": start.username,
             "auth_method": auth,
-            "key_fp": start.key_fp if auth == "key" else None,
+            "key_fp": key.fp if auth == "key" else None,
             "jump_id": start.jump_id,
             "group_id": start.group_id,
             "tags": tuple(start.tags),
@@ -185,13 +194,15 @@ class InstallWizard:
 
     async def hostkey_code(self, hop: HopRef) -> str | None:
         """``known`` or ``trusted`` for a target whose key was not prompted for: where the
-        accepted key most likely came from. App records win when both sources have keys for
-        host:port, because a replaced key leaves the old known_hosts line behind."""
+        accepted key most likely came from (only used when the SSH core does not say, as for a
+        host certificate). App records on the hop's route win when both sources have keys."""
         known_hosts, host_keys = self.known_hosts, self.host_keys
 
         def read() -> str | None:
-            stored = host_keys.for_host(hop.host, hop.port) if host_keys is not None else []
-            if stored:
+            stored = (
+                host_keys.for_host(hop.host, hop.port, hop.via) if host_keys is not None else []
+            )
+            if any(not r.distrusted for r in stored):
                 return "trusted"
             if known_hosts is not None and known_hosts.lookup(hop.host, hop.port).trusted:
                 return "known"
