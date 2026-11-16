@@ -3,8 +3,7 @@
 Status: agreed with the owner on 2026-11-15. Detail lives in `docs/architecture.md` and
 `docs/ux-spec.md`; where they disagree with this file, this file wins.
 
-The design mockups
-are in `docs/design/` as static HTML.
+The design mockups are in `docs/design/` as static HTML.
 
 ## What it is
 
