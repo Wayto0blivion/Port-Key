@@ -19,10 +19,15 @@ TOKEN_KEY = "portkey.token"
 
 
 def sign_in_with_token(page: Page, base_url: str, token: str) -> None:
-    """Skip the sign-in screen: store ``token`` where the frontend keeps it, then reload."""
+    """Skip the sign-in screen: store ``token`` where the frontend keeps it, then reload.
+
+    The first load must finish booting before the token is stored: a signed-out boot clears
+    the stored token when /api/auth/status answers, which would otherwise race the write."""
     page.goto(base_url.rstrip("/") + "/")
+    page.wait_for_selector("#login-title, .app .tabstrip [role=tab]")
     page.evaluate("([key, token]) => localStorage.setItem(key, token)", [TOKEN_KEY, token])
     page.reload()
+    page.wait_for_selector(".app .tabstrip [role=tab]")
 
 
 def stored_token(page: Page) -> str | None:
