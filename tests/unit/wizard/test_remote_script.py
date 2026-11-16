@@ -111,7 +111,8 @@ def test_parse_key_line_refuses_bad_type_or_data(key_line: str, mangle: object) 
     bad = mangle(t, b)  # type: ignore[operator]
     with pytest.raises(ValueError, match="key") as err:
         parse_key_line(bad)
-    assert "'" not in str(err.value) and "$(" not in str(err.value)
+    assert "'" not in str(err.value)
+    assert "$(" not in str(err.value)
     with pytest.raises(ValueError, match="key"):
         build_install_script(bad)
 
@@ -179,7 +180,13 @@ def test_hostile_comments_under_each_shell(
     ("stdout", "stderr", "status", "outcome", "warn"),
     [
         ("PORTKEY_BEGIN\nPORTKEY_ADDED\n", "", 0, "added", False),
-        ("PORTKEY_BEGIN\r\nPORTKEY_ALREADY\r\nPORTKEY_WARN_PERMS\r\n", "", 0, "already_present", True),
+        (
+            "PORTKEY_BEGIN\r\nPORTKEY_ALREADY\r\nPORTKEY_WARN_PERMS\r\n",
+            "",
+            0,
+            "already_present",
+            True,
+        ),
         ("PORTKEY_BEGIN\nPORTKEY_ADDED\nPORTKEY_WARN_PERMS\n", "", 0, "added", True),
         ("PORTKEY_BEGIN\nPORTKEY_READONLY\n", "mkdir: Read-only file system", 0, "readonly", False),
         ("PORTKEY_BEGIN\nPORTKEY_FAILED\n", "", 0, "failed", False),

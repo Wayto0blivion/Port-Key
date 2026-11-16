@@ -1,5 +1,9 @@
-"""Fixtures for package 6's unit tests; the fakes they use are in ``fakes.py``.
+"""Fixtures for package 6's unit tests; the fakes they use are in ``fakes.py`` and the wired
+wizard and run helpers in ``world.py``.
 
+- ``db``: a migrated SQLite database in a temp dir.
+- ``world(*attempts)``: ``world.make_world`` on ``db``: an ``InstallWizard`` over the fake SSH
+  layer, whose connector plays ``attempts`` in order.
 - ``key_line``: a generated ED25519 public key line with a comment (same key all session).
 - ``other_key_line``: a second, different key line.
 - ``busybox_bin``: a directory of busybox applet links, so a script run with only it on PATH
@@ -12,15 +16,35 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from functools import cache
 from pathlib import Path
 
 import asyncssh
 import pytest
 
+from portkey.store.db import Database
+from tests.unit.wizard.fakes import Attempt
+from tests.unit.wizard.world import World, make_world
+
 SHELLS = ("dash", "bash", "busybox")
 RunSh = Callable[..., subprocess.CompletedProcess[str]]
+
+
+@pytest.fixture
+def db(tmp_path: Path) -> Iterator[Database]:
+    database = Database(tmp_path / "portkey.db")
+    database.migrate()
+    yield database
+    database.close()
+
+
+@pytest.fixture
+def world(db: Database) -> Callable[..., World]:
+    def make(*attempts: Attempt) -> World:
+        return make_world(db, *attempts)
+
+    return make
 
 
 @cache
