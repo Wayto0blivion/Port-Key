@@ -3,4 +3,120 @@
  * The 560px key install wizard: step indicator (1 Host · 2 Identity · 3 Sign in · 4 Verify),
  * host form, "What happens next" box, live checklist, failure panels with collapsed Details,
  * manual-install command box, final summary card. Tokens only.
+ *
+ * The dialog shell reuses .modal / .modal__box / .modal__head / .modal__body / .modal__foot from
+ * dialogs.css; js/wizard/frame.js opens it as a native <dialog>.
  */
+
+.wizard { --modal-w: var(--dialog-w); }
+.wizard__head { display: flex; flex-direction: column; gap: var(--sp-6); padding-bottom: 14px; }
+.wizard__body { gap: var(--sp-7); }
+.wizard > .modal__box > .modal__error { margin: 14px 22px 0; }
+.wizard__foot { justify-content: space-between; }
+.wizard__left, .wizard__right { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
+.wizard__right { margin-left: auto; justify-content: flex-end; }
+.wizard__notice { margin: 0; }
+
+/* --- step indicator ----------------------------------------------------------------------------- */
+
+.wsteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+
+.wsteps__item { padding-bottom: var(--sp-3); border-bottom: 2px solid transparent; }
+.wsteps__item.is-done { color: var(--green); }
+.wsteps__item.is-current { border-bottom-color: var(--link); font-weight: 600; color: var(--text-strong); }
+.wsteps__item.is-problem { border-bottom-color: var(--amber); }
+
+/* --- a step's body ------------------------------------------------------------------------------ */
+
+.wstep { display: flex; flex-direction: column; gap: var(--sp-7); }
+.wstep__title { margin: 0; font-size: var(--fs-2xl); font-weight: 600; color: var(--text-strong); }
+.wstep__title:focus { outline: none; }
+.wstep__title:focus-visible { outline: 2px solid var(--focus-ring); }
+.wstep__lead { margin: 0; font-size: var(--fs-lg); line-height: 1.6; overflow-wrap: anywhere; }
+.wstep__lead strong, .wstep .strong { color: var(--text-strong); }
+.wstep__lead .mono { font-size: var(--fs-base); }
+.wstep__note { margin: 0; color: var(--green); }
+.wstep__sent { display: flex; align-items: center; gap: var(--sp-3); margin: 0; color: var(--green); }
+.wstep__codes { display: flex; flex-direction: column; gap: 14px; }
+.wstep__codes:empty { display: none; }
+.wstep__error { margin: 0; }
+.wstep__status { margin: 0; color: var(--muted); }
+.wstep__status:empty { display: none; }
+.wstep .prompt { gap: var(--sp-7); }
+
+.wbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding: 14px var(--sp-7);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.wbox__title { font-weight: 600; color: var(--text-strong); }
+.wbox__list { display: flex; flex-direction: column; gap: var(--sp-5); margin: 0; padding-left: 1.3em; }
+.wbox__list .mono { font-size: var(--fs-md); }
+
+/* --- live checklist ----------------------------------------------------------------------------- */
+
+.wcheck { display: flex; flex-direction: column; gap: var(--sp-6); margin: 0; padding: 0; list-style: none; font-size: var(--fs-lg); }
+.wcheck__line { display: flex; align-items: flex-start; gap: var(--sp-5); }
+.wcheck__mark { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 20px; flex: none; font-weight: 700; }
+.wcheck__text { display: flex; flex-direction: column; gap: var(--sp-1); }
+.wcheck__note { font-size: var(--fs-md); color: var(--amber); }
+.wcheck__line--done .wcheck__mark { color: var(--green); }
+.wcheck__line--warn .wcheck__mark { color: var(--amber); }
+.wcheck__line--fail .wcheck__mark { color: var(--red-text); }
+.wcheck__line--running { color: var(--muted); }
+.wcheck__line--running .wcheck__mark::before {
+  content: "";
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: var(--amber);
+  animation: pk-pulse 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wcheck__line--running .wcheck__mark::before { animation: none; }
+}
+
+/* --- details, command box, summary card --------------------------------------------------------- */
+
+.wdetails { color: var(--muted); }
+.wdetails summary { cursor: pointer; }
+.wdetails__text { margin: var(--sp-3) 0 0; font-size: var(--fs-md); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow: auto; }
+
+.wcmd { resize: none; font-size: var(--fs-md); line-height: 1.5; color: var(--text); }
+
+.wsummary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  padding: 14px var(--sp-7);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: var(--label-stripe) solid var(--lbl);
+  border-radius: var(--radius);
+}
+
+.wsummary__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.wsummary__name { font-size: var(--fs-lg); font-weight: 600; color: var(--text-strong); }
+.wsummary__addr { color: var(--muted); overflow-wrap: anywhere; }
+.wsummary__key { display: inline-flex; align-items: center; gap: 5px; }
+.wsummary__pw { font-size: var(--fs-md); color: var(--muted); }
+
+@media (max-width: 599px) {
+  .wizard { width: 100vw; max-width: 100vw; max-height: 100vh; margin: auto 0 0; border-radius: var(--radius-dialog) var(--radius-dialog) 0 0; }
+  .wizard__foot { justify-content: flex-end; }
+}
