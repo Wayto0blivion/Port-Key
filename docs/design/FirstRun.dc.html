@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Port-Key first run</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#58a6ff}a:hover{color:#79c0ff}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0d1117; color: #c9d1d9; font-family: system-ui, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.45">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 48px; padding: 6px 16px; box-sizing: border-box; background: #161b22; border-bottom: 1px solid #30363d">
+<a href="Main.dc.html" style="display: flex; align-items: center; gap: 3px; font-size: 16px; font-weight: 700; color: #e6edf3; text-decoration: none; letter-spacing: -0.01em">Port<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="2.2" stroke-linecap="round"><circle cx="7" cy="12" r="3.5"></circle><path d="M10.5 12H21M17 12v3.5M20.5 12v2.5"></path></svg>Key</a>
+<span style="flex: 1 1 240px; max-width: 460px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 32px; padding: 0 12px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #8b949e">
+<span>Connect to…</span>
+<span style="font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 11px; padding: 1px 6px; border: 1px solid #30363d; border-radius: 4px">Ctrl+Shift+K</span>
+</span>
+<div style="display: flex; align-items: center; gap: 8px">
+<a href="Keys.dc.html" style="display: flex; align-items: center; height: 32px; padding: 0 10px; border-radius: 6px; color: #c9d1d9; text-decoration: none">Keys</a>
+<button type="button" style="height: 32px; padding: 0 10px; background: transparent; border: 0; border-radius: 6px; color: #c9d1d9; font: inherit">Settings</button>
+</div>
+</header>
+
+<div style="flex: 1; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="Connections" style="flex: 1 1 280px; max-width: 100%; display: flex; flex-direction: column; background: #161b22; border-right: 1px solid #30363d">
+<div style="padding: 12px">
+<input aria-label="Filter connections" placeholder="Filter connections" disabled style="width: 100%; height: 32px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font: inherit">
+</div>
+<p style="flex: 1; margin: 0; padding: 8px 15px; color: #8b949e">Saved connections appear here, grouped the way you choose.</p>
+<button type="button" style="display: flex; justify-content: space-between; padding: 10px 12px 10px 15px; background: transparent; border: 0; border-top: 1px solid #30363d; color: #8b949e; font: inherit; font-size: 12px; text-align: left"><span>Suggested from known_hosts</span><span>14</span></button>
+<div style="padding: 12px; border-top: 1px solid #30363d">
+<a href="Wizard-1-Host.dc.html" style="display: flex; align-items: center; justify-content: center; height: 36px; background: #1f6feb; border-radius: 6px; color: #ffffff; font-weight: 600; text-decoration: none">Add connection</a>
+</div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+<div style="display: flex; align-items: flex-end; gap: 2px; padding: 6px 8px 0; background: #161b22; border-bottom: 1px solid #30363d">
+<a href="FirstRun.dc.html" aria-label="Home" style="display: flex; align-items: center; height: 32px; padding: 0 12px; background: #0d1117; border: 1px solid #30363d; border-bottom-color: #0d1117; border-radius: 6px 6px 0 0; margin-bottom: -1px; color: #e6edf3"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"></path></svg></a>
+</div>
+
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; padding: 96px 28px 48px">
+<div style="width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 20px">
+<svg aria-hidden="true" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="12" r="3.5"></circle><path d="M10.5 12H21M17 12v3.5M20.5 12v2.5"></path></svg>
+<h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #e6edf3">No connections yet</h1>
+<p style="margin: 0; font-size: 14px; line-height: 1.6">Port-Key found your key <span style="font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px; color: #e3b341">id_ed25519</span> in <span style="font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px">C:\Users\john\.ssh</span>. Add a host and Port-Key installs this key on it, so you stop typing that host's password.</p>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px">
+<span role="img" aria-label="Fingerprint colour strip" style="width: 64px; height: 10px; flex: none; border-radius: 2px; background: linear-gradient(90deg, #f78166 0% 12.5%, #58a6ff 12.5% 25%, #e3b341 25% 37.5%, #3fb950 37.5% 50%, #a371f7 50% 62.5%, #f85149 62.5% 75%, #79c0ff 75% 87.5%, #d29922 87.5% 100%)"></span>
+<span style="font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12px">ED25519 SHA256:Xk3fP0…r9Qa</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<a href="Wizard-1-Host.dc.html" style="display: flex; align-items: center; height: 40px; padding: 0 18px; background: #1f6feb; border-radius: 6px; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none">Add connection</a>
+<button type="button" style="height: 40px; padding: 0 18px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit; font-size: 14px">Copy public key</button>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 600; color: #8b949e">Or start from a host this PC has connected to before</h2>
+<div style="display: flex; flex-direction: column; border: 1px dashed #30363d; border-radius: 6px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px 12px">
+<span style="flex: 1; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12px">web-prod · 192.168.10.42</span>
+<a href="Wizard-1-Host.dc.html" style="display: flex; align-items: center; height: 28px; padding: 0 12px; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; text-decoration: none">Add</a>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid #21262d">
+<span style="flex: 1; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12px">imaging-01 · 192.168.10.31:2222</span>
+<a href="Wizard-1-Host.dc.html" style="display: flex; align-items: center; height: 28px; padding: 0 12px; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; text-decoration: none">Add</a>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid #21262d">
+<span style="flex: 1; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12px">parser-vm · 192.168.10.27</span>
+<a href="Wizard-1-Host.dc.html" style="display: flex; align-items: center; height: 28px; padding: 0 12px; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; text-decoration: none">Add</a>
+</div>
+</div>
+<a href="Main.dc.html" style="align-self: flex-start">See all 14</a>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

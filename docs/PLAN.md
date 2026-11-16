@@ -1,8 +1,10 @@
 # Port-Key plan
 
-Status: draft, waiting on the owner's answers to the open questions at the end.
+Status: agreed with the owner on 2026-11-15. Detail lives in `docs/architecture.md` and
+`docs/ux-spec.md`; where they disagree with this file, this file wins.
 
-Design mockups: see `docs/design/`.
+The design mockups
+are in `docs/design/` as static HTML.
 
 ## What it is
 
@@ -16,9 +18,13 @@ preferred; passwords are a fallback and are never stored.
   on the same PC. The PC's private key is used directly and never leaves the PC.
 - v1 features: saved connections, in-browser terminal with several sessions as tabs, show/copy
   public key, key install wizard (ssh-copy-id equivalent), host suggestions from known_hosts,
-  key generation in the app.
+  key generation in the app, jump hosts.
+- The app requires a login: one app password set on first visit, remembered for 30 days.
+- The owner's key is an ordinary key file in `.ssh` with no passphrase today. Passphrase
+  support is built anyway because they may add one.
 - Not in v1: import from `~/.ssh/config`, SFTP, port forwarding, split panes, snippets,
-  agent-only keys, PuTTY `.ppk` keys, light theme (tokens are kept themeable).
+  agent-only keys, PuTTY `.ppk` keys, deleting key files, connect-once without saving,
+  light theme (colours are CSS custom properties so it is cheap later).
 - Development and every check (tests, lint, types) run in containers on the Linux dev box.
 
 ## Stack
@@ -38,7 +44,7 @@ No file over about 400 lines.
 
 - `%USERPROFILE%\.ssh` -> `/ssh`, read-only. Port-Key never edits or deletes the owner's files.
 - `%USERPROFILE%\.ssh\port-key` -> `/keys-generated`, read-write, create-only. Generated keys
-  land here so Windows `ssh` can use them too. (Open question 2.)
+  land here so Windows `ssh` can use them too.
 - Named volume `portkey-data` -> `/data` for SQLite. Never put SQLite on a Windows bind mount.
 - Published on `127.0.0.1:8822` only.
 
@@ -105,12 +111,17 @@ created with usable ACLs, whether VPN and Tailscale hosts and Windows `hosts`-fi
 reachable from the container. `docs/windows-smoke.md` will list these checks, and a diagnostics
 page will show what the container can resolve and reach.
 
-## Open questions for the owner
+## Jump hosts
 
-1. App login: a single app password (remembered for 30 days) or no login because it only
-   listens on localhost?
-2. Generated keys: saved to `.ssh\port-key` on the PC, or kept only inside the app's volume?
-3. Jump hosts: are any hosts reachable only through another host? If so, a "Jump via" field
-   goes into v1.
-4. Is the PC's key passphrase-protected, and is it a normal file in `.ssh` (not agent-only,
-   not a PuTTY `.ppk`)?
+A connection may name another saved connection as its jump (`jump_id`). Chains are at most
+three hops and cycles are rejected on save. Each hop signs in with its own saved settings and
+gets its own host key check; prompts say which hop they belong to. A connection that others
+jump through cannot be deleted until they are re-pointed. The wizard can install a key on a
+host that is reached through a jump.
+
+## Owner's answers (2026-11-15)
+
+1. App login: yes, a password.
+2. Generated keys: `.ssh\port-key` on the PC.
+3. Jump hosts: build the capability into v1.
+4. PC key: ordinary key pair in `.ssh`, no passphrase; may add one later.

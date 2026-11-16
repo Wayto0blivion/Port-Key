@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Add connection: host details</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#58a6ff}a:hover{color:#79c0ff}
+</style>
+</helmet>
+<div style="width: 600px; height: 680px; box-sizing: border-box; padding: 20px; display: flex; background: #010409; color: #c9d1d9; font-family: system-ui, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.45">
+<div role="dialog" aria-label="Add connection" style="flex: 1; display: flex; flex-direction: column; background: #161b22; border: 1px solid #30363d; border-radius: 10px">
+
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 18px 22px 14px; border-bottom: 1px solid #30363d">
+<h1 style="margin: 0; font-size: 16px; font-weight: 600; color: #e6edf3">Add connection</h1>
+<div style="display: flex; gap: 18px; font-size: 12px">
+<span style="padding-bottom: 6px; border-bottom: 2px solid #58a6ff; font-weight: 600; color: #e6edf3">1 Host</span>
+<span style="color: #8b949e">2 Identity</span>
+<span style="color: #8b949e">3 Sign in</span>
+<span style="color: #8b949e">4 Verify</span>
+</div>
+</div>
+
+<div style="flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 18px 22px">
+<div style="display: flex; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+<label for="w-host" style="font-size: 12px; font-weight: 600; color: #e6edf3">Host</label>
+<input id="w-host" value="192.168.10.42" style="height: 34px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px">
+</div>
+<div style="width: 88px; display: flex; flex-direction: column; gap: 5px">
+<label for="w-port" style="font-size: 12px; font-weight: 600; color: #e6edf3">Port</label>
+<input id="w-port" value="22" style="height: 34px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px">
+</div>
+</div>
+<span style="margin-top: -8px; font-size: 12px; color: #8b949e">Name or IP address, as reachable from this PC.</span>
+
+<div style="display: flex; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+<label for="w-user" style="font-size: 12px; font-weight: 600; color: #e6edf3">User</label>
+<input id="w-user" value="john" style="height: 34px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px">
+</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+<label for="w-name" style="font-size: 12px; font-weight: 600; color: #e6edf3">Name</label>
+<input id="w-name" value="web-prod" style="height: 34px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit">
+</div>
+</div>
+
+<div style="display: flex; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+<label for="w-group" style="font-size: 12px; font-weight: 600; color: #e6edf3">Group</label>
+<select id="w-group" style="height: 34px; padding: 0 8px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit"><option>Office LAN</option><option>Appliances</option><option>VPN</option><option>New group…</option></select>
+</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+<span id="w-colour-label" style="font-size: 12px; font-weight: 600; color: #e6edf3">Colour label</span>
+<div role="group" aria-labelledby="w-colour-label" style="display: flex; align-items: center; gap: 8px; height: 34px">
+<button type="button" aria-label="Red, selected" style="width: 26px; height: 26px; padding: 0; border-radius: 50%; background: #f85149; border: 2px solid #161b22; outline: 2px solid #e6edf3"></button>
+<button type="button" aria-label="Amber" style="width: 26px; height: 26px; padding: 0; border-radius: 50%; background: #d29922; border: 2px solid #161b22"></button>
+<button type="button" aria-label="Green" style="width: 26px; height: 26px; padding: 0; border-radius: 50%; background: #3fb950; border: 2px solid #161b22"></button>
+<button type="button" aria-label="Blue" style="width: 26px; height: 26px; padding: 0; border-radius: 50%; background: #2f81f7; border: 2px solid #161b22"></button>
+<button type="button" aria-label="Purple" style="width: 26px; height: 26px; padding: 0; border-radius: 50%; background: #a371f7; border: 2px solid #161b22"></button>
+<button type="button" aria-label="Grey" style="width: 26px; height: 26px; padding: 0; border-radius: 50%; background: #8b949e; border: 2px solid #161b22"></button>
+</div>
+</div>
+</div>
+<span style="margin-top: -8px; font-size: 12px; color: #8b949e">The colour frames the terminal, so you can tell at a glance which host you are typing into.</span>
+
+<div style="display: flex; gap: 12px">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px">
+<label for="w-key" style="font-size: 12px; font-weight: 600; color: #e6edf3">Sign in with</label>
+<select id="w-key" style="height: 34px; padding: 0 8px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit"><option>Default key (id_ed25519)</option><option>id_rsa</option><option>id_ed25519_portkey</option><option>Password only</option></select>
+</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px">
+<label for="w-jump" style="font-size: 12px; font-weight: 600; color: #e6edf3">Jump via</label>
+<select id="w-jump" style="height: 34px; padding: 0 8px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit"><option>None, connect directly</option><option>vpn-gw</option><option>build-box</option></select>
+</div>
+</div>
+
+<label style="display: flex; align-items: flex-start; gap: 8px; color: #c9d1d9"><input type="checkbox" style="margin-top: 2px"><span>My key is already on this host<br><span style="font-size: 12px; color: #8b949e">Skips the password step. Port-Key checks key login either way.</span></span></label>
+</div>
+
+<div style="display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid #30363d">
+<a href="Main.dc.html" style="display: flex; align-items: center; height: 34px; padding: 0 14px; box-sizing: border-box; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; text-decoration: none">Cancel</a>
+<a href="Wizard-2-Identity.dc.html" style="display: flex; align-items: center; height: 34px; padding: 0 18px; background: #1f6feb; border-radius: 6px; color: #ffffff; font-weight: 600; text-decoration: none">Next</a>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":600,"height":680}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

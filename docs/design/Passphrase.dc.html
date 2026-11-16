@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Passphrase prompt</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#58a6ff}a:hover{color:#79c0ff}
+</style>
+</helmet>
+<div style="width: 460px; height: 360px; box-sizing: border-box; padding: 20px; display: flex; background: #010409; color: #c9d1d9; font-family: system-ui, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.45">
+<div role="dialog" aria-label="Unlock key" style="flex: 1; display: flex; flex-direction: column; background: #161b22; border: 1px solid #30363d; border-radius: 10px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 22px">
+<h1 style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; font-weight: 600; color: #e6edf3"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e3b341" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Unlock id_ed25519</h1>
+<p style="margin: 0">Enter the passphrase for this key to connect to web-prod.</p>
+<div style="display: flex; flex-direction: column; gap: 5px">
+<label for="p-pass" style="font-size: 12px; font-weight: 600; color: #e6edf3">Passphrase</label>
+<input id="p-pass" type="password" style="height: 38px; padding: 0 12px; box-sizing: border-box; background: #0d1117; border: 1px solid #58a6ff; border-radius: 6px; color: #e6edf3; font: inherit; font-size: 14px">
+</div>
+<label style="display: flex; align-items: flex-start; gap: 8px"><input type="checkbox" checked style="margin-top: 2px"><span>Keep unlocked for 8 hours<br><span style="font-size: 12px; color: #8b949e">Held in memory only. Lock it any time from the top bar.</span></span></label>
+</div>
+<div style="display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid #30363d">
+<button type="button" style="height: 34px; padding: 0 14px; background: transparent; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font: inherit">Cancel</button>
+<button type="button" style="height: 34px; padding: 0 18px; background: #1f6feb; border: 0; border-radius: 6px; color: #ffffff; font: inherit; font-weight: 600">Unlock and connect</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":460,"height":360}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

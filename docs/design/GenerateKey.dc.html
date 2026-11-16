@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Generate key</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#58a6ff}a:hover{color:#79c0ff}
+</style>
+</helmet>
+<div style="width: 560px; height: 620px; box-sizing: border-box; padding: 20px; display: flex; background: #010409; color: #c9d1d9; font-family: system-ui, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.45">
+<div role="dialog" aria-label="Generate key" style="flex: 1; display: flex; flex-direction: column; background: #161b22; border: 1px solid #30363d; border-radius: 10px">
+<div style="padding: 18px 22px; border-bottom: 1px solid #30363d">
+<h1 style="margin: 0; font-size: 16px; font-weight: 600; color: #e6edf3">Generate key</h1>
+</div>
+
+<div style="flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 18px 22px">
+<fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="padding: 0 0 6px; font-size: 12px; font-weight: 600; color: #e6edf3">Type</legend>
+<label style="display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: #0d1117; border: 1px solid #58a6ff; border-radius: 6px"><input type="radio" name="ktype" checked style="margin-top: 2px"><span><span style="font-weight: 600; color: #e6edf3">Ed25519</span><br><span style="font-size: 12px; color: #8b949e">Recommended. Small, fast and accepted by every current server.</span></span></label>
+<label style="display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px"><input type="radio" name="ktype" style="margin-top: 2px"><span><span style="font-weight: 600; color: #e6edf3">RSA 4096</span><br><span style="font-size: 12px; color: #8b949e">For old appliances that do not accept Ed25519.</span></span></label>
+</fieldset>
+
+<div style="display: flex; flex-direction: column; gap: 5px">
+<label for="g-name" style="font-size: 12px; font-weight: 600; color: #e6edf3">File name</label>
+<input id="g-name" value="id_ed25519_portkey" style="height: 34px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px">
+<span style="font-size: 12px; color: #8b949e">Saved to C:\Users\john\.ssh\port-key. Port-Key never overwrites an existing file.</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 5px">
+<label for="g-comment" style="font-size: 12px; font-weight: 600; color: #e6edf3">Comment</label>
+<input id="g-comment" value="john@WORKPC port-key 2026-11-14" style="height: 34px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 13px">
+</div>
+
+<div style="display: flex; gap: 12px">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+<label for="g-pass" style="font-size: 12px; font-weight: 600; color: #e6edf3">Passphrase (optional)</label>
+<input id="g-pass" type="password" style="height: 34px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit">
+</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
+<label for="g-pass2" style="font-size: 12px; font-weight: 600; color: #e6edf3">Confirm passphrase</label>
+<input id="g-pass2" type="password" style="height: 34px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit">
+</div>
+</div>
+<span style="margin-top: -8px; font-size: 12px; color: #8b949e">A passphrase protects the key file if someone copies it. Port-Key asks for it once and can keep the key unlocked while it runs.</span>
+</div>
+
+<div style="display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid #30363d">
+<button type="button" style="height: 34px; padding: 0 14px; background: transparent; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font: inherit">Cancel</button>
+<button type="button" style="height: 34px; padding: 0 18px; background: #1f6feb; border: 0; border-radius: 6px; color: #ffffff; font: inherit; font-weight: 600">Generate key</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":560,"height":620}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
