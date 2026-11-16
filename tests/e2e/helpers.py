@@ -97,13 +97,15 @@ class Api:
                 self.call("DELETE", f"/api/hostkeys/{k['id']}", {"confirm_host": host})
 
 
-def reset_ssh_user(user: str, *, totp: tb.Totp | None = None) -> None:
+def reset_ssh_user(
+    user: str, *, totp: tb.Totp | None = None, server: tb.SshServer = tb.SSHD
+) -> None:
     """Put an sshd user's ~/.ssh back as the image had it (after a wizard installed a key)."""
     from tests.fixtures.sshclient import reset_user
 
     # Playwright's sync API keeps an event loop running in this thread, so use another one.
     with ThreadPoolExecutor(max_workers=1) as pool:
-        pool.submit(asyncio.run, reset_user(user, totp=totp)).result(timeout=60)
+        pool.submit(asyncio.run, reset_user(user, totp=totp, server=server)).result(timeout=60)
 
 
 # --- the page ----------------------------------------------------------------------------------
