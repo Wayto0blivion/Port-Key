@@ -17,7 +17,9 @@ import { h, refind } from '../ui/dom.js';
 let closeCurrent = null;
 
 /**
- * @param {{items: MenuItem[], label: string, anchor?: HTMLElement, x?: number, y?: number}} opts
+ * @param {{items: MenuItem[], label: string, anchor?: HTMLElement, x?: number, y?: number, origin?: HTMLElement}} opts
+ *   origin: for a menu at the pointer, the element it was opened on (a scroll that moves it
+ *   closes the menu)
  * @returns {() => void} close
  */
 export function openMenu(opts) {
@@ -53,9 +55,16 @@ export function openMenu(opts) {
   // A menu on an anchor follows it while the anchor stays in view. Opening one on a "⋯" that
   // a wide table half hides scrolls the table to reveal it, and that scroll event arrives
   // after the menu is open; closing on it made the menu vanish at once. A menu at the pointer
-  // closes on any scroll, as before.
+  // closes when the page, or whatever holds the row it was opened on, scrolls. Other scrolls do
+  // not count: a terminal printing output scrolls its own viewport, and that closed every
+  // right-click menu while any shell was busy (found end to end, package 9).
+  const origin = opts.anchor ?? opts.origin ?? null;
   const onScroll = (/** @type {Event} */ e) => {
-    if (menu.contains(/** @type {Node} */ (e.target))) return;
+    const target = /** @type {Node} */ (e.target);
+    if (menu.contains(target)) return;
+    if (target instanceof Element && target !== document.documentElement) {
+      if (origin ? !target.contains(origin) : Boolean(target.closest('.xterm'))) return;
+    }
     if (opts.anchor && opts.x == null && opts.anchor.isConnected && inView(opts.anchor)) position(menu, opts);
     else close(false);
   };

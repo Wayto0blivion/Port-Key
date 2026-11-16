@@ -261,3 +261,22 @@ def test_copy_ssh_command(term: TermFactory) -> None:
     panel(page).get_by_role("button", name="Copy ssh command").click()
     expect(page.locator("#toasts")).to_contain_text("ssh command copied")
     assert page.evaluate("navigator.clipboard.readText()") == "ssh john@192.168.10.42"
+
+
+def test_terminal_output_does_not_close_a_right_click_menu(term: TermFactory) -> None:
+    # Found end to end (package 9): a menu at the pointer closed on any scroll, and a busy
+    # terminal scrolls its own viewport, so right-click menus vanished while a shell printed.
+    page = term()
+    connected(page, "web-prod")
+    row = page.locator(".tree .tree-conn").filter(
+        has=page.locator(".conn-row__name:text-is('build-box')")
+    )
+    row.first.click(button="right")
+    menu = page.get_by_role("menu", name="build-box")
+    expect(menu).to_be_visible()
+    output = "".join(f"line {i}\\r\\n" for i in range(200))
+    page.evaluate(f"(id) => __pkWs.push(id, '{output}')", session_ids(page)[0])
+    expect_rows(page, "line 199")
+    expect(menu).to_be_visible()
+    menu.get_by_role("menuitem", name="Edit").click()
+    expect(page.get_by_role("dialog", name="Edit build-box")).to_be_visible()

@@ -135,7 +135,7 @@ function folderItem(f) {
   head.addEventListener('contextmenu', (e) => {
     if (f.key === PINNED) return;
     e.preventDefault();
-    openFolderMenu(f.group, null, e.clientX, e.clientY);
+    openFolderMenu(f.group, null, e.clientX, e.clientY, head);
   });
   head.addEventListener('dragover', (e) => {
     if (!e.dataTransfer?.types.includes(DRAG_TYPE)) return;
@@ -155,10 +155,10 @@ function folderItem(f) {
   return li;
 }
 
-/** @param {Group|undefined} group @param {HTMLElement|null} anchor @param {number} [x] @param {number} [y] */
-function openFolderMenu(group, anchor, x, y) {
+/** @param {Group|undefined} group @param {HTMLElement|null} anchor @param {number} [x] @param {number} [y] @param {HTMLElement} [origin] */
+function openFolderMenu(group, anchor, x, y, origin) {
   const items = group ? folderMenu(group) : [{ label: 'New folder', onSelect: () => { newFolder(null); } }];
-  openMenu({ items, label: group ? `${group.name} folder` : 'Ungrouped', anchor: anchor ?? undefined, x, y });
+  openMenu({ items, label: group ? `${group.name} folder` : 'Ungrouped', anchor: anchor ?? undefined, x, y, origin });
 }
 
 /** @param {Connection} c @param {number} level @param {string} section */
@@ -198,7 +198,7 @@ function connItem(c, level, section) {
   li.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     setCurrent(li);
-    openMenu({ items: connectionMenu(c), label: c.name, x: e.clientX, y: e.clientY });
+    openMenu({ items: connectionMenu(c), label: c.name, x: e.clientX, y: e.clientY, origin: li });
   });
   li.addEventListener('dragstart', (e) => {
     e.dataTransfer?.setData(DRAG_TYPE, c.id);

@@ -181,7 +181,7 @@ function row(c, i, rows) {
   view.boxes.set(c.id, { tr, box: check });
   tr.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    openMenu({ items: connectionMenu(c), label: c.name, x: e.clientX, y: e.clientY });
+    openMenu({ items: connectionMenu(c), label: c.name, x: e.clientX, y: e.clientY, origin: tr });
   });
   return tr;
 }
