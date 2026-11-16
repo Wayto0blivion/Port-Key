@@ -32,6 +32,10 @@ def test_tree_structure(app: AppFactory) -> None:
     expect(
         folder(page, "Office LAN").locator("> .tree-folder__head .tree-folder__count")
     ).to_contain_text("4")
+    # The count's screen-reader word is singular for one (found end to end, package 9).
+    expect(folder(page, "VPN").locator("> .tree-folder__head .tree-folder__count")).to_have_text(
+        "1 connection"
+    )
     pinned = folder(page, "Pinned").locator(".conn-row__name").all_text_contents()
     assert pinned == ["build-box", "web-prod"]
     expect(row(page, "print-srv").locator(".pw-glyph")).to_have_text("pw")

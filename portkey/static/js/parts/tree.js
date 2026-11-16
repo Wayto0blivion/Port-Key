@@ -111,7 +111,7 @@ function folderItem(f) {
   const head = h('div', { class: `tree-folder__head${virtual ? ' tree-folder__head--virtual' : ''}` },
     icon('chevron', { size: 12, className: 'tree-chevron' }),
     h('span', { class: 'tree-folder__name' }, f.label),
-    h('span', { class: 'tree-folder__count' }, String(f.count), h('span', { class: 'visually-hidden' }, ' connections')));
+    h('span', { class: 'tree-folder__count' }, String(f.count), h('span', { class: 'visually-hidden' }, f.count === 1 ? ' connection' : ' connections')));
   if (f.key !== PINNED) {
     head.appendChild(h('button', {
       type: 'button', class: 'icon-btn tree-more', tabindex: '-1', 'aria-label': `${f.label} folder menu`,
