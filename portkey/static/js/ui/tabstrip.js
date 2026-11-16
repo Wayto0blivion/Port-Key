@@ -37,7 +37,7 @@ import { icon } from '../parts/icons.js';
  * @property {boolean} [activate] default true: activate the new tab
  */
 
-/** @typedef {{spec: TabSpec, tab: HTMLElement, panel: HTMLElement, title: HTMLElement, dot: HTMLElement, activity: HTMLElement}} TabRecord */
+/** @typedef {{spec: TabSpec, tab: HTMLElement, panel: HTMLElement, title: HTMLElement, dot: HTMLElement, status: HTMLElement, activity: HTMLElement}} TabRecord */
 
 /** @type {Map<string, TabRecord>} */
 const tabs = new Map();
@@ -79,6 +79,8 @@ export function addTab(spec) {
   const tid = domId(spec.id);
   const title = h('span', { class: 'tab__title' }, spec.title);
   const dot = h('span', { class: 'tab__dot', hidden: true });
+  // The dot's meaning for screen readers, after the title: "web-prod, connected".
+  const status = h('span', { class: 'visually-hidden' });
   const activity = h('span', { class: 'tab__activity', hidden: true });
   const tab = h('div', {
     id: tid,
@@ -94,7 +96,7 @@ export function addTab(spec) {
     tab.setAttribute('aria-label', spec.title);
     tab.appendChild(icon(spec.icon, { size: 15 }));
   } else {
-    tab.append(dot, title, activity);
+    tab.append(dot, title, status, activity);
   }
   if (spec.closable) {
     tab.appendChild(h('button', {
@@ -123,7 +125,7 @@ export function addTab(spec) {
     id: `${tid}-panel`, class: 'tabpanel', role: 'tabpanel', 'aria-labelledby': tid, hidden: true,
     dataset: { panel: spec.id },
   });
-  const record = { spec, tab, panel, title, dot, activity };
+  const record = { spec, tab, panel, title, dot, status, activity };
   tabs.set(spec.id, record);
   order.push(spec.id);
   stripEl.appendChild(tab);
@@ -207,9 +209,8 @@ export function updateTab(id, patch) {
     record.dot.dataset.state = state;
     record.dot.className = `tab__dot${state ? ` tab__dot--${state}` : ''}`;
     record.dot.hidden = !state;
-    clear(record.dot);
     const text = /** @type {Record<string, string>} */ (DOT_TEXT)[state];
-    if (text) record.dot.appendChild(h('span', { class: 'visually-hidden' }, `, ${text}`));
+    record.status.textContent = text ? `, ${text}` : '';
   }
 }
 

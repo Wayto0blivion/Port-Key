@@ -19,6 +19,15 @@ def key_names(page: Page) -> list[str]:
     return names
 
 
+def test_keys_table_is_never_squeezed_into_its_own_scroll_box(app: AppFactory) -> None:
+    # Found in package 9's screenshots: on a short window the page's flex column shrank the
+    # table, which clipped its last row behind a scroll bar of its own.
+    page = app(height=420)
+    open_keys(page)
+    wrap = page.locator(".keys .table-wrap")
+    assert wrap.evaluate("el => el.scrollHeight - el.clientHeight") == 0
+
+
 def test_keys_table_and_detail(app: AppFactory) -> None:
     page = app()
     open_keys(page)

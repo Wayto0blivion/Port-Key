@@ -241,6 +241,8 @@
 /* --- generic page parts ----------------------------------------------------------------------- */
 
 .page { display: flex; flex-direction: column; gap: var(--sp-9); max-width: 1200px; }
+/* The page scrolls as a whole; a tall table must not shrink into its own scroll box. */
+.page > * { flex-shrink: 0; }
 
 .page__head {
   display: flex;
