@@ -10,7 +10,7 @@ import pytest
 from portkey.models import HopRef, HopTarget
 from portkey.services import Services
 from portkey.ssh.chain import OpenChain
-from portkey.ssh.errors import HostKeyChanged, JumpFailed
+from portkey.ssh.errors import ConnectionRefused, DnsError, HostKeyChanged, JumpFailed
 from tests.fixtures import testbed as tb
 from tests.fixtures.prompter import FakePrompter
 from tests.integration.ssh.helpers import (
@@ -87,6 +87,24 @@ async def test_a_refused_jump_is_wrapped_in_jump_failed(svc: Services) -> None:
     assert failed.value.hop is not None
     assert failed.value.hop.index == 0
     assert "refused the connection on port 2200" in failed.value.message
+
+
+async def test_the_jump_host_reports_the_target_refused(svc: Services) -> None:
+    jump = add_conn(svc, "jump", "sshd", "keyonly")
+    inner = add_conn(svc, "inner", "sshd-inner", "keyonly", port=2200, jump=jump)
+    with pytest.raises(ConnectionRefused) as failed:
+        await open_chain(svc, inner.id, FakePrompter())
+    assert failed.value.hop is not None
+    assert failed.value.hop.role == "target"
+
+
+async def test_the_jump_host_cannot_resolve_the_target(svc: Services) -> None:
+    jump = add_conn(svc, "jump", "sshd", "keyonly")
+    inner = add_conn(svc, "inner", "no-such-host.invalid", "keyonly", jump=jump)
+    with pytest.raises(DnsError) as failed:
+        await open_chain(svc, inner.id, FakePrompter())
+    assert failed.value.hop is not None
+    assert failed.value.hop.index == 1
 
 
 async def test_a_jump_sign_in_failure_is_wrapped(svc: Services) -> None:
