@@ -52,9 +52,14 @@ integration:
 	$(DC) --profile integration run --rm integration; rc=$$?; \
 	$(DC) --profile integration down -v --remove-orphans; exit $$rc
 
+# The first-visit setup code is only in the app container's log, as on the PC. The e2e container
+# has no Docker access, so once the app is healthy its log goes to the specs in PORTKEY_APP_LOG
+# (tests/e2e/harness/app_log.py), the way the owner reads `docker compose logs portkey`.
 e2e:
 	$(DC) --profile e2e build sshd app evil-origin e2e
-	$(DC) --profile e2e run --rm e2e; rc=$$?; \
+	$(DC) --profile e2e up -d --wait app evil-origin \
+	  && PORTKEY_APP_LOG="$$($(DC) --profile e2e logs --no-color app)" \
+	     $(DC) --profile e2e run --rm --no-deps e2e; rc=$$?; \
 	$(DC) --profile e2e down -v --remove-orphans; exit $$rc
 
 shell:

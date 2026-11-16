@@ -17,8 +17,8 @@ What the integration itself changed, and how to run things now, is in
   local process that reaches 127.0.0.1:8822 before the owner does (another Windows account, a
   WSL distro, local software, all in the threat model) can set the password, take a token and
   use the owner's SSH keys. The Origin check stops browser pages from doing this, but not local
-  processes. **Not implemented**: it changes `docs/api.md`, `SetupRequest`, `docs/ux-spec.md`
-  and the first-run screen, and the owner has not decided. Nobody should build it until they do.
+  processes. *Decided and built (2026-11-16):* the owner approved it; see
+  `docs/handoff/setup-code.md`.
 
 ## Packages 4, 5 and 6 (SSH core, terminal, wizard)
 
@@ -239,7 +239,8 @@ known_hosts notes there matter most.
 
 - (package 1) Where the contract weakens these defences: (a) GET/HEAD/OPTIONS are exempt from
   the Origin/CSRF checks, so every owner must keep GET routes free of side effects;
-  (b) unauthenticated first-visit setup (see "Open decisions"); (c) behind Docker Desktop's port
+  (b) unauthenticated first-visit setup (see "Open decisions"; *later: closed by the setup
+  code*); (c) behind Docker Desktop's port
   proxy every client has the same peer address, so the per-client backoff is effectively global
   and a local process can keep the owner out of login for up to 10 minutes at a time;
   (d) PORTKEY_ALLOWED_HOSTS trusts each listed name for both Host and Origin, so listing a LAN

@@ -17,8 +17,8 @@ def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def _setup(client: httpx.AsyncClient) -> str:
-    r = await client.post("/api/auth/setup", json={"password": PW})
+async def _setup(client: httpx.AsyncClient, code: str) -> str:
+    r = await client.post("/api/auth/setup", json={"password": PW, "code": code})
     assert r.status_code == 200, r.text
     return str(r.json()["token"])
 
@@ -37,42 +37,59 @@ class FakeClock:
 # --- status / setup / login / logout -------------------------------------------------------------
 
 
-async def test_status_before_and_after_setup(client: httpx.AsyncClient) -> None:
+async def test_status_before_and_after_setup(client: httpx.AsyncClient, setup_code: str) -> None:
     r = await client.get("/api/auth/status")
-    assert r.json() == {"setup": False, "authenticated": False}
-    token = await _setup(client)
+    assert r.json() == {"setup": False, "authenticated": False, "setup_code": "required"}
+    token = await _setup(client, setup_code)
     r = await client.get("/api/auth/status")
-    assert r.json() == {"setup": True, "authenticated": False}
+    assert r.json() == {"setup": True, "authenticated": False, "setup_code": None}
     r = await client.get("/api/auth/status", headers=bearer(token))
-    assert r.json() == {"setup": True, "authenticated": True}
+    assert r.json() == {"setup": True, "authenticated": True, "setup_code": None}
     r = await client.get("/api/auth/status", headers=bearer("x" * 43))
-    assert r.json() == {"setup": True, "authenticated": False}
+    assert r.json() == {"setup": True, "authenticated": False, "setup_code": None}
 
 
-async def test_setup_response_shape(client: httpx.AsyncClient) -> None:
-    r = await client.post("/api/auth/setup", json={"password": PW})
+async def test_setup_response_shape(client: httpx.AsyncClient, setup_code: str) -> None:
+    r = await client.post("/api/auth/setup", json={"password": PW, "code": setup_code})
     body = r.json()
     assert set(body) == {"token", "expires_at"}
     assert body["expires_at"].endswith("Z")
     assert PW not in r.text
 
 
-async def test_setup_twice_is_409(client: httpx.AsyncClient) -> None:
-    await _setup(client)
-    r = await client.post("/api/auth/setup", json={"password": "another password"})
+async def test_setup_twice_is_409(client: httpx.AsyncClient, setup_code: str) -> None:
+    await _setup(client, setup_code)
+    r = await client.post(
+        "/api/auth/setup", json={"password": "another password", "code": setup_code}
+    )
     assert r.status_code == 409
     assert r.json()["error"]["code"] == "already_setup"
 
 
 @pytest.mark.parametrize(
-    "body", [{"password": "short"}, {"password": "x" * 1025}, {}, {"password": PW, "admin": True}]
+    "body",
+    [
+        {"password": "short", "code": "{code}"},
+        {"password": "x" * 1025, "code": "{code}"},
+        {},
+        {"password": PW},
+        {"password": PW, "code": ""},
+        {"password": PW, "code": "{code}" + "-" * 60},
+        {"password": PW, "code": "{code}", "admin": True},
+    ],
 )
-async def test_setup_validation(client: httpx.AsyncClient, body: dict[str, Any]) -> None:
+async def test_setup_validation(
+    client: httpx.AsyncClient, setup_code: str, body: dict[str, Any]
+) -> None:
+    body = {k: v.replace("{code}", setup_code) if k == "code" else v for k, v in body.items()}
     r = await client.post("/api/auth/setup", json=body)
     assert r.status_code == 422
     assert r.json()["error"]["code"] == "validation"
+    assert setup_code not in r.text
     status = await client.get("/api/auth/status")
     assert status.json()["setup"] is False
+    # Nothing was used up: the code still works.
+    await _setup(client, setup_code)
 
 
 async def test_login_before_setup_is_409(client: httpx.AsyncClient) -> None:
@@ -81,8 +98,8 @@ async def test_login_before_setup_is_409(client: httpx.AsyncClient) -> None:
     assert r.json()["error"]["code"] == "not_setup"
 
 
-async def test_login_good_and_bad(client: httpx.AsyncClient) -> None:
-    await _setup(client)
+async def test_login_good_and_bad(client: httpx.AsyncClient, setup_code: str) -> None:
+    await _setup(client, setup_code)
     r = await client.post("/api/auth/login", json={"password": PW})
     assert r.status_code == 200
     assert (await client.get("/api/auth/status", headers=bearer(r.json()["token"]))).json()[
@@ -95,9 +112,9 @@ async def test_login_good_and_bad(client: httpx.AsyncClient) -> None:
 
 
 async def test_login_rate_limited_with_retry_after(
-    client: httpx.AsyncClient, services: Services
+    client: httpx.AsyncClient, services: Services, setup_code: str
 ) -> None:
-    await _setup(client)
+    await _setup(client, setup_code)
     clock = FakeClock(500.0)
     services.auth.clock = clock  # type: ignore[attr-defined]
     for _ in range(3):
@@ -114,8 +131,8 @@ async def test_login_rate_limited_with_retry_after(
     assert r.status_code == 200
 
 
-async def test_logout_revokes_this_token_only(client: httpx.AsyncClient) -> None:
-    a = await _setup(client)
+async def test_logout_revokes_this_token_only(client: httpx.AsyncClient, setup_code: str) -> None:
+    a = await _setup(client, setup_code)
     b = (await client.post("/api/auth/login", json={"password": PW})).json()["token"]
     r = await client.post("/api/auth/logout", json={}, headers=bearer(a))
     assert r.status_code == 204
@@ -128,8 +145,8 @@ async def test_logout_revokes_this_token_only(client: httpx.AsyncClient) -> None
     assert r.status_code == 401
 
 
-async def test_logout_needs_token(client: httpx.AsyncClient) -> None:
-    await _setup(client)
+async def test_logout_needs_token(client: httpx.AsyncClient, setup_code: str) -> None:
+    await _setup(client, setup_code)
     r = await client.post("/api/auth/logout", json={})
     assert r.status_code == 401
     assert r.json()["error"]["code"] == "unauthorized"
@@ -138,8 +155,10 @@ async def test_logout_needs_token(client: httpx.AsyncClient) -> None:
 # --- password change -----------------------------------------------------------------------------
 
 
-async def test_change_password_revokes_every_other_token(client: httpx.AsyncClient) -> None:
-    mine = await _setup(client)
+async def test_change_password_revokes_every_other_token(
+    client: httpx.AsyncClient, setup_code: str
+) -> None:
+    mine = await _setup(client, setup_code)
     other = (await client.post("/api/auth/login", json={"password": PW})).json()["token"]
     r = await client.post(
         "/api/auth/password", json={"old": PW, "new": "new password 2026"}, headers=bearer(mine)
@@ -154,8 +173,10 @@ async def test_change_password_revokes_every_other_token(client: httpx.AsyncClie
     assert r.status_code == 200
 
 
-async def test_change_password_wrong_old_is_bad_password(client: httpx.AsyncClient) -> None:
-    mine = await _setup(client)
+async def test_change_password_wrong_old_is_bad_password(
+    client: httpx.AsyncClient, setup_code: str
+) -> None:
+    mine = await _setup(client, setup_code)
     r = await client.post(
         "/api/auth/password", json={"old": "nope", "new": "new password 2026"}, headers=bearer(mine)
     )
@@ -164,15 +185,17 @@ async def test_change_password_wrong_old_is_bad_password(client: httpx.AsyncClie
     assert (await client.get("/api/auth/status", headers=bearer(mine))).json()["authenticated"]
 
 
-async def test_change_password_needs_token(client: httpx.AsyncClient) -> None:
-    await _setup(client)
+async def test_change_password_needs_token(client: httpx.AsyncClient, setup_code: str) -> None:
+    await _setup(client, setup_code)
     r = await client.post("/api/auth/password", json={"old": PW, "new": "new password 2026"})
     assert r.status_code == 401
     assert r.json()["error"]["code"] == "unauthorized"
 
 
-async def test_change_password_short_new_is_422_without_echo(client: httpx.AsyncClient) -> None:
-    mine = await _setup(client)
+async def test_change_password_short_new_is_422_without_echo(
+    client: httpx.AsyncClient, setup_code: str
+) -> None:
+    mine = await _setup(client, setup_code)
     r = await client.post(
         "/api/auth/password", json={"old": PW, "new": "tiny"}, headers=bearer(mine)
     )
@@ -206,9 +229,9 @@ async def _call(client: httpx.AsyncClient, method: str, path: str, **kw: Any) ->
     [None, "", "Bearer", "Bearer garbage", "Basic dXNlcjpwYXNz", "Bearer " + "A" * 43],
 )
 async def test_protected_routes_refuse_without_valid_token(
-    client: httpx.AsyncClient, method: str, path: str, authorization: str | None
+    client: httpx.AsyncClient, setup_code: str, method: str, path: str, authorization: str | None
 ) -> None:
-    await _setup(client)
+    await _setup(client, setup_code)
     headers = {} if authorization is None else {"Authorization": authorization}
     r = await _call(client, method, path, headers=headers)
     assert r.status_code == 401
@@ -217,26 +240,30 @@ async def test_protected_routes_refuse_without_valid_token(
 
 @pytest.mark.parametrize(("method", "path"), PROTECTED)
 async def test_protected_routes_accept_a_valid_token(
-    client: httpx.AsyncClient, method: str, path: str
+    client: httpx.AsyncClient, setup_code: str, method: str, path: str
 ) -> None:
-    token = await _setup(client)
+    token = await _setup(client, setup_code)
     r = await _call(client, method, path, headers=bearer(token))
     assert r.status_code != 401
 
 
-async def test_expired_token_is_signed_out(client: httpx.AsyncClient, services: Services) -> None:
+async def test_expired_token_is_signed_out(
+    client: httpx.AsyncClient, services: Services, setup_code: str
+) -> None:
     clock = FakeClock(1_800_000_000.0)
     services.tokens.clock = clock  # type: ignore[attr-defined]
-    token = await _setup(client)
+    token = await _setup(client, setup_code)
     clock.advance(30 * DAY + 1)
     r = await client.get("/api/keys", headers=bearer(token))
     assert r.status_code == 401
 
 
-async def test_used_token_slides(client: httpx.AsyncClient, services: Services) -> None:
+async def test_used_token_slides(
+    client: httpx.AsyncClient, services: Services, setup_code: str
+) -> None:
     clock = FakeClock(1_800_000_000.0)
     services.tokens.clock = clock  # type: ignore[attr-defined]
-    token = await _setup(client)
+    token = await _setup(client, setup_code)
     for _ in range(3):
         clock.advance(20 * DAY)
         r = await client.get("/api/auth/status", headers=bearer(token))

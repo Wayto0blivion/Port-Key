@@ -46,7 +46,8 @@ do not collide:
 ./mk check P=portkey-wp3 FILES="portkey/keys tests/unit/keys" TESTS=tests/unit/keys
                                 # lint/unit narrowed to your paths (mypy always runs on all)
 ./mk integration P=portkey-wp4  # sshd containers + tests/integration (package 7 completes)
-./mk e2e P=portkey-wp9          # app + Playwright (package 7 harness, package 9 specs)
+./mk e2e P=portkey-wp9          # app + Playwright (package 7 harness, package 9 specs); passes
+                                # the app's log (setup code) in PORTKEY_APP_LOG
 ./mk clean P=portkey-wp4        # stop and remove that project's containers and volumes
 ```
 
@@ -121,7 +122,7 @@ repositories through `asyncio.to_thread`; see `portkey/interfaces.py` and
 
 | # | Package | Implements |
 |---|---|---|
-| 1 | Security | Host/Origin/X-Port-Key/Content-Type guard, scrypt app password with backoff, tokens, CSP and headers, log redaction, the 422 handler, the middleware section of `app.py`, `/api/auth/*` |
+| 1 | Security | Host/Origin/X-Port-Key/Content-Type guard, scrypt app password with backoff, the first-visit setup code (`security/setup_code.py`, added 2026-11-16), tokens, CSP and headers, log redaction, the 422 handler, the middleware section of `app.py`, `/api/auth/*` |
 | 2 | Storage | Every repository in `store/` including folders (depth 3, sibling names, move-under-descendant, delete re-parenting) and tags (normalisation, rename-merge, last-use cleanup), bulk edit (atomic), connection and settings routes, folder and tag routes |
 | 3 | Keys | `textio`, discovery with dedupe and display paths, keygen (O_EXCL + rename), vault with TTL, known_hosts parsing and suggestions, key and host routes |
 | 4 | SSH core | asyncssh client callbacks, host-key decision table and prompts, jump chains, `WsPrompter` and the WebSocket auth handshake |

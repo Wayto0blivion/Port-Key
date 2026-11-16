@@ -31,6 +31,7 @@ from portkey.keys.discovery import FsKeyProvider
 from portkey.keys.known_hosts import FileKnownHosts
 from portkey.keys.vault import MemoryKeyVault
 from portkey.security.auth import PasswordAuth
+from portkey.security.setup_code import announce as announce_setup_code
 from portkey.security.tokens import SqliteTokenStore
 from portkey.sessions.registry import MemorySessionRegistry
 from portkey.ssh.chain import ChainConnector
@@ -68,6 +69,11 @@ class Services:
 
     async def startup(self) -> None:
         self.db.migrate()
+        # While no app password exists, first-visit setup needs a one-time code that only
+        # the container log shows (docs/architecture.md section 4, "App login").
+        code = self.auth.new_setup_code()
+        if code is not None:
+            announce_setup_code(code, f"http://localhost:{self.config.public_port}")
         await self.sessions.start()
 
     async def shutdown(self) -> None:

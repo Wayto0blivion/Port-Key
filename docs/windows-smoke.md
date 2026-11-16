@@ -31,6 +31,9 @@ docker compose ps
 - [ ] `docker compose ps` shows `portkey` as `running (healthy)` within a minute.
 - [ ] `docker compose logs portkey` shows `Uvicorn running on http://0.0.0.0:8000` (the port
       inside the container; Docker publishes it as 8822) and no `Traceback`.
+- [ ] The same log shows one block between two lines of `=` with `Setup code:` and a code like
+      `K7QM-3XRP-W9TD`, saying to open http://localhost:8822 and type it in the "Setup code"
+      field. Keep it for step 2.
 - [ ] Only this PC can reach it: `netstat -ano | findstr :8822` shows `127.0.0.1:8822` and no
       `0.0.0.0:8822` line.
 - [ ] `C:\Users\<you>\.ssh\port-key` exists now (Docker creates it).
@@ -38,7 +41,14 @@ docker compose ps
 ## 2. Where to find the app
 
 - [ ] <http://localhost:8822> in Edge (and Chrome, if you use it) shows "Set a password for
-      Port-Key". Set it.
+      Port-Key" with a "Setup code" field first; its help text names
+      `docker compose logs portkey`.
+- [ ] Type a wrong code (for example `AAAA-BBBB-CCCC`) with a password: "That setup code is not
+      correct…" appears under the code field and the password fields stay filled.
+- [ ] Type the code from step 1 in lower case without the dashes, and set the password: it
+      works.
+- [ ] `docker compose restart`, then `docker compose logs portkey`: no new `Setup code:` line
+      appears (a password exists now).
 - [ ] Then: "No connections yet" names your key (`id_ed25519` or similar) and the Windows path
       `C:\Users\<you>\.ssh`, never `/ssh`.
 - [ ] <http://127.0.0.1:8822> works too (it asks you to sign in: a different address is a
@@ -128,8 +138,11 @@ If you have none, add one (as administrator) to `C:\Windows\System32\drivers\etc
 
 - [ ] `docker compose restart`: you stay signed in; connections and trusted host keys are kept.
 - [ ] Settings > Change password works, and the old password no longer signs in.
-- [ ] Optional: `docker compose exec portkey python -m portkey.reset_password --yes`, then the
-      page asks to set a password again, and the connections are still there.
+- [ ] Optional: `docker compose exec portkey python -m portkey.reset_password --yes`, then
+      reload the page: it asks to set a password again and says Port-Key needs a restart for a
+      setup code; setting one is refused. `docker compose restart portkey` and
+      `docker compose logs portkey` show a new code; with it the password can be set, and the
+      connections are still there.
 
 ## What to send back
 
@@ -140,7 +153,8 @@ When a check fails, send:
    involved.
 3. `docker compose ps` and `docker compose logs --tail 200 portkey`. The log never contains
    passwords, passphrases, tokens or terminal contents, but it does contain host names, user
-   names and key fingerprints; edit those out if you prefer.
+   names and key fingerprints; edit those out if you prefer. Until a password is set it also
+   shows the setup code; a code is useless once the password is set.
 4. `docker version` and `wsl --version`.
 5. Browser problems: the browser name and version, and the Console tab of the developer tools
    (F12) after reproducing it.

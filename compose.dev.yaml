@@ -182,6 +182,9 @@ services:
       PORTKEY_BASE_URL: "http://localhost:8822"
       PORTKEY_CONNECT_TO: "app:8822"
       PORTKEY_EVIL_URL: "http://evil-origin:8080"
+      # `docker compose logs app` once the app is healthy (the Makefile's e2e target sets it):
+      # the specs read the first-visit setup code from it, as the owner reads the PC's log.
+      PORTKEY_APP_LOG: "${PORTKEY_APP_LOG:-}"
       HOME: /tmp
     volumes:
       - ./:/src

@@ -8,9 +8,12 @@
  * client is checked against the contract.
  *
  * Scenario: window.__PK_MOCK_SCENARIO, else ?mock=<name> on the page URL, else "normal".
- * Valid token: "mock-token" (except in "signedout"/"setup") plus any token issued by login.
- * App password: "correct horse battery". Test hooks on window.__pkMock:
- *   calls      every request: {method, path, auth, csrf, json, body} (passwords removed)
+ * Valid token: "mock-token" (except in "signedout"/"setup"/"setup-restart") plus any token
+ * issued by login. App password: "correct horse battery". Setup code (as if from the
+ * container log): "K7QM-3XRP-W9TD"; scenario "setup-restart" holds none, as after a password
+ * reset while Port-Key ran. Wrong codes share the login's failure count. Test hooks on
+ * window.__pkMock:
+ *   calls      every request: {method, path, auth, csrf, json, body} (passwords and codes removed)
  *   expire()   invalidate every token: the next call gets 401
  *   failNext(pathPart, status, code, message)  one-shot failure for a matching path
  */
@@ -20,10 +23,13 @@
   const scenario = window.__PK_MOCK_SCENARIO || params.get('mock') || 'normal';
   const d = window.__pkMockData(scenario);
   const PASSWORD = 'correct horse battery';
+  const SETUP_CODE = 'K7QM-3XRP-W9TD';
+  const firstVisit = scenario === 'setup' || scenario === 'setup-restart';
   const delay = scenario === 'slow' ? 1200 : 30;
   const db = {
-    setup: scenario !== 'setup',
-    tokens: new Set(scenario === 'signedout' || scenario === 'setup' ? [] : ['mock-token']),
+    setup: !firstVisit,
+    code: scenario === 'setup' ? SETUP_CODE : null,
+    tokens: new Set(scenario === 'signedout' || firstVisit ? [] : ['mock-token']),
     failures: 0,
     connections: d.connections, groups: d.groups, keys: d.keys, problems: d.problems, defaultFp: d.defaultFp,
     suggestions: d.suggestions, dismissed: new Set(), hostKeys: d.hostKeys,
@@ -103,11 +109,22 @@
 
   const routes = [
     ['GET', /^\/api\/health$/, () => ({ status: 'ok', version: '0.1.0' })],
-    ['GET', /^\/api\/auth\/status$/, (req) => ({ setup: db.setup, authenticated: db.tokens.has(req.token) })],
+    ['GET', /^\/api\/auth\/status$/, (req) => ({ setup: db.setup, authenticated: db.tokens.has(req.token),
+      setup_code: db.setup ? null : db.code ? 'required' : 'restart' })],
     ['POST', /^\/api\/auth\/setup$/, (req) => {
       if (db.setup) throw new Fail(409, 'already_setup', 'A password is already set.');
+      if (!req.body.code) throw new Fail(422, 'validation', 'The request is not valid.', { fields: [{ loc: ['body', 'code'], msg: 'Field required', type: 'missing' }] });
       if (!req.body.password || req.body.password.length < 8) throw new Fail(422, 'validation', 'Check the highlighted fields.', { fields: [{ loc: ['body', 'password'], msg: 'Too short', type: 'string_too_short' }] });
+      if (!db.code) throw new Fail(409, 'setup_needs_restart', 'Port-Key has no setup code right now.');
+      const plain = (s) => String(s).replace(/[\s._-]+/g, '').toUpperCase();
+      if (plain(req.body.code) !== plain(db.code)) {
+        db.failures += 1;
+        if (db.failures >= 3) throw new Fail(429, 'rate_limited', 'Too many attempts.', { retry_after: 30 });
+        throw new Fail(403, 'bad_setup_code', 'That setup code is not correct.');
+      }
       db.setup = true;
+      db.code = null;
+      db.failures = 0;
       return issue();
     }],
     ['POST', /^\/api\/auth\/login$/, (req) => {
@@ -312,7 +329,7 @@
       if (headers.get('X-Port-Key') !== '1') return json(403, { error: { code: 'missing_csrf_header', message: 'Missing X-Port-Key header.' } });
       if (headers.get('Content-Type') !== 'application/json') return json(415, { error: { code: 'unsupported_media_type', message: 'Send JSON.' } });
       try { req.body = JSON.parse(init.body); } catch { return json(422, { error: { code: 'validation', message: 'Body is not JSON.' } }); }
-      record.body = Object.fromEntries(Object.entries(req.body).filter(([k]) => !/pass|old|new/.test(k)));
+      record.body = Object.fromEntries(Object.entries(req.body).filter(([k]) => !/pass|old|new|code/.test(k)));
     }
     if (!PUBLIC.test(url.pathname) && !db.tokens.has(token)) return json(401, { error: { code: 'unauthorized', message: 'Sign in to Port-Key.' } });
     const shot = hooks.oneShot.findIndex((f) => url.pathname.includes(f.part));

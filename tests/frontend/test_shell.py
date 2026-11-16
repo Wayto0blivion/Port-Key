@@ -29,9 +29,28 @@ def test_set_password_on_first_visit(app: AppFactory) -> None:
     page = app("setup", signed_in=False)
     dialog = page.locator("dialog.login")
     expect(dialog.get_by_role("heading")).to_have_text("Set a password for Port-Key")
+    # The setup code comes first, with where to find it (docs/design/SetPassword.dc.html).
+    code = dialog.get_by_label("Setup code")
+    expect(code).to_be_focused()
+    expect(code).to_have_attribute("placeholder", "XXXX-XXXX-XXXX")
+    expect(page.locator("#login-code-help")).to_have_text(
+        "Port-Key printed this code when it started. To see it, run "
+        "docker compose logs portkey on this PC."
+    )
+    labels = dialog.locator(".field__label")
+    expect(labels).to_have_text(["Setup code", "Password", "Confirm password"])
+    page.fill("#login-pass", PASSWORD)
+    page.fill("#login-confirm", PASSWORD)
+    page.click("text=Set password")
+    expect(page.locator("#login-code-error")).to_have_text(
+        "Enter the setup code. docker compose logs portkey shows it."
+    )
+    expect(code).to_be_focused()
+    code.fill("k7qm 3xrp w9td")  # any case, any separators
     page.fill("#login-pass", "short")
     page.fill("#login-confirm", "short")
     page.click("text=Set password")
+    expect(page.locator("#login-code-error")).to_be_hidden()
     expect(page.locator("#login-pass-error")).to_have_text("Use at least 8 characters.")
     page.fill("#login-pass", PASSWORD)
     page.fill("#login-confirm", "something else")
@@ -42,6 +61,63 @@ def test_set_password_on_first_visit(app: AppFactory) -> None:
     expect(dialog).to_have_count(0)
     expect(page.locator(".app .tree")).to_be_visible()
     assert page.evaluate("localStorage.getItem('portkey.token')").startswith("mock-")
+
+
+def test_wrong_setup_code_shows_inline_and_keeps_the_password(app: AppFactory) -> None:
+    page = app("setup", signed_in=False)
+    code = page.get_by_label("Setup code")
+    code.fill("AAAA-BBBB-CCCC")
+    page.fill("#login-pass", PASSWORD)
+    page.fill("#login-confirm", PASSWORD)
+    page.keyboard.press("Enter")
+    expect(page.locator("#login-code-error")).to_have_text(
+        "That setup code is not correct. Use the newest code in the log "
+        "(docker compose logs portkey)."
+    )
+    expect(code).to_have_attribute("aria-invalid", "true")
+    expect(code).to_be_focused()
+    expect(page.locator("#login-pass")).to_have_value(PASSWORD)
+    expect(page.locator("#login-confirm")).to_have_value(PASSWORD)
+    code.fill("K7QM-3XRP-W9TD")
+    page.keyboard.press("Enter")
+    expect(page.locator("dialog.login")).to_have_count(0)
+    setup = page.evaluate(
+        "window.__pkMock.calls.filter((c) => c.path === '/api/auth/setup').map((c) => c.body)"
+    )
+    assert setup == [{}, {}]  # the mock records no code and no password
+
+
+def test_wrong_setup_codes_hit_the_rate_limit(app: AppFactory) -> None:
+    page = app("setup", signed_in=False)
+    for _ in range(2):
+        page.get_by_label("Setup code").fill("AAAA-BBBB-CCCC")
+        page.fill("#login-pass", PASSWORD)
+        page.fill("#login-confirm", PASSWORD)
+        page.keyboard.press("Enter")
+        expect(page.locator("#login-code-error")).to_contain_text("is not correct")
+    page.get_by_label("Setup code").fill("AAAA-BBBB-DDDD")
+    page.keyboard.press("Enter")
+    expect(page.locator(".login__error")).to_have_text(
+        "Too many attempts. Try again in 30 seconds."
+    )
+    expect(page.get_by_role("button", name="Set password")).to_be_disabled()
+
+
+def test_setup_after_a_reset_asks_for_a_restart(app: AppFactory) -> None:
+    page = app("setup-restart", signed_in=False)
+    notice = page.locator(".login__error")
+    restart = (
+        "Port-Key has no setup code right now: its password was cleared while it was running. "
+        "Restart it on this PC (docker compose restart portkey), then use the code that "
+        "docker compose logs portkey shows."
+    )
+    expect(notice).to_have_text(restart)
+    page.get_by_label("Setup code").fill("K7QM-3XRP-W9TD")
+    page.fill("#login-pass", PASSWORD)
+    page.fill("#login-confirm", PASSWORD)
+    page.keyboard.press("Enter")
+    expect(notice).to_have_text(restart)
+    expect(page.locator("dialog.login")).to_be_visible()
 
 
 def test_sign_in_errors_and_rate_limit(app: AppFactory) -> None:

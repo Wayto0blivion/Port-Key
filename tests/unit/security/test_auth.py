@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from portkey.errors import Conflict, RateLimited, Unauthorized
+from portkey.models import IssuedToken
 from portkey.security import auth as auth_module
 from portkey.security.auth import PasswordAuth
 from portkey.security.tokens import SqliteTokenStore
@@ -25,6 +26,13 @@ def _fail(auth: PasswordAuth, client: str = CLIENT) -> None:
     assert err.value.code == "bad_password"
 
 
+def _setup(auth: PasswordAuth, password: str = PW) -> IssuedToken:
+    """First-visit setup as the app does it: a code at startup, then the form."""
+    code = auth.new_setup_code()
+    assert code is not None
+    return auth.setup(password, code, CLIENT)
+
+
 # --- storage -------------------------------------------------------------------------------------
 
 
@@ -36,7 +44,7 @@ def test_real_scrypt_parameters_are_strong() -> None:
 
 def test_setup_stores_salted_scrypt_hash(auth: PasswordAuth, db: Database) -> None:
     assert not auth.is_setup()
-    auth.setup(PW)
+    _setup(auth)
     assert auth.is_setup()
     row = db.query_one("SELECT * FROM app_auth")
     assert row is not None
@@ -52,7 +60,7 @@ def test_two_setups_use_different_salts(tmp_path: Any, wall: Any) -> None:
     for name in ("a.db", "b.db"):
         db = Database(tmp_path / name)
         db.migrate()
-        PasswordAuth(db, SqliteTokenStore(db, 60.0, clock=wall)).setup(PW)
+        _setup(PasswordAuth(db, SqliteTokenStore(db, 60.0, clock=wall)))
         row = db.query_one("SELECT salt, hash FROM app_auth")
         assert row is not None
         hashes.append((bytes(row["salt"]), bytes(row["hash"])))
@@ -62,23 +70,27 @@ def test_two_setups_use_different_salts(tmp_path: Any, wall: Any) -> None:
 
 
 def test_setup_returns_a_working_token(auth: PasswordAuth, tokens: SqliteTokenStore) -> None:
-    issued = auth.setup(PW)
+    issued = _setup(auth)
     assert tokens.verify(issued.token)
 
 
 def test_setup_only_once(auth: PasswordAuth) -> None:
-    auth.setup(PW)
+    code = auth.new_setup_code()
+    assert code is not None
+    auth.setup(PW, code, CLIENT)
     with pytest.raises(Conflict) as err:
-        auth.setup("another password")
+        auth.setup("another password", code, CLIENT)
     assert err.value.code == "already_setup"
 
 
 def test_concurrent_setup_has_one_winner(auth: PasswordAuth) -> None:
     results: list[str] = []
+    code = auth.new_setup_code()
+    assert code is not None
 
     def attempt(pw: str) -> None:
         try:
-            auth.setup(pw)
+            auth.setup(pw, code, CLIENT)
             results.append("ok")
         except Conflict:
             results.append("conflict")
@@ -93,7 +105,7 @@ def test_concurrent_setup_has_one_winner(auth: PasswordAuth) -> None:
 
 def test_unicode_and_odd_passwords(auth: PasswordAuth) -> None:
     pw = "pässwörd ☃ \ud800 tail"  # a lone surrogate must not crash hashing
-    auth.setup(pw)
+    _setup(auth, pw)
     auth.login(pw, CLIENT)
     with pytest.raises(Unauthorized):
         auth.login(pw.strip() + "x", CLIENT)
@@ -109,13 +121,13 @@ def test_login_before_setup(auth: PasswordAuth) -> None:
 
 
 def test_login(auth: PasswordAuth, tokens: SqliteTokenStore) -> None:
-    auth.setup(PW)
+    _setup(auth)
     issued = auth.login(PW, CLIENT)
     assert tokens.verify(issued.token)
 
 
 def test_wrong_password_message_has_no_input(auth: PasswordAuth) -> None:
-    auth.setup(PW)
+    _setup(auth)
     with pytest.raises(Unauthorized) as err:
         auth.login("hunter2-guess", CLIENT)
     assert "hunter2" not in str(err.value.to_body())
@@ -123,14 +135,14 @@ def test_wrong_password_message_has_no_input(auth: PasswordAuth) -> None:
 
 
 def test_backoff_first_failures_are_free(auth: PasswordAuth) -> None:
-    auth.setup(PW)
+    _setup(auth)
     for _ in range(auth_module.FREE_FAILURES - 1):
         _fail(auth)
     auth.login(PW, CLIENT)  # still allowed
 
 
 def test_backoff_locks_out_and_doubles(auth: PasswordAuth, mono: Any) -> None:
-    auth.setup(PW)
+    _setup(auth)
     for _ in range(auth_module.FREE_FAILURES):
         _fail(auth)
     expected = int(auth_module.BASE_DELAY)
@@ -146,7 +158,7 @@ def test_backoff_locks_out_and_doubles(auth: PasswordAuth, mono: Any) -> None:
 
 
 def test_backoff_retry_after_counts_down(auth: PasswordAuth, mono: Any) -> None:
-    auth.setup(PW)
+    _setup(auth)
     for _ in range(auth_module.FREE_FAILURES):
         _fail(auth)
     mono.advance(3.2)
@@ -157,7 +169,7 @@ def test_backoff_retry_after_counts_down(auth: PasswordAuth, mono: Any) -> None:
 
 
 def test_backoff_is_capped(auth: PasswordAuth, mono: Any) -> None:
-    auth.setup(PW)
+    _setup(auth)
     for _ in range(40):
         try:
             auth.login("wrong", CLIENT)
@@ -173,7 +185,7 @@ def test_backoff_is_capped(auth: PasswordAuth, mono: Any) -> None:
 
 
 def test_lockout_rejects_without_hashing(auth: PasswordAuth, monkeypatch: Any) -> None:
-    auth.setup(PW)
+    _setup(auth)
     for _ in range(auth_module.FREE_FAILURES):
         _fail(auth)
     calls = []
@@ -184,7 +196,7 @@ def test_lockout_rejects_without_hashing(auth: PasswordAuth, monkeypatch: Any) -
 
 
 def test_backoff_is_per_client(auth: PasswordAuth) -> None:
-    auth.setup(PW)
+    _setup(auth)
     for _ in range(auth_module.FREE_FAILURES):
         _fail(auth, "192.168.10.20")
     with pytest.raises(RateLimited):
@@ -193,7 +205,7 @@ def test_backoff_is_per_client(auth: PasswordAuth) -> None:
 
 
 def test_success_resets_the_count(auth: PasswordAuth) -> None:
-    auth.setup(PW)
+    _setup(auth)
     for _ in range(auth_module.FREE_FAILURES - 1):
         _fail(auth)
     auth.login(PW, CLIENT)
@@ -203,7 +215,7 @@ def test_success_resets_the_count(auth: PasswordAuth) -> None:
 
 
 def test_failures_are_forgotten_after_a_quiet_day(auth: PasswordAuth, mono: Any) -> None:
-    auth.setup(PW)
+    _setup(auth)
     for _ in range(auth_module.FREE_FAILURES + 2):
         try:
             auth.login("wrong", CLIENT)
@@ -218,14 +230,14 @@ def test_failures_are_forgotten_after_a_quiet_day(auth: PasswordAuth, mono: Any)
 
 def test_client_table_is_bounded(auth: PasswordAuth, monkeypatch: Any) -> None:
     monkeypatch.setattr(auth_module, "MAX_CLIENTS", 8)
-    auth.setup(PW)
+    _setup(auth)
     for i in range(50):
         _fail(auth, f"10.8.0.{i}")
     assert len(auth._failures) <= 8
 
 
 def test_parallel_guesses_cannot_skip_the_backoff(auth: PasswordAuth) -> None:
-    auth.setup(PW)
+    _setup(auth)
     outcomes: list[str] = []
     lock = threading.Lock()
 
@@ -252,7 +264,7 @@ def test_parallel_guesses_cannot_skip_the_backoff(auth: PasswordAuth) -> None:
 
 
 def test_change_password_revokes_other_tokens(auth: PasswordAuth, tokens: SqliteTokenStore) -> None:
-    mine = auth.setup(PW)
+    mine = _setup(auth)
     other_browser = auth.login(PW, CLIENT)
     auth.change_password(mine.token, PW, "new password 2026")
     assert tokens.verify(mine.token)
@@ -263,7 +275,7 @@ def test_change_password_revokes_other_tokens(auth: PasswordAuth, tokens: Sqlite
 
 
 def test_change_password_wrong_old(auth: PasswordAuth, tokens: SqliteTokenStore) -> None:
-    mine = auth.setup(PW)
+    mine = _setup(auth)
     other = auth.login(PW, CLIENT)
     with pytest.raises(Unauthorized) as err:
         auth.change_password(mine.token, "not it", "new password 2026")
@@ -273,7 +285,7 @@ def test_change_password_wrong_old(auth: PasswordAuth, tokens: SqliteTokenStore)
 
 
 def test_change_password_wrong_old_is_rate_limited(auth: PasswordAuth) -> None:
-    mine = auth.setup(PW)
+    mine = _setup(auth)
     for _ in range(auth_module.FREE_FAILURES):
         with pytest.raises(Unauthorized):
             auth.change_password(mine.token, "guess", "new password 2026")
@@ -282,7 +294,7 @@ def test_change_password_wrong_old_is_rate_limited(auth: PasswordAuth) -> None:
 
 
 def test_change_password_gets_a_fresh_salt(auth: PasswordAuth, db: Database) -> None:
-    mine = auth.setup(PW)
+    mine = _setup(auth)
     before = db.query_one("SELECT salt FROM app_auth")
     auth.change_password(mine.token, PW, "new password 2026")
     after = db.query_one("SELECT salt FROM app_auth")
@@ -295,7 +307,7 @@ def test_change_password_gets_a_fresh_salt(auth: PasswordAuth, db: Database) -> 
 
 
 def test_authenticate_accepts_bearer(auth: PasswordAuth) -> None:
-    token = auth.setup(PW).token
+    token = _setup(auth).token
     assert auth.authenticate(f"Bearer {token}") == token
     assert auth.authenticate(f"bearer {token}") == token
 
@@ -316,7 +328,7 @@ def test_authenticate_accepts_bearer(auth: PasswordAuth) -> None:
     ],
 )
 def test_authenticate_refuses(auth: PasswordAuth, header: str | None) -> None:
-    token = auth.setup(PW).token
+    token = _setup(auth).token
     value = header.format(token=token) if header else header
     with pytest.raises(Unauthorized) as err:
         auth.authenticate(value)
@@ -327,7 +339,7 @@ def test_authenticate_refuses(auth: PasswordAuth, header: str | None) -> None:
 def test_authenticate_refuses_revoked_and_expired(
     auth: PasswordAuth, tokens: SqliteTokenStore, wall: Any
 ) -> None:
-    a = auth.setup(PW).token
+    a = _setup(auth).token
     b = auth.login(PW, CLIENT).token
     tokens.revoke(a)
     with pytest.raises(Unauthorized):

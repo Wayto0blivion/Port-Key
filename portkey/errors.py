@@ -33,6 +33,8 @@ class ErrorCode(StrEnum):
     RATE_LIMITED = "rate_limited"  # 429, carries ``retry_after``
     ALREADY_SETUP = "already_setup"  # 409
     NOT_SETUP = "not_setup"  # 409, login before a password exists
+    BAD_SETUP_CODE = "bad_setup_code"  # 403, wrong first-visit setup code (shares the backoff)
+    SETUP_NEEDS_RESTART = "setup_needs_restart"  # 409, no code held (password reset while running)
     # Connections, folders, tags (package 2)
     NAME_TAKEN = "name_taken"  # 409
     JUMP_IN_USE = "jump_in_use"  # 409, carries ``dependants``

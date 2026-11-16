@@ -4,9 +4,13 @@ Not part of the pytest suite. Run it in the e2e image on the compose network wit
 folder mounted, nothing published:
 
     docker compose -f compose.dev.yaml -p portkey-wp9 --profile e2e up -d --wait app
+    PORTKEY_APP_LOG="$(docker compose -f compose.dev.yaml -p portkey-wp9 --profile e2e \
+        logs --no-color app)" \
     docker compose -f compose.dev.yaml -p portkey-wp9 --profile e2e run --rm --no-deps \
         -v /abs/out:/shots e2e python -m tests.e2e.screens /shots
     docker compose -f compose.dev.yaml -p portkey-wp9 --profile e2e down -v
+
+On a fresh app it sets the password with the setup code from that log (harness/app_log.py).
 
 It seeds folders and connections through the API (host names are the test bed's), then saves
 Home, a terminal, Keys, Settings, Diagnostics, each wizard step, the password-login-disabled

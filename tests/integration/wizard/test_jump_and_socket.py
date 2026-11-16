@@ -47,7 +47,7 @@ def test_whole_run_through_the_socket(portkey_config: Config) -> None:
     password = tb.USERS["fresh"].password
     sent: list[dict[str, Any]] = []
     with client:
-        token = services.auth.setup("TEST-ONLY app password").token
+        token = services.tokens.issue().token
         headers = {"host": "localhost:8822", "origin": "http://localhost:8822"}
         with client.websocket_connect("/ws/install", headers=headers) as ws:
             ws.send_json({"type": "auth", "token": token})

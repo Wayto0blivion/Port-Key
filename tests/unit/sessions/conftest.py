@@ -144,7 +144,7 @@ async def live_with(config: Config) -> AsyncIterator[Callable[..., Any]]:
         connector = FakeConnector()
         connector.known[conn.id] = conn.name
         services.sessions.connector = connector
-        issued = await asyncio.to_thread(services.auth.setup, "correct horse battery")
+        issued = await asyncio.to_thread(services.tokens.issue)
         return Live(port, issued.token, services, connector, conn)
 
     async with stack:

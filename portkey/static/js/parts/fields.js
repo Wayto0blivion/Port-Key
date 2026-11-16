@@ -19,7 +19,8 @@ export const COLORS = ['red', 'amber', 'green', 'blue', 'purple', 'grey'];
 const COLOR_NAMES = { red: 'Red', amber: 'Amber', green: 'Green', blue: 'Blue', purple: 'Purple', grey: 'Grey' };
 
 /**
- * @param {{id: string, label: string, control: HTMLElement, help?: string, className?: string, labelTag?: 'label'|'span'}} opts
+ * `help` is text, or a node when it needs markup (a command in <code>).
+ * @param {{id: string, label: string, control: HTMLElement, help?: string|Node, className?: string, labelTag?: 'label'|'span'}} opts
  * @returns {HTMLElement}
  */
 export function field(opts) {

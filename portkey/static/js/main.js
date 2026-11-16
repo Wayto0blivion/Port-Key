@@ -22,7 +22,7 @@ let shellShown = false;
 let signingIn = null;
 
 /** Show the sign-in dialog once, however many requests fail with 401 at the same time. */
-function signIn(/** @type {{setup: boolean}} */ status, /** @type {boolean} */ expired) {
+function signIn(/** @type {{setup: boolean, setup_code?: 'required'|'restart'|null}} */ status, /** @type {boolean} */ expired) {
   if (!signingIn) {
     const host = document.getElementById('dialogs') ?? document.body;
     signingIn = renderLogin(host, status, { expired }).finally(() => { signingIn = null; });

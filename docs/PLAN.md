@@ -20,6 +20,8 @@ preferred; passwords are a fallback and are never stored.
   several sessions as tabs, show/copy public key, key install wizard (ssh-copy-id equivalent),
   host suggestions from known_hosts, key generation in the app, jump hosts.
 - The app requires a login: one app password set on first visit, remembered for 30 days.
+  Setting it needs a one-time setup code that only the container log shows (decided
+  2026-11-16), so no other local process can set it first.
 - The owner's key is an ordinary key file in `.ssh` with no passphrase today. Passphrase
   support is built anyway because they may add one.
 - Not in v1: import from `~/.ssh/config`, SFTP, port forwarding, split panes, snippets,

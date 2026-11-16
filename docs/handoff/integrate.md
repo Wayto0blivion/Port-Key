@@ -97,7 +97,8 @@ the real responses as they read the mock's.
 
 ## Left undone
 
-- The first-visit setup code (package 1's request) waits on the owner; see
+- (*Later: built, see `docs/handoff/setup-code.md`.*) The first-visit setup code (package 1's
+  request) waits on the owner; see
   `docs/handoff/phase-a.md`, "Open decisions".
 - The Home table needs horizontal scrolling below about 1440 px wide (it has `min-width:
   1040px` beside a 280 px sidebar). It works, but a laptop at 150 % scaling (1280 px) scrolls

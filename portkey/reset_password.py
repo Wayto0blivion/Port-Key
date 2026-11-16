@@ -6,10 +6,17 @@ For an owner who has forgotten the Port-Key password. On the PC::
 
 It deletes the stored password hash and every sign-in token in one transaction, so every
 browser is signed out and the next visit shows "Set a password for Port-Key". Connections, keys,
-trusted host keys and settings are kept. Until a new password is set, the first local process
-to reach the port can set it, so set one straight away.
+trusted host keys and settings are kept.
 
-Safe while the app runs: the app reads the password and tokens from the database on each use.
+Setting the new password needs a fresh one-time setup code, so a reset does not reopen
+first-visit setup to any local process. The running app reads the password and tokens from the
+database on each use, so it sees the reset at once; but it made no setup code at startup (a
+password existed then), so it refuses setup with ``setup_needs_restart`` until it restarts. The
+next start prints a new code to the container log::
+
+    docker compose restart portkey
+    docker compose logs portkey
+
 Only someone who can run commands in the container (that is, who controls Docker on the PC) can
 do this, and they could read the database anyway.
 """
@@ -22,6 +29,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from portkey.config import load_config
+from portkey.security import setup_code
 from portkey.store.db import Database
 
 
@@ -56,9 +64,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
     revoked = reset(db_path)
+    service = setup_code.COMPOSE_SERVICE
     print(
-        f"The app password is cleared and {revoked} sign-in(s) ended. Open Port-Key now and "
-        "set a new password."
+        f"The app password is cleared and {revoked} sign-in(s) ended.\n"
+        "To set a new password, Port-Key needs a new setup code. On this PC run\n"
+        f"    docker compose restart {service}\n"
+        f"    docker compose logs {service}\n"
+        "then open Port-Key, type the newest setup code from the log and set a new password."
     )
     return 0
 

@@ -18,6 +18,9 @@ KeyType = Literal["ed25519", "rsa", "ecdsa"]
 KeySource = Literal["ssh_dir", "generated"]
 KeyProblemReason = Literal["ppk", "not_private_key", "unreadable", "unsupported_type"]
 HopRole = Literal["jump", "target"]
+# While no app password exists: "required" (a setup code is held; it is in the startup log) or
+# "restart" (none is held because the password was cleared while the app ran).
+SetupCodeState = Literal["required", "restart"]
 EventKind = Literal[
     "hostkey_accepted",
     "hostkey_replaced",

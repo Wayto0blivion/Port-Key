@@ -3,7 +3,8 @@
 Run with ``./mk e2e P=<project>``: it builds and starts the TEST-ONLY sshd containers, the
 ``app`` service (the real runtime image with the PC's Host/Origin allowlist, listening on 8822,
 the fixture .ssh directory copied to a 0777 tmpfs at /ssh, data in a tmpfs) and the
-``evil-origin`` page, then
+``evil-origin`` page, passes the app's log (where the first-visit setup code is) in
+``$PORTKEY_APP_LOG`` (``harness/app_log.py``), then
 runs ``pytest tests/e2e -m e2e`` in the Playwright container. Every test under ``tests/e2e`` is
 marked ``e2e`` automatically. State lives for the whole run: once a test sets the app password
 (``app_token``), the first-run screen is gone, so a first-run spec must not use ``app_token``
@@ -15,7 +16,8 @@ Fixtures
   ``app`` container, see ``browser_args``, and ``AppApi`` connects to ``$PORTKEY_CONNECT_TO``),
   ``evil_url`` (``http://evil-origin:8080``).
 - ``app_api``: ``AppApi`` (httpx with allowed Host, Origin and ``X-Port-Key``), app healthy.
-- ``app_token``: a bearer token; sets ``testbed.APP_PASSWORD`` on first use.
+- ``app_token``: a bearer token; sets ``testbed.APP_PASSWORD`` on first use, with the setup
+  code read from the app's log.
 - ``browser`` (Chromium, headless, session), ``context`` (per test, ``base_url`` set,
   clipboard permissions granted), ``page``; a failing test leaves a screenshot in
   ``test-results/``.

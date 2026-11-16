@@ -3,9 +3,12 @@
 Not part of the pytest suite: it needs the e2e stack (package 7). Run it in the e2e image on the
 compose network, nothing published:
     docker compose -f compose.dev.yaml -p portkey-wp8b --profile e2e up -d --wait app
+    PORTKEY_APP_LOG="$(docker compose -f compose.dev.yaml -p portkey-wp8b --profile e2e \
+        logs --no-color app)" \
     docker compose -f compose.dev.yaml -p portkey-wp8b --profile e2e run --rm --no-deps e2e \
         python -m tests.frontend.terminal.smoke
     docker compose -f compose.dev.yaml -p portkey-wp8b --profile e2e down -v
+(The app's log carries the first-visit setup code; tests/e2e/harness/app_log.py.)
 It signs in, opens terminals (key, password, first-seen host key, through a jump host), types,
 reloads and checks the replay, disconnects and reconnects, and installs a key with the wizard.
 Prints one line per step and exits non-zero on the first failure. Rerunnable on a running stack.

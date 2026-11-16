@@ -65,5 +65,5 @@ async def app_live(portkey_config: Config) -> AsyncIterator[AppLive]:
     app = create_app(portkey_config)
     async with live_server(app) as port:
         services = services_of(app)
-        issued = await asyncio.to_thread(services.auth.setup, "correct horse battery")
+        issued = await asyncio.to_thread(services.tokens.issue)
         yield AppLive(port, issued.token, services)

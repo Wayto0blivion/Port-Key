@@ -338,7 +338,7 @@ def test_through_the_real_app(app: Any, services: Any) -> None:
         client = TestClient(app, base_url="http://localhost:8822")
     services.wizard = FakeWizard(done_script)
     with client:
-        token = services.auth.setup("TEST-ONLY app password").token
+        token = services.tokens.issue().token
         headers = {"host": "localhost:8822", "origin": "http://localhost:8822"}
         with client.websocket_connect("/ws/install", headers=headers) as ws:
             ws.send_json({"type": "auth", "token": token})

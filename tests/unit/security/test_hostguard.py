@@ -313,10 +313,12 @@ async def test_real_app_cross_origin_login_is_refused(
     http_call: Any, app: FastAPI, started: Any
 ) -> None:
     headers = [OK_HOST, ("origin", "http://localhost:3000"), CSRF, JSON]
-    r = await http_call(app, "POST", "/api/auth/setup", headers, b'{"password": "correct horse"}')
+    body = b'{"password": "correct horse", "code": "K7QM-3XRP-W9TD"}'
+    r = await http_call(app, "POST", "/api/auth/setup", headers, body)
     assert r.status == 403
+    assert r.json()["error"]["code"] == "origin_not_allowed"
     status = await http_call(app, "GET", "/api/auth/status", [OK_HOST])
-    assert status.json() == {"setup": False, "authenticated": False}
+    assert status.json() == {"setup": False, "authenticated": False, "setup_code": "required"}
 
 
 async def test_real_app_form_post_is_refused(http_call: Any, app: FastAPI, started: Any) -> None:

@@ -8,6 +8,13 @@ password revokes every token except the caller's.
 Logins and password changes are serialised behind one lock, so parallel guesses cannot slip
 past the backoff check while a hash is being computed. Wrong old passwords on a password change
 share one backoff bucket, so a stolen token cannot be used to brute-force the password itself.
+
+First-visit setup needs the one-time setup code (``security.setup_code``): ``new_setup_code``
+makes one at app start while no password exists, ``setup`` checks it in constant time (wrong
+codes count against the same per-client backoff as wrong passwords) and drops it once the
+password is set. It lives only in this object's memory. If the password is cleared while the
+app runs (``python -m portkey.reset_password``), no code is held, so setup is refused with
+``setup_needs_restart`` until a restart prints a fresh one.
 """
 
 from __future__ import annotations
@@ -22,9 +29,11 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from portkey.errors import Conflict, ErrorCode, RateLimited, Unauthorized
+from portkey.errors import Conflict, ErrorCode, Forbidden, RateLimited, Unauthorized
 from portkey.interfaces import TokenStore
-from portkey.models import IssuedToken
+from portkey.models import IssuedToken, SetupCodeState
+from portkey.security import setup_code
+from portkey.security.redact import hide_setup_code
 from portkey.store.db import Database, now_iso
 
 # scrypt cost. n=2**15, r=8 needs 32 MiB and takes roughly 50-100 ms. The parameters are stored
@@ -49,6 +58,15 @@ _CHANGE_BUCKET = "\x00change-password"
 _BEARER = re.compile(r"Bearer +([^\s]+)", re.IGNORECASE)
 
 WRONG_LOGIN_MESSAGE = "That password is not correct. Try again."
+WRONG_CODE_MESSAGE = (
+    "That setup code is not correct. Use the newest code in the log "
+    f"(docker compose logs {setup_code.COMPOSE_SERVICE})."
+)
+NEEDS_RESTART_MESSAGE = (
+    "Port-Key has no setup code right now: its password was cleared while it was running. "
+    f"Restart it on this PC (docker compose restart {setup_code.COMPOSE_SERVICE}), then use "
+    f"the code that docker compose logs {setup_code.COMPOSE_SERVICE} shows."
+)
 
 
 @dataclass(slots=True)
@@ -79,6 +97,7 @@ class PasswordAuth:
         self.clock = clock
         self._lock = threading.Lock()
         self._failures: dict[str, _Failures] = {}
+        self._setup_code: str | None = None  # memory only; never logged here or returned
 
     # -- password storage ---------------------------------------------------------------------
 
@@ -97,17 +116,56 @@ class PasswordAuth:
         candidate = hash_password(password, bytes(row["salt"]), row["n"], row["r"], row["p"])
         return hmac.compare_digest(candidate, bytes(row["hash"]))
 
-    def setup(self, password: str) -> IssuedToken:
-        salt, digest, n, r, p = self._new_hash_row(password)
-        with self.db.tx() as c:
-            if c.execute("SELECT 1 FROM app_auth WHERE id = 1").fetchone() is not None:
+    # -- first-visit setup -----------------------------------------------------------------------
+
+    def new_setup_code(self) -> str | None:
+        """At app start: a fresh code while no password exists (the caller prints it once),
+        else None. Any code held before is dropped either way."""
+        with self._lock:
+            self._drop_setup_code()
+            if self.is_setup():
+                return None
+            code = setup_code.generate()
+            self._setup_code = code
+            hide_setup_code(code)
+            return code
+
+    def setup_code_state(self) -> SetupCodeState | None:
+        if self.is_setup():
+            self._drop_setup_code()
+            return None
+        return "required" if self._setup_code is not None else "restart"
+
+    def _drop_setup_code(self) -> None:
+        if self._setup_code is not None:
+            self._setup_code = None
+            hide_setup_code(None)
+
+    def setup(self, password: str, code: str, client: str) -> IssuedToken:
+        with self._lock:
+            if self.is_setup():
                 raise Conflict("Port-Key already has a password.", code=ErrorCode.ALREADY_SETUP)
-            c.execute(
-                "INSERT INTO app_auth (id, salt, hash, n, r, p, updated_at)"
-                " VALUES (1, ?, ?, ?, ?, ?, ?)",
-                (salt, digest, n, r, p, now_iso()),
-            )
-            return self.tokens.issue()
+            now = self.clock()
+            self._gate(client, now)
+            held = self._setup_code
+            if held is None:
+                raise Conflict(NEEDS_RESTART_MESSAGE, code=ErrorCode.SETUP_NEEDS_RESTART)
+            if not setup_code.matches(code, held):
+                self._fail(client, now)
+                raise Forbidden(WRONG_CODE_MESSAGE, code=ErrorCode.BAD_SETUP_CODE)
+            salt, digest, n, r, p = self._new_hash_row(password)
+            with self.db.tx() as c:
+                if c.execute("SELECT 1 FROM app_auth WHERE id = 1").fetchone() is not None:
+                    raise Conflict("Port-Key already has a password.", code=ErrorCode.ALREADY_SETUP)
+                c.execute(
+                    "INSERT INTO app_auth (id, salt, hash, n, r, p, updated_at)"
+                    " VALUES (1, ?, ?, ?, ?, ?, ?)",
+                    (salt, digest, n, r, p, now_iso()),
+                )
+                issued = self.tokens.issue()
+            self._drop_setup_code()
+            self._failures.pop(client, None)
+            return issued
 
     # -- backoff ------------------------------------------------------------------------------
 

@@ -6,6 +6,9 @@
   monotonic clocks, and the token store / password auth built on them.
 - ``http_call`` / ``ws_call``: drive an ASGI app with exact raw headers (duplicates, missing
   Host, ...), which an HTTP client library would normalise away.
+- ``setup_code``: the first-visit setup code the app (the root ``client`` fixture) printed at
+  startup, read from the captured log the way the owner reads ``docker compose logs``
+  (``setup_log.codes_in_log``).
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from collections.abc import Awaitable, Callable, Iterator
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -23,6 +27,7 @@ from portkey.security import auth as auth_module
 from portkey.security.auth import PasswordAuth
 from portkey.security.tokens import SqliteTokenStore
 from portkey.store.db import Database
+from tests.unit.security.setup_log import codes_in_log
 
 TTL = 30 * 24 * 3600.0
 ALLOWED_ORIGIN = "http://localhost:8822"
@@ -44,6 +49,14 @@ class FakeClock:
 @pytest.fixture(autouse=True)
 def fast_scrypt(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(auth_module, "SCRYPT_N", 2**10)
+
+
+@pytest.fixture
+def setup_code(client: httpx.AsyncClient, caplog: pytest.LogCaptureFixture) -> str:
+    # ``client`` started the app in this test's setup phase; its records are still live here.
+    codes = codes_in_log(caplog.records)
+    assert len(codes) == 1, codes
+    return codes[0]
 
 
 @pytest.fixture

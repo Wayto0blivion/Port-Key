@@ -119,8 +119,25 @@ has gone come back in the Disconnected state.
 ### Set password (first visit) and sign in
 
 - First visit: title "Set a password for Port-Key". Body: "Port-Key can open shells on your
-  servers, so it asks for a password even though it only listens on this PC." Fields: Password,
-  Confirm password. Button: [Set password].
+  servers, so it asks for a password even though it only listens on this PC." Fields: Setup
+  code, Password, Confirm password. Button: [Set password]. Visual reference:
+  `docs/design/SetPassword.dc.html`.
+- Setup code: the first field, focused on arrival, monospace, placeholder `XXXX-XXXX-XXXX`,
+  shown upper-case; any case and any separators are accepted. Helper text: "Port-Key printed
+  this code when it started. To see it, run `docker compose logs portkey` on this PC." (`portkey`
+  is the service name in `compose.yaml`.) Empty: "Enter the setup code. docker compose logs
+  portkey shows it." Wrong code, under the field, keeping both password fields filled: "That
+  setup code is not correct. Use the newest code in the log (docker compose logs portkey)."
+  Wrong codes count towards the same limit as wrong passwords: "Too many attempts. Try again in
+  N seconds." in the form, with the button disabled until the countdown ends.
+- When Port-Key holds no code (its password was cleared while it ran), the form says, before
+  and after a submit: "Port-Key has no setup code right now: its password was cleared while it
+  was running. Restart it on this PC (docker compose restart portkey), then use the code that
+  docker compose logs portkey shows."
+- What the owner sees in `docker compose logs portkey` while no password is set: one block
+  between two rules of `=`, with "Setup code:   K7QM-3XRP-W9TD", the address to open
+  (`http://localhost:8822`) and where to type the code. Port-Key prints a new code at every
+  start until a password is set; only the newest works. Once a password is set it prints none.
 - Later visits, when the saved sign-in has expired: title "Sign in to Port-Key", one Password
   field, button [Sign in]. Wrong password: "That password is not correct. Try again." After
   repeated failures: "Too many attempts. Try again in 30 seconds."

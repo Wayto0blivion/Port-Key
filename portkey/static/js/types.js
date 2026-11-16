@@ -167,7 +167,14 @@
  * @property {{state: 'up'|'down'|'skipped', ms: number|null, error: 'refused'|'timeout'|'unreachable'|null}} tcp
  */
 
-/** @typedef {{setup: boolean, authenticated: boolean}} AuthStatus */
+/**
+ * @typedef {object} AuthStatus
+ * @property {boolean} setup           an app password exists
+ * @property {boolean} authenticated   the request's bearer token is valid
+ * @property {'required'|'restart'|null} setup_code  never the code itself: "required" while
+ *   setup needs the code from the startup log, "restart" when none is held until Port-Key
+ *   restarts (password cleared while it ran), null once a password exists
+ */
 /** @typedef {{token: string, expires_at: string}} TokenResponse */
 
 /**

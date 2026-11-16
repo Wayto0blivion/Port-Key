@@ -35,8 +35,10 @@ def stored_token(page: Page) -> str | None:
     return str(value) if value is not None else None
 
 
-def set_app_password_ui(page: Page, password: str = tb.APP_PASSWORD) -> None:
-    """Fill in "Set a password for Port-Key" (first visit) and submit."""
+def set_app_password_ui(page: Page, password: str = tb.APP_PASSWORD, code: str = "") -> None:
+    """Fill in "Set a password for Port-Key" (first visit): the setup code from the app's log
+    (``harness.app_log``), then the password twice, and submit."""
+    page.get_by_label("Setup code", exact=True).fill(code)
     page.get_by_label("Password", exact=True).fill(password)
     page.get_by_label("Confirm password", exact=True).fill(password)
     page.get_by_role("button", name="Set password").click()

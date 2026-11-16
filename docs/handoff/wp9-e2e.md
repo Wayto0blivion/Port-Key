@@ -58,6 +58,10 @@ docker compose -f compose.dev.yaml -p portkey-wp9 --profile e2e run --rm --no-de
     pytest -p no:cacheprovider -m e2e tests/e2e/test_terminal.py
 ```
 
+*Later (setup code):* on a fresh stack the specs need the app's log for the first-visit setup
+code: put `PORTKEY_APP_LOG="$(docker compose ... logs --no-color app)"` in front of the `run`
+(`tests/e2e/harness/app_log.py`; `./mk e2e` does it for you).
+
 `tests/e2e/screens.py` takes screenshots of the real app (command in its docstring).
 
 ## Bugs found and fixed
@@ -85,7 +89,7 @@ docker compose -f compose.dev.yaml -p portkey-wp9 --profile e2e run --rm --no-de
 
 | From | Item | Outcome |
 |---|---|---|
-| integrate, 1 | One-time setup code on `POST /api/auth/setup` | **Not done: waits on the owner** (it changes the contract and the first-run screen). Still listed under "Open decisions" in `phase-a.md`. `reset_password` (below) reopens the same window, which the README says |
+| integrate, 1 | One-time setup code on `POST /api/auth/setup` | **Not done: waits on the owner** (it changes the contract and the first-run screen). Still listed under "Open decisions" in `phase-a.md`. `reset_password` (below) reopens the same window, which the README says. *Later: approved and built, reset path included; `docs/handoff/setup-code.md`* |
 | integrate | Home table needs sideways scrolling at 1280 px | Fixed (bug 3) |
 | 1, integrate | `connect-src 'self'` covering `ws://localhost:8822`; xterm under the CSP | Proven in a real Chromium at `http://localhost:8822` (`test_terminal.py`, `test_security.py`) |
 | 8a | Home table rebuilds every row on each change | Not changed; not a problem at the test bed's size |
@@ -133,7 +137,7 @@ docker compose -f compose.dev.yaml -p portkey-wp9 --profile e2e run --rm --no-de
   the fallback fetch when no trusted key type is offered, `password_expired` against sshd, a
   read-only `authorized_keys` against sshd, `exit lost` by cutting a live network, a real
   15-minute reaper run, reattach after an app container restart.
-- The first-visit setup code (owner decision).
+- The first-visit setup code (owner decision). *Later: built, `docs/handoff/setup-code.md`.*
 - `tests/unit/ssh/fakes.py` `KwPrompter` is now redundant with `FakePrompter`; left in place.
 - Process slips (no project code ran on the host in any of them): once an empty host
   `python3 -` invocation by mistake; two assertion edits in `tests/e2e/test_terminal.py` with

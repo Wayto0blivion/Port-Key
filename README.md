@@ -23,9 +23,14 @@ Requirements: Docker Desktop with the WSL2 backend. An SSH key in `%USERPROFILE%
 git clone https://github.com/Wayto0blivion/Port-Key.git
 cd Port-Key
 docker compose up -d --build
+docker compose logs portkey
 ```
 
-Open <http://localhost:8822> and set the app password on the first visit. Use `localhost` (or
+The log shows a one-time **setup code** in a framed block, such as `Setup code:   K7QM-3XRP-W9TD`.
+Open <http://localhost:8822>, type that code in the "Setup code" field (any case, dashes
+optional) and choose the app password. The code is printed only to that log, works once, and
+changes every time Port-Key starts until a password is set (use the newest one); it stops
+another program on the PC from setting the password before you do. Use `localhost` (or
 `127.0.0.1`) exactly: Port-Key refuses any other host name, so a web page cannot reach it under
 a name of its own.
 
@@ -58,19 +63,22 @@ settings as well (your key files are never touched).
 
 ```powershell
 docker compose exec portkey python -m portkey.reset_password --yes
+docker compose restart portkey
+docker compose logs portkey
 ```
 
 This clears the app password and signs out every browser; connections, keys, host keys and
-settings are kept. Open <http://localhost:8822> straight away and set a new password: until you
-do, the first program on this PC that reaches the port could set it.
+settings are kept. The restart makes Port-Key print a fresh setup code (the newest "Setup code"
+in the log); open <http://localhost:8822>, type it and set a new password. Until the restart,
+nobody can set a password, so a reset never leaves the door open to other programs on the PC.
 
 ### Something does not work
 
 Open the Diagnostics tab (Settings > Open Diagnostics): it shows whether the `.ssh` folder is
 mounted, which key files could not be used and why, and what a host name resolves to from
 inside the container. `docker compose logs portkey` shows the server log; it never contains
-passwords, passphrases, tokens or terminal contents. `docs/windows-smoke.md` lists what to send
-back.
+passwords, passphrases, tokens or terminal contents (only the setup code, until a password is
+set). `docs/windows-smoke.md` lists what to send back.
 
 ## Develop and run checks (Linux dev box)
 
@@ -90,6 +98,7 @@ Everything runs in containers; nothing is installed on the host. If the box has 
 `P` is the compose project name; pick your own so parallel runs do not collide. The source is
 bind-mounted into the dev containers, so code changes need no rebuild; `./mk e2e` builds the app
 image from the tree. In e2e the browser opens `http://localhost:8822` as on the PC (Chromium maps
-`localhost` to the app container). Screenshots of the real app: see `tests/e2e/screens.py`.
+`localhost` to the app container), and the specs read the setup code from the app container's
+log (`tests/e2e/harness/app_log.py`). Screenshots of the real app: see `tests/e2e/screens.py`.
 Dependencies are hash-locked: change `pyproject.toml`, then `./mk lock` and `./mk build`.
 Notes for whoever works on it next are in `docs/handoff/`.

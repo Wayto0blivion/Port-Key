@@ -86,7 +86,7 @@ def test_sign_in_through_the_ui(page: Page, base_url: str, app_api: AppApi, app_
     expect(page.get_by_role("tab", name="Home")).to_have_attribute("aria-selected", "true")
     token = stored_token(page)
     assert token
-    assert app_api.auth_status(token) == {"setup": True, "authenticated": True}
+    assert app_api.auth_status(token) == {"setup": True, "authenticated": True, "setup_code": None}
     watch.check((401, "POST", "/api/auth/login"))
 
 

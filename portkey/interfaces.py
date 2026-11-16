@@ -12,8 +12,9 @@ Threading and async rules, for every Protocol below unless a method says otherwi
 - Anything that touches the network or waits for the browser is ``async``.
 - Errors are the classes in ``portkey.errors`` (HTTP) and ``portkey.ssh.errors`` (SSH/WS).
 - Fingerprints are always ``"SHA256:<base64 without padding>"``.
-- Secrets (passwords, passphrases, private keys, tokens) are never logged, never put in an
-  exception message and never stored, except the scrypt hash and token hashes.
+- Secrets (passwords, passphrases, private keys, tokens, the setup code) are never logged,
+  never put in an exception message and never stored, except the scrypt hash and token hashes.
+  The setup code's one startup announcement is the single exception to "never logged".
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ from portkey.models import (
     KeySource,
     KnownHostsMatch,
     SessionSummary,
+    SetupCodeState,
     SuggestionScan,
     TagCount,
 )
@@ -297,8 +299,20 @@ class AppAuth(Protocol):
     def is_setup(self) -> bool:
         """True once an app password exists."""
 
-    def setup(self, password: str) -> IssuedToken:
-        """Raises ``Conflict(already_setup)``."""
+    def new_setup_code(self) -> str | None:
+        """Called once at app start. While no app password exists, make a fresh one-time setup
+        code, hold it in memory only and return it so the caller prints it once (the startup
+        log is the only place it may appear); otherwise drop any code and return None."""
+
+    def setup_code_state(self) -> SetupCodeState | None:
+        """None once a password exists; else "required" (a code is held) or "restart" (the
+        password was cleared while the app ran, so no code is held until a restart)."""
+
+    def setup(self, password: str, code: str, client: str) -> IssuedToken:
+        """Set the first password. ``code`` is checked in constant time, in any case, with or
+        without separators; wrong codes count against ``client``'s login backoff. The code is
+        dropped once the password is set. Raises ``Conflict(already_setup)``,
+        ``RateLimited``, ``Conflict(setup_needs_restart)``, ``Forbidden(bad_setup_code)``."""
 
     def login(self, password: str, client: str) -> IssuedToken:
         """``client`` is the peer address used for backoff. Raises ``Unauthorized

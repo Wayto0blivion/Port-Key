@@ -197,6 +197,29 @@ same site. Instead:
 **App login.** Required.
 
 - One app password, set on first visit, hashed with scrypt.
+- **First-visit setup code.** Setting the first password needs no sign-in, so without more,
+  any local process that reaches the port before the owner does (another Windows account, a
+  WSL distro, local software: all in scope above) could set the password and then use the
+  owner's SSH keys. The Origin check stops web pages, not local processes. So while no password
+  exists, the app holds a one-time setup code (`security/setup_code.py`):
+  - generated at startup with `secrets` (12 symbols from a 32-symbol alphabet without 0/O and
+    1/I, 60 bits, shown as `XXXX-XXXX-XXXX`), regenerated at every start until a password is
+    set, and held in memory only (never in the database, an event or a response);
+  - printed once, in one framed record on the `portkey.setup` logger, which `__main__` sends to
+    the container log at INFO whatever the log level. Reading `docker compose logs portkey`
+    needs control of Docker on the PC, which a process merely reaching the port does not have.
+    The redaction filter scrubs the code from every other record as a backstop;
+  - required by `POST /api/auth/setup`, compared in constant time (SHA-256 of both sides, then
+    `hmac.compare_digest`), in any case and with or without separators. Wrong codes count
+    against the same per-client backoff as wrong passwords, so 2^60 codes cannot be tried;
+  - dropped once the password is set; later starts print nothing.
+  - `python -m portkey.reset_password` deletes the password while the app runs, but the running
+    app holds no code (a password existed at its start), so setup is refused with
+    `setup_needs_restart` until a restart prints a fresh code. A reset never reopens setup to
+    whoever reaches the port first.
+  - Left open: behind Docker Desktop's port proxy every client has the same address, so a local
+    process can make wrong guesses that lock the owner out of setup for a while (as with login).
+    It cannot set the password.
 - Failed logins get per-client exponential backoff.
 - Login returns a bearer token valid for 30 days, sliding (each use extends it), and never
   longer than 90 days after it was issued. Only the SHA-256 hash of each token is stored, in
@@ -236,9 +259,10 @@ ever used, links open only on modifier-click with `rel=noopener`.
 - Each hop of a jump chain gets its own host key check.
 
 **Never logged.** Passwords, passphrases, keyboard-interactive answers, terminal input and
-output, private key bytes, tokens and WebSocket payloads. The asyncssh logger is set to WARNING
-and a redaction filter is a backstop. Allowed in logs: connection id, host, user, fingerprints
-and outcome codes.
+output, private key bytes, tokens and WebSocket payloads. The setup code is logged exactly once,
+in its startup announcement, and nowhere else. The asyncssh logger is set to WARNING and a
+redaction filter is a backstop. Allowed in logs: connection id, host, user, fingerprints and
+outcome codes.
 
 ## 5. Data model
 
@@ -289,8 +313,8 @@ auth status, setup and login.
 
 | Method and path | Request | Response |
 |---|---|---|
-| `GET /api/auth/status` | - | `{setup, authenticated}` |
-| `POST /api/auth/setup` | `{password}` | `{token}` (only while no password is set) |
+| `GET /api/auth/status` | - | `{setup, authenticated, setup_code}` (`setup_code` says whether the code is needed, never what it is) |
+| `POST /api/auth/setup` | `{password, code}` | `{token}` (only while no password is set, and only with the setup code from the container log) |
 | `POST /api/auth/login` | `{password}` | `{token}` |
 | `POST /api/auth/logout` | - | - |
 | `POST /api/auth/password` | `{old, new}` | - |
@@ -505,7 +529,7 @@ Target: no file over about 400 lines.
 | `config.py` | Paths, port, environment, limits |
 | `interfaces.py` | Protocols between packages: `Prompter`, `HostKeyStore`, `KeyProvider`, `ConnectionsRepo`, `GroupsRepo`, `TagsRepo`, settings, events, key vault, connector, session registry |
 | `models.py`, `errors.py`, `services.py` | Shared domain records, the HTTP error hierarchy, service wiring |
-| `security/` | `hostguard.py`, `auth.py`, `tokens.py`, `redact.py`, `headers.py` |
+| `security/` | `hostguard.py`, `auth.py`, `setup_code.py`, `tokens.py`, `redact.py`, `headers.py` |
 | `store/` | `db.py` (with migrations), `connections.py`, `groups.py`, `tags.py`, `hostkeys.py`, `settings.py`, `events.py`, `keys_meta.py` |
 | `keys/` | `textio.py`, `discovery.py`, `keygen.py`, `vault.py`, `known_hosts.py` |
 | `ssh/` | `errors.py`, `client.py` (the asyncssh `SSHClient` subclass that connects auth callbacks to the `Prompter`), `hostkey.py`, `chain.py` (jump chain resolution and connection) |
@@ -559,6 +583,9 @@ Everything runs in containers, driven by `compose.dev.yaml`.
 - Ring buffer offsets.
 - The Host / Origin / token matrix.
 - 422 redaction.
+- The setup code: generation, constant-time comparison, shared backoff, one-shot use, absence
+  from every response, event, database file and log record but the startup one, and the reset
+  path while the app runs.
 - Migrations.
 - Jump chain validation: depth limit, cycles, delete-with-dependants.
 - Folders: depth limit, sibling-name uniqueness, move-under-descendant rejection, delete
@@ -603,7 +630,8 @@ jump to `sshd-inner`.
 
 ### End-to-end (Playwright, Chromium, against `app`)
 
-- First-run password setup and login.
+- First-run password setup (with the setup code read from the app container's log, as the
+  owner reads it) and login.
 - Adding a connection from a suggestion.
 - Opening a terminal, typing `echo hi`, and checking `.xterm-rows`.
 - Reload, then reattach and replay.

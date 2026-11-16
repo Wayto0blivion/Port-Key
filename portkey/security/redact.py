@@ -13,6 +13,11 @@ the log record factory, which every record from every logger passes through.
 
 This is a backstop: code must still never log secrets. It cannot recognise a bare token or
 password with no label beside it.
+
+The one exception it knows about by value is the first-visit setup code: while one is held,
+``hide_setup_code(code)`` makes every record scrub it (any case, with or without separators),
+except records on the ``portkey.setup`` logger, whose single announcement must reach the
+container log intact (``portkey.security.setup_code``).
 """
 
 from __future__ import annotations
@@ -50,47 +55,69 @@ _REPLY_FIELD = re.compile(
 )
 
 
-def redact(text: str) -> str:
+#: The only logger whose records may carry the setup code (its one startup announcement).
+SETUP_CODE_LOGGER = "portkey.setup"
+_setup_code: re.Pattern[str] | None = None
+
+
+def hide_setup_code(code: str | None) -> None:
+    """Scrub ``code`` from every log record (and ``redact()`` output) from now on, except on
+    the ``portkey.setup`` logger; ``None`` stops once the code is gone."""
+    global _setup_code
+    symbols = [c for c in code or "" if c.isalnum()]
+    _setup_code = re.compile(r"[\s_.-]?".join(map(re.escape, symbols)), re.I) if symbols else None
+
+
+def redact(text: str, *, keep_setup_code: bool = False) -> str:
     text = _PRIVATE_KEY.sub("[redacted private key]", text)
     text = _BEARER.sub(lambda m: f"{m.group(1)} {REDACTED}", text)
     text = _PAIR.sub(lambda m: f"{m.group(1)}{m.group(2)}{REDACTED}", text)
-    return _REPLY_FIELD.sub(lambda m: f"{m.group(1)}{REDACTED}", text)
+    text = _REPLY_FIELD.sub(lambda m: f"{m.group(1)}{REDACTED}", text)
+    code = _setup_code
+    if code is not None and not keep_setup_code:
+        text = code.sub(REDACTED, text)
+    return text
 
 
-def _redact_args(args: Any) -> Any:
+def _redact_args(args: Any, scrub: Callable[[str], str]) -> Any:
     if isinstance(args, tuple):
-        return tuple(redact(a) if isinstance(a, str) else a for a in args)
+        return tuple(scrub(a) if isinstance(a, str) else a for a in args)
     if isinstance(args, Mapping):
-        return {k: redact(v) if isinstance(v, str) else v for k, v in args.items()}
+        return {k: scrub(v) if isinstance(v, str) else v for k, v in args.items()}
     return args
 
 
 class RedactingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
+        keep = record.name == SETUP_CODE_LOGGER
+
+        def scrub(text: str) -> str:
+            return redact(text, keep_setup_code=keep)
+
         try:
             message = record.getMessage()
         except Exception:
             # A record whose args do not fit its format is logging's problem to report.
             return True
-        if redact(message) != message:
+        if scrub(message) != message:
             # Prefer redacting the arguments, which keeps the record's shape for formatters that
             # read ``args`` (uvicorn's access log); fall back to a pre-rendered message.
-            args = _redact_args(record.args)
+            args = _redact_args(record.args, scrub)
             try:
                 rendered = record.msg % args if args else str(record.msg)
             except (TypeError, ValueError, KeyError):
                 rendered = None
-            if rendered is not None and redact(rendered) == rendered:
+            if rendered is not None and scrub(rendered) == rendered:
                 record.args = args
             else:
-                record.msg = redact(rendered if rendered is not None else message)
+                record.msg = scrub(rendered if rendered is not None else message)
                 record.args = None
         if record.exc_info and not record.exc_text:
             record.exc_text = logging.Formatter().formatException(record.exc_info)
         if record.exc_text:
-            record.exc_text = redact(record.exc_text)
+            record.exc_text = scrub(record.exc_text)
         if record.stack_info:
-            record.stack_info = redact(record.stack_info)
+            record.stack_info = scrub(record.stack_info)
         return True
 
 

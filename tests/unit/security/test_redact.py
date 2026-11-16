@@ -164,7 +164,7 @@ async def test_422_never_echoes_input(client: httpx.AsyncClient) -> None:
 
 async def test_422_for_too_long_password_hides_it(client: httpx.AsyncClient) -> None:
     secret = "Z" * 1100
-    r = await client.post("/api/auth/setup", json={"password": secret})
+    r = await client.post("/api/auth/setup", json={"password": secret, "code": "K7QM-3XRP-W9TD"})
     assert r.status_code == 422
     assert "ZZZZ" not in r.text
     assert r.json()["error"]["fields"][0]["type"] in {"too_long", "string_too_long"}

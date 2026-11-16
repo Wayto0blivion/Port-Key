@@ -89,6 +89,7 @@ SHOTS: list[tuple[str, str, bool, Callable[[Page], None] | None]] = [
     ("firstrun-ppk", "ppk", True, None),
     ("many", "many", True, None),
     ("setup", "setup", False, None),
+    ("setup-restart", "setup-restart", False, None),
     ("signin", "signedout", False, None),
     ("loading", "slow", True, None),
     ("error", "error", True, None),

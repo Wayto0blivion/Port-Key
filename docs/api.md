@@ -36,13 +36,13 @@ Optional extras: `fields` (422 `validation`: `[{loc, msg, type}]`, never the inp
 |---|---|
 | 400 | `bad_passphrase` |
 | 401 | `unauthorized`, `bad_password` |
-| 403 | `origin_not_allowed`, `missing_csrf_header` |
+| 403 | `origin_not_allowed`, `missing_csrf_header`, `bad_setup_code` |
 | 404 | `not_found`, `key_unknown`, `session_gone` |
-| 409 | `already_setup`, `not_setup`, `name_taken`, `jump_in_use`, `key_name_taken`, `key_in_use`, `key_not_encrypted` |
+| 409 | `already_setup`, `not_setup`, `setup_needs_restart`, `name_taken`, `jump_in_use`, `key_name_taken`, `key_in_use`, `key_not_encrypted` |
 | 415 | `unsupported_media_type` |
 | 421 | `host_not_allowed` |
 | 422 | `validation`, `jump_cycle`, `jump_too_deep`, `jump_unknown`, `group_unknown`, `group_too_deep`, `group_cycle`, `tag_invalid`, `key_unknown`, `key_name_invalid`, `key_unreadable`, `confirm_mismatch` |
-| 429 | `rate_limited` (login and password change) |
+| 429 | `rate_limited` (login, first-visit setup and password change) |
 | 500 / 501 | `internal` / `not_implemented` (skeleton only) |
 
 `validation` covers every request body that fails its schema, malformed tags included: the
@@ -59,20 +59,38 @@ callers such as the wizard.
 
 | Request | Response |
 |---|---|
-| `GET /api/auth/status` (token optional) | `200 {"setup": true, "authenticated": false}` |
-| `POST /api/auth/setup {"password": "correct horse battery"}` | `200 {"token": "q3Jx...", "expires_at": "2026-12-15T14:02:00Z"}`; 409 `already_setup` |
+| `GET /api/auth/status` (token optional) | `200 {"setup": false, "authenticated": false, "setup_code": "required"}`; once a password exists `{"setup": true, "authenticated": true, "setup_code": null}` |
+| `POST /api/auth/setup {"password": "correct horse battery", "code": "K7QM-3XRP-W9TD"}` | `200 {"token": "q3Jx...", "expires_at": "2026-12-15T14:02:00Z"}`; 403 `bad_setup_code`; 429 `rate_limited` with `retry_after`; 409 `setup_needs_restart`; 409 `already_setup` |
 | `POST /api/auth/login {"password": "correct horse battery"}` | `200 {"token", "expires_at"}`; 401 `bad_password`; 429 `rate_limited` with `retry_after`; 409 `not_setup` |
 | `POST /api/auth/logout {}` | `204`; revokes this token |
 | `POST /api/auth/password {"old": "...", "new": "..."}` | `204`; revokes every other token; 401 `bad_password`; 429 `rate_limited` with `retry_after` |
 
 `setup` is true once an app password exists (false: show "Set a password for Port-Key").
-`authenticated` says whether the request's bearer token is valid. Passwords are 8 to 1024
-characters (`new`, `setup`). Tokens are valid 30 days, sliding (each use moves the expiry 30
-days ahead), and never longer than 90 days after they were issued, however often they are
-used; after that every call answers 401 `unauthorized` and the owner signs in again.
-`expires_at` is the expiry at issue (30 days). Wrong current passwords on a password change
-share one backoff, as failed logins do, so a stolen token cannot be used to guess the password.
-A 401 `bad_password` (wrong password on login or password change) is not a sign-out.
+`authenticated` says whether the request's bearer token is valid. `setup_code` never carries
+the code itself: `"required"` while setup needs the code from the startup log, `"restart"` when
+no code is held (the password was cleared while the app ran; see below), `null` once a password
+exists.
+
+**Setup code.** While no app password exists, the app holds a one-time setup code: generated
+with a CSPRNG at every start until a password is set, 60 bits, shown as three groups of four
+from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (no 0/O, no 1/I), kept in memory only. It is printed
+once, at startup, in one framed record in the container log (`docker compose logs portkey`),
+and appears nowhere else: no response, event record or other log line carries it. Setup needs
+it in `code` (1 to 64 characters, any case, separators optional: `k7qm 3xrp w9td` works). It is
+compared in constant time, and wrong codes count against the same per-client backoff as wrong
+login passwords (403 `bad_setup_code`, then 429). It is dropped once the password is set, and
+no code is printed on later starts. `python -m portkey.reset_password` while the app runs
+leaves it with no password and no code: setup answers 409 `setup_needs_restart` until the app
+restarts and prints a fresh code. Order of checks: `already_setup`, then the backoff
+(`rate_limited`), then `setup_needs_restart`, then the code.
+
+Passwords are 8 to 1024 characters (`new`, `setup`). Tokens are valid 30 days, sliding (each
+use moves the expiry 30 days ahead), and never longer than 90 days after they were issued,
+however often they are used; after that every call answers 401 `unauthorized` and the owner
+signs in again. `expires_at` is the expiry at issue (30 days). Wrong current passwords on a
+password change share one backoff, as failed logins do, so a stolen token cannot be used to
+guess the password. A 401 `bad_password` (wrong password on login or password change) is not a
+sign-out, and neither is a 403 `bad_setup_code`.
 
 ## Connections
 
@@ -281,3 +299,12 @@ Decided at the phase A integration (2026-11-16):
     false.
 15. Tokens have an absolute lifetime of 90 days on top of the 30-day sliding expiry.
 16. Hiding a key with `reassign` is one database transaction, label change included.
+
+Decided with the owner (2026-11-16):
+
+17. First-visit setup needs the one-time setup code from the container log
+    (`SetupRequest.code`; see "Setup code" under Auth). A wrong code is 403 `bad_setup_code`,
+    not 401, so 401 keeps meaning "signed out" or a wrong password; it shares the login backoff
+    (429). `GET /api/auth/status` adds `setup_code` (`"required"`, `"restart"` or `null`), never
+    the code. A password reset while the app runs answers 409 `setup_needs_restart` until a
+    restart prints a fresh code.

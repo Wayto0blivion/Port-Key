@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from tests.e2e.harness.app_log import setup_code_from_log
 from tests.fixtures import testbed as tb
 
 
@@ -84,10 +85,16 @@ class AppApi:
         body: dict[str, Any] = r.json()
         return body
 
-    def setup(self, password: str = tb.APP_PASSWORD) -> str:
-        r = self.request("POST", "/api/auth/setup", json={"password": password})
+    def setup(self, password: str = tb.APP_PASSWORD, code: str | None = None) -> str:
+        """First-visit setup with the setup code from the app's log (``app_log``) unless
+        ``code`` is given."""
+        r = self.setup_raw(password, code if code is not None else setup_code_from_log())
         r.raise_for_status()
         return str(r.json()["token"])
+
+    def setup_raw(self, password: str, code: str) -> httpx.Response:
+        """``POST /api/auth/setup`` as the first-visit form sends it, whatever it answers."""
+        return self.request("POST", "/api/auth/setup", json={"password": password, "code": code})
 
     def login(self, password: str = tb.APP_PASSWORD) -> str:
         r = self.request("POST", "/api/auth/login", json={"password": password})
@@ -95,7 +102,8 @@ class AppApi:
         return str(r.json()["token"])
 
     def ensure_password(self, password: str = tb.APP_PASSWORD) -> str:
-        """A valid token: sets the app password on first use, otherwise signs in.
+        """A valid token: sets the app password on first use (with the setup code from the
+        app's log), otherwise signs in.
 
         The app's database lives in a tmpfs for the whole e2e run, so once any test calls this,
         the first-run screen is gone until the next ``./mk e2e``.

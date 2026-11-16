@@ -169,10 +169,15 @@ const enc = (s) => encodeURIComponent(s);
 export async function health() { return request('GET', '/api/health', { auth: false }); }
 /** @returns {Promise<AuthStatus>} */
 export async function authStatus() { return request('GET', '/api/auth/status', { signOutOn401: false }); }
-/** @param {string} password @returns {Promise<TokenResponse>} stores the token */
-export async function setupPassword(password) {
+/**
+ * First-visit setup. `code` is the one-time setup code from the container log, as typed (any
+ * case, separators optional). Rejects with 403 `bad_setup_code`, 429 `rate_limited`, 409
+ * `setup_needs_restart` or `already_setup`.
+ * @param {string} password @param {string} code @returns {Promise<TokenResponse>} stores the token
+ */
+export async function setupPassword(password, code) {
   /** @type {TokenResponse} */
-  const res = await request('POST', '/api/auth/setup', { body: { password }, auth: false, signOutOn401: false });
+  const res = await request('POST', '/api/auth/setup', { body: { password, code }, auth: false, signOutOn401: false });
   setToken(res.token);
   return res;
 }
