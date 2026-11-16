@@ -75,7 +75,7 @@ export class TerminalView {
     this.resizeTimer = null;
     this.lastSize = { cols: 0, rows: 0 };
 
-    const { term, fit, search } = createTerminal(this.ctx.fontSize());
+    const { term, fit, search } = createTerminal(this.ctx.fontSize(), () => this.connection.name);
     this.term = term;
     this.fit = fit;
     this.search = search;

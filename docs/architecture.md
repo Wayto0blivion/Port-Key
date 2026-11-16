@@ -242,8 +242,10 @@ at 64 KB by uvicorn.
   `style-src 'self' 'unsafe-inline'` is added only if xterm needs it.
 - `Referrer-Policy: no-referrer` and `X-Content-Type-Options: nosniff`.
 
-**Hostile server output.** The clipboard (OSC 52) addon is not loaded. If the web-links addon is
-ever used, links open only on modifier-click with `rel=noopener`.
+**Hostile server output.** The clipboard (OSC 52) addon is not loaded, nor the web-links addon.
+xterm.js 5.5 shows OSC 8 hyperlinks on its own; Port-Key's `linkHandler` (`terminal/links.js`)
+ignores a plain click, and on Ctrl/Cmd+click shows its own dialog with the link's real host and
+full address before opening it (http and https only) with `noopener,noreferrer`.
 
 **Passwords and passphrases.**
 

@@ -3,9 +3,13 @@
  *
  * Builds an xterm.js Terminal from the vendored UMD builds (window.Terminal, FitAddon,
  * SearchAddon; see js/globals.d.ts) with the DOM renderer, so Playwright can read the rows. No
- * clipboard (OSC 52) or web-links addon is loaded. Colours come from the CSS tokens in base.css,
- * read at runtime, so the terminal follows the theme without literal colours in code.
+ * clipboard (OSC 52) or web-links addon is loaded; xterm's built-in OSC 8 hyperlinks go through
+ * terminal/links.js (Ctrl/Cmd+click and a dialog, never a plain click). Colours come from the
+ * CSS tokens in base.css, read at runtime, so the terminal follows the theme without literal
+ * colours in code.
  */
+
+import { linkHandler } from './links.js';
 
 /** @typedef {import('@xterm/xterm').Terminal} Terminal */
 /** @typedef {import('@xterm/addon-fit').FitAddon} FitAddon */
@@ -26,8 +30,11 @@ function withAlpha(hex, alpha) {
   return /^#[0-9a-f]{6}$/i.test(hex) ? `${hex}${alpha}` : hex;
 }
 
-/** @param {number} fontSize @returns {{term: Terminal, fit: FitAddon, search: SearchAddon}} */
-export function createTerminal(fontSize) {
+/**
+ * @param {number} fontSize @param {() => string} [name] the session's connection name, for the
+ * link dialog @returns {{term: Terminal, fit: FitAddon, search: SearchAddon}}
+ */
+export function createTerminal(fontSize, name = () => 'this session') {
   const fg = token('--text', '#c9d1d9');
   const term = new window.Terminal({
     fontFamily: token('--font-term', 'monospace'),
@@ -36,6 +43,8 @@ export function createTerminal(fontSize) {
     scrollback: 10000,
     cursorBlink: true,
     allowProposedApi: false,
+    // Links a server prints (OSC 8) open only on Ctrl/Cmd+click, after Port-Key's own dialog.
+    linkHandler: linkHandler(name),
     theme: {
       background: token('--term-bg', '#010409'),
       foreground: fg,
