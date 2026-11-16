@@ -126,7 +126,7 @@ The second message must be `open` or `attach`. Dropping the socket only detaches
 
 | Message | Notes |
 |---|---|
-| `{"type": "status", "phase": "connecting", "hop": Hop}` | phases per hop: `connecting`, `hostkey`, `auth`, then `ready` for the last hop |
+| `{"type": "status", "phase": "connecting", "hop": Hop}` | phases per hop: `connecting`, `hostkey`, `auth`, then `ready` for the last hop. The SSH core's `hostkey` status also knows the trust `source` (`known_hosts` or `store`); /ws/terminal does not send it, the wizard turns it into its `hostkey` step code |
 | `{"type": "status", "phase": "auth", "hop": Hop, "method": "publickey", "key_name": "id_ed25519"}` | `method`: `publickey`, `password`, `keyboard-interactive` |
 | `{"type": "prompt", ...}` | see Prompts |
 | `{"type": "ready", "session_id": "s_4Zq...", "connection": Connection, "offset": 0, "reset": true, "reattached": false}` | output follows as binary frames |
@@ -142,14 +142,21 @@ The second message must be `open` or `attach`. Dropping the socket only detaches
 `ready.offset` is the absolute offset of the first byte that follows. On `open`, `offset: 0,
 reset: true`. On `attach` with `since` inside the buffer, `offset == since`, `reset: false`: the
 client appends. With `since: null`, or `since` older than the buffer, `reset: true` and `offset`
-is the oldest byte held: the client clears the terminal and writes the replay. A `since` beyond
-what was sent is treated as "everything sent". The client counts received bytes as
-`offset + bytes since ready` and sends that as the next `since`.
+is the first byte sent: the client clears the terminal and writes the replay. That is the oldest
+byte held, or, once the buffer has wrapped, up to 4 KB later: the replay is trimmed to start
+after a line feed, at an ESC, or after UTF-8 continuation bytes, so it never begins inside a
+character or an escape sequence. A `since` beyond what was sent is treated as "everything
+sent". The client counts received bytes as `offset + bytes since ready` and sends that as the
+next `since`.
 
-Sessions live on detached for `detach_grace` (15 min); then they are closed. At most 32
-sessions; `open` beyond that -> `too_many_sessions`, 4429. SSH keepalive every 30 s, 3 misses
-end the session with `exit` `lost`. The client treats 2 missed pongs as a dead socket and
-reattaches. Port-Key never reconnects SSH on its own.
+Sessions live on detached for `detach_grace` (15 min); then they are closed. A session whose
+shell ended while it was detached is not listed by `GET /api/sessions` and does not count toward
+the 32, but it can still be attached once until the grace runs out: the attach gets `ready`, the
+last output and the `exit`; after that it is gone (4410). At most 32 sessions; `open` beyond
+that -> `too_many_sessions`, 4429. SSH keepalive every 30 s, 3 misses end the session with
+`exit` `lost`. The client sends `ping` every 25 s and treats two pings in a row with no frame of
+any kind back (not only `pong`: under heavy output a `pong` can sit behind output frames) as a
+dead socket, and reattaches. Port-Key never reconnects SSH on its own.
 
 ### Example: through a jump host, first-seen target key
 
@@ -228,6 +235,37 @@ ends with `error` `cancelled`, close 1000.
 `hostkey_changed` (4409), `hostkey_rejected`, `auth_failed` (3 wrong passwords),
 `password_expired`, `key_locked`, `key_unreadable`, `cancelled`, `prompt_timeout` (4408),
 `not_found` (4404, unknown `jump_id` or `connection_id`), `bad_message`.
+
+A `start` that passes the schema but cannot be saved ends with `error` and close 4400 carrying
+the HTTP API's code for the same problem: `name_taken`, `group_unknown`, `jump_cycle`,
+`jump_too_deep`, `tag_invalid` or `validation` (an unknown `jump_id` is `not_found`, 4404). The
+`message` is ready to show beside the form.
+
+### Step details
+
+What the server sends, beyond the table above:
+
+- `validate` running, then ok, or fail with the error's code followed by the `error`.
+- `connect` (per hop, `hop` set) and `hostkey` (target only) appear only on the first
+  connection of a run; verify and "Check key login" connect quietly. `hostkey` ok has code
+  `known`, `trusted` or `accepted`; no code for a host certificate.
+- `try_key` ok `already_installed`, or warn `refused`, also when the server does not offer
+  publickey at all (a password-only account).
+- `password_login` `skipped` appears only with `assume_installed` when the key worked.
+- `install` ok `added` or ok `already_present`, then, if permissions are loose, a second
+  `install` warn `perms_warning` (keep the first line's text and add the warning). Before a
+  `needs_action`, `install` fails with code `non_posix` or `authorized_keys_readonly`, and
+  `verify` fails with `key_still_refused`.
+- `discard_password` appears only when a password connection existed.
+- Any `error` first marks the running steps `fail` with its code (not for `cancelled` or
+  `hostkey_rejected`).
+- Every `needs_action` carries `public_key` and `install_command`; `output` comes with
+  `non_posix` and `authorized_keys_readonly`. `key_still_refused` leaves out `fix_permissions`
+  once it has been tried and when the server offers no publickey. `assume_installed` with a
+  key-only server that refuses the key gives `password_not_allowed`, not `key_refused`.
+- An `action` with nothing waiting is ignored; `ping` before `start` is answered; `close`
+  before `start` closes 1000.
+- The saved connection keeps `key_fp` as sent in `start` (null = the default key).
 
 ### Example: fresh host with 2FA
 
@@ -308,3 +346,13 @@ Decided in package 4 (SSH core, 2026-11-16):
     match, never the port-less `host` line (asyncssh's own matcher would fall back to it).
 17. A reply that lacks what its prompt needs (`accept`, `value`, or one `values` entry per
     question) is `bad_message`, close 4400.
+
+Decided in package 9 (end to end, 2026-11-16), folding in what packages 5, 6 and 8b reported:
+
+18. On `reset: true`, `ready.offset` is the first byte sent, which may be up to 4 KB after the
+    oldest byte held (the replay starts at a clean boundary). A session that ended while
+    detached can be attached once more for its last output and `exit`.
+19. The client counts any frame, not only `pong`, as an answer to its `ping`.
+20. /ws/install: the input-rejected codes (close 4400) and the step details above.
+21. The SSH core decides the host key before `status hostkey` and passes the trust `source`
+    to its prompter; the wizard's `hostkey` code comes from it instead of a guess.
