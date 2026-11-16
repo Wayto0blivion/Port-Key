@@ -1,0 +1,40 @@
+# TEST-ONLY sshd for Port-Key integration and e2e tests (package 7). It runs only on the
+# private compose networks of compose.dev.yaml. Users: tests/fixtures/testbed.py.
+Port 22
+Port 2222
+# The entrypoint installs host key set A or B (HOSTKEY_SET) here.
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+LogLevel VERBOSE
+PermitRootLogin no
+AllowUsers pw keyonly fresh tfa fishy badperms nosh
+MaxAuthTries 10
+LoginGraceTime 60
+StrictModes yes
+
+UsePAM yes
+PubkeyAuthentication yes
+PasswordAuthentication yes
+KbdInteractiveAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+
+# Jump-host tests tunnel through this server to sshd-inner.
+AllowTcpForwarding yes
+X11Forwarding no
+PrintMotd no
+PrintLastLog no
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+Match User pw
+    AuthenticationMethods password
+
+Match User keyonly
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    AuthenticationMethods publickey
+
+# PAM asks "Password: " (pam_unix), then "Verification code: " (pam_google_authenticator).
+Match User tfa
+    PasswordAuthentication no
+    AuthenticationMethods publickey keyboard-interactive

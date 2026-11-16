@@ -1,0 +1,7 @@
+# TEST-ONLY fixture for Port-Key tests. Not a real host or key; never trust it elsewhere.
+Host web-prod
+    HostName 192.168.10.42
+    User john
+Host imaging-01
+    HostName 192.168.10.31
+    Port 2222

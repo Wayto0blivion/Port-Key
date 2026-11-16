@@ -1,0 +1,19 @@
+# TEST-ONLY fixture for Port-Key tests. Not a real host or key; never trust it elsewhere.
+# Written with CRLF line endings on purpose (a Windows-edited file).
+# sshd (host key set A): plain entry, then [host]:port for its second port.
+sshd ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDkdJ/7EjsKuHIts0bbvqdybn5BRSCmFnbKlV1nIjlER
+[sshd]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDkdJ/7EjsKuHIts0bbvqdybn5BRSCmFnbKlV1nIjlER
+# sshd-inner (set A): hashed, so it matches when typed but is not suggested.
+|1|pSOYSzaj+U57r9pLcNdPkMlMkdk=|EdWnGiUKQ6iIOtubP5l0k4Vj/Y0= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDkdJ/7EjsKuHIts0bbvqdybn5BRSCmFnbKlV1nIjlER
+# sshd-rekeyed is deliberately absent (first-seen and changed-key tests set it up).
+# Fictional hosts for suggestions; decoy keys, nothing listens behind them.
+web-prod,192.168.10.42 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKKEHGlE6boAaBEhXvbMSdumVGLxurXWUvSLQPSW4AAQ
+web-prod,192.168.10.42 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBKSlxQMZd3xBXR42rupAJqOA30cAAwmZIWwHF1SQxHTvfXP8fwfQ10gbrKM7JiSHr8v30YAvryYM958IBZj/4ac=
+build-box,192.168.10.20 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO1DgSTIOAX+iloq92r8U13qQ2PdiZeIt31TnPBMtyTN
+[imaging-01]:2222,[192.168.10.31]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIInoaOMaOs9RcyducsTiJxHCgZ+Lfe72cRp9nFA/IOsC
+|1|o4+AWwDY4R3YmQrLaU/aYa30DW0=|H3x5jemGvC3vIf6ZSbi4wqlh/Gs= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIugSFUCp108Q0OayuvrX3NokagTBoqFi66qYah0AAnp
+|1|5SsduX2BJyu5DQtUTnZ4ycR3ibs=|lFEq4q9ryxcIs0TngVDL7aBxKxg= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIugSFUCp108Q0OayuvrX3NokagTBoqFi66qYah0AAnp
+# A wildcard (skipped by suggestions), a revoked key and a CA.
+*.lab.example ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEno5THz66xHYWlpylo3PsrVgg6ElYVmc3V5zhDtlYWR
+@revoked revoked-host ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFXJuCthwZ+GaCRoVDhPS81kBCnWYKSO5dfHpQiyt9SZ
+@cert-authority *.corp.example ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHEsg+tDkeI9V5xUIDlixyCWruBX0md01m7Xflm/xpGr

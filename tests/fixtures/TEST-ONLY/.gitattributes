@@ -1,0 +1,2 @@
+# TEST-ONLY fixtures: exact bytes matter (CRLF, BOMs, UTF-16). Never convert line endings.
+* -text

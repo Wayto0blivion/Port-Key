@@ -1,0 +1,9 @@
+# TEST-ONLY fixture for Port-Key tests. Not a real host or key; never trust it elsewhere.
+# user	shell	password
+pw	/bin/bash	TEST-ONLY-pw-password
+keyonly	/bin/bash	TEST-ONLY-keyonly-password
+fresh	/bin/bash	TEST-ONLY-fresh-password
+tfa	/bin/bash	TEST-ONLY-tfa-password
+fishy	/usr/bin/fish	TEST-ONLY-fishy-password
+badperms	/bin/bash	TEST-ONLY-badperms-password
+nosh	/usr/sbin/nologin	TEST-ONLY-nosh-password

@@ -26,18 +26,19 @@ services:
   test:
     <<: *dev
 
-  # Integration runner: pytest against the sshd containers (package 7 completes).
+  # Integration runner (package 7): pytest against the sshd containers. It is on the outer
+  # network only, so sshd-inner is reachable just by jumping through sshd.
   integration:
     <<: *dev
     profiles: ["integration"]
     command: ["pytest", "tests/integration", "-m", "integration"]
     depends_on:
       sshd:
-        condition: service_started
+        condition: service_healthy
       sshd-rekeyed:
-        condition: service_started
+        condition: service_healthy
       sshd-inner:
-        condition: service_started
+        condition: service_healthy
 
   # eslint and tsc --checkJs on portkey/static/js.
   lint-js:
@@ -53,11 +54,15 @@ services:
       - /tmp
     network_mode: none
 
-  # Package 7: Ubuntu 24.04 + OpenSSH + libpam-google-authenticator, host key set A.
+  # Package 7: TEST-ONLY sshd (Ubuntu 24.04, OpenSSH, pam_google_authenticator, fish) with the
+  # users in tests/fixtures/testbed.py; host key set A; ports 22 and 2222. On both networks,
+  # so it is the jump host to sshd-inner.
   sshd:
     profiles: ["integration", "e2e"]
     build:
       context: tests/sshd
+      additional_contexts:
+        fixtures: tests/fixtures/TEST-ONLY/sshd
     image: portkey-sshd:local
     environment:
       HOSTKEY_SET: "a"
@@ -69,21 +74,25 @@ services:
   sshd-rekeyed:
     profiles: ["integration", "e2e"]
     image: portkey-sshd:local
+    pull_policy: never
     environment:
       HOSTKEY_SET: "b"
     networks:
       - outer
 
-  # Package 7: reachable only through sshd (jump-host tests).
+  # Package 7: on the internal network only; reachable just through sshd (jump-host tests).
   sshd-inner:
     profiles: ["integration", "e2e"]
     image: portkey-sshd:local
+    pull_policy: never
     environment:
       HOSTKEY_SET: "a"
     networks:
       - inner
 
-  # The real runtime image with a fixture .ssh directory (package 7 provides the fixtures).
+  # The real runtime image against the TEST-ONLY fixture .ssh directory. A Windows bind mount
+  # shows every file as 0777, so the fixture is copied into a tmpfs and opened up to 0777
+  # before the app starts (the copy is per container, so parallel runs do not collide).
   app:
     profiles: ["e2e"]
     build:
@@ -95,9 +104,14 @@ services:
       PORTKEY_ALLOWED_HOSTS: "app:8000"
       PORTKEY_SSH_DIR_DISPLAY: 'C:\Users\john\.ssh'
       PORTKEY_KEYS_DIR_DISPLAY: 'C:\Users\john\.ssh\port-key'
+    command:
+      - sh
+      - -c
+      - cp -R /fixture-ssh/. /ssh/ && chmod -R 0777 /ssh && exec python -m portkey
     volumes:
-      - ./tests/fixtures/ssh:/ssh:ro
+      - ./tests/fixtures/TEST-ONLY/ssh:/fixture-ssh:ro
     tmpfs:
+      - /ssh:uid=1000,gid=1000,mode=0777
       - /data:uid=1000,gid=1000,mode=0700
       - /keys-generated:uid=1000,gid=1000
       - /tmp
@@ -106,11 +120,21 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-m", "portkey.healthcheck"]
+      interval: 2s
+      timeout: 3s
+      start_period: 30s
+      retries: 15
     networks:
       - outer
     depends_on:
-      - sshd
-      - sshd-rekeyed
+      sshd:
+        condition: service_healthy
+      sshd-rekeyed:
+        condition: service_healthy
+      sshd-inner:
+        condition: service_healthy
 
   # Package 7: a static page on another origin that tries to open the app's WebSocket.
   evil-origin:
@@ -143,8 +167,10 @@ services:
     networks:
       - outer
     depends_on:
-      - app
-      - evil-origin
+      app:
+        condition: service_healthy
+      evil-origin:
+        condition: service_started
 
 networks:
   outer: {}

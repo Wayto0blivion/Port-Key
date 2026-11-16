@@ -1,0 +1,23 @@
+#!/bin/sh
+# Restore the calling user's ~/.ssh to the image's initial state (package 7, TEST-ONLY).
+# Tests run it over SSH as that user after a wizard run changed authorized_keys:
+#   conn.run("/usr/local/bin/portkey-test-reset")
+# Works from any login shell that can run a command (fish included).
+set -eu
+seed=/etc/portkey-test
+user=$(id -un)
+cd "$HOME"
+chmod 750 "$HOME"
+rm -rf .ssh
+case "$user" in
+    keyonly)
+        mkdir -m 700 .ssh
+        cp "$seed/keyonly_authorized_keys" .ssh/authorized_keys
+        chmod 600 .ssh/authorized_keys
+        ;;
+    badperms)
+        mkdir .ssh
+        chmod 777 .ssh
+        ;;
+esac
+echo "portkey-test-reset: $user"
