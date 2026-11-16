@@ -103,10 +103,23 @@ export function changedBody(p, input) {
       h('div', { class: 'fpcard fpcard--new' },
         h('span', { class: 'fpcard__label' }, 'Presented just now'),
         fingerprint(p.new_fingerprint ?? '', p.key_type ?? '', false))),
+    when ? null : knownHostsNote(host, port),
     h('div', { class: 'field' },
       h('label', { class: 'prompt__confirm-label', for: input.id },
         'If you know why it changed, type ', h('strong', { class: 'mono' }, name), ' to replace the stored key.'),
       input));
+}
+
+/**
+ * Replacing a key that came from known_hosts: Port-Key distrusts the old line itself, but never
+ * edits the file, so Windows ssh would still trust it.
+ * @param {string} host @param {number} port
+ */
+function knownHostsNote(host, port) {
+  const target = port === 22 ? host : `"[${host}]:${port}"`;
+  return h('p', { class: 'muted prompt__note' },
+    'Replacing it makes Port-Key stop trusting the old key. Your known_hosts file is not changed; to stop Windows ssh trusting the old key too, run ',
+    h('code', { class: 'mono' }, `ssh-keygen -R ${target}`), '.');
 }
 
 /** The typed name matches: trimmed, ignoring case (docs/ws-protocol.md decision 8). @param {string} typed @param {string} expected */

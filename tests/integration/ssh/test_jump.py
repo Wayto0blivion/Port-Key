@@ -60,9 +60,11 @@ async def test_inner_hop_gets_its_own_host_key_prompt(
     assert prompter.kinds() == ["hostkey_new"]
     hop = prompter.calls[0].hop
     assert (hop.index, hop.role, hop.name, hop.host) == (1, "target", "inner", "sshd-inner")
-    assert [r.fp_sha256 for r in svc.host_keys.for_host("sshd-inner", 22)] == [
+    # Stored for this route only: sshd-inner reached through "jump".
+    assert [r.fp_sha256 for r in svc.host_keys.for_host("sshd-inner", 22, jump.id)] == [
         tb.hostkey_fingerprint("a")
     ]
+    assert svc.host_keys.for_host("sshd-inner", 22) == []
 
 
 async def test_each_hop_signs_in_with_its_own_settings(
@@ -152,7 +154,7 @@ async def test_cancelling_during_the_inner_prompt_closes_the_jump(
     with pytest.raises(asyncio.CancelledError):
         await task
     assert await wait_for_established(22, before) == before
-    assert svc.host_keys.for_host("sshd-inner", 22) == []
+    assert svc.host_keys.for_host("sshd-inner", 22, jump.id) == []
 
 
 async def test_wizard_target_after_a_saved_jump(svc: Services, chains: list[OpenChain]) -> None:

@@ -35,6 +35,13 @@ class HostKeyOut(Response):
     public_key: str
     first_seen_at: datetime
     last_seen_at: datetime
+    # The route: the jump connection this host is reached through (null: directly).
+    # ``via_name`` is null when that connection has been deleted since.
+    via_id: str | None
+    via_name: str | None
+    # A known_hosts key the owner replaced in Port-Key: no longer trusted on this route.
+    # Forgetting this record makes known_hosts trust it again.
+    distrusted: bool
 
 
 class HostKeyList(Response):

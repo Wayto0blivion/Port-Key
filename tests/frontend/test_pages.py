@@ -181,7 +181,7 @@ def test_change_password(app: AppFactory) -> None:
 def test_forget_host_key_needs_the_typed_host(app: AppFactory) -> None:
     page = app()
     page.get_by_role("button", name="Settings", exact=True).click()
-    expect(page.locator(".hostkeys tbody tr")).to_have_count(3)
+    expect(page.locator(".hostkeys tbody tr")).to_have_count(5)
     expect(page.locator(".hostkeys tbody tr").first).to_contain_text("2 March 2026")
     page.get_by_role("button", name="Forget host key for 192.168.10.31:2222").click()
     dialog = page.get_by_role("dialog")
@@ -192,7 +192,21 @@ def test_forget_host_key_needs_the_typed_host(app: AppFactory) -> None:
     expect(forget).to_be_enabled()
     forget.click()
     expect_toast(page, "Forgot the host key for 192.168.10.31.")
-    expect(page.locator(".hostkeys tbody tr")).to_have_count(2)
+    expect(page.locator(".hostkeys tbody tr")).to_have_count(4)
+
+
+def test_host_keys_show_their_route_and_replaced_known_hosts_keys(app: AppFactory) -> None:
+    page = app()
+    page.get_by_role("button", name="Settings", exact=True).click()
+    rows = page.locator(".hostkeys tbody tr")
+    expect(rows.nth(3)).to_contain_text("192.168.10.27 via build-box")
+    expect(rows.nth(4)).to_contain_text("Not trusted: you replaced this known_hosts key")
+    page.get_by_role("button", name="Forget host key for switch-core").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("Port-Key will trust it again without asking")
+    page.keyboard.press("Escape")
+    page.get_by_role("button", name="Forget host key for 192.168.10.27 via build-box").click()
+    expect(page.get_by_role("dialog")).to_contain_text("check this host's identity")
 
 
 def test_diagnostics(app: AppFactory) -> None:

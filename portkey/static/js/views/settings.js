@@ -211,7 +211,7 @@ function hostKeysSection() {
   load();
   return h('section', { class: 'panel settings__section', 'aria-labelledby': 'st-hostkeys' },
     h('h2', { id: 'st-hostkeys', class: 'section-title' }, 'Trusted host keys'),
-    h('p', { class: 'muted' }, "Host keys you accepted in Port-Key. Keys in your own known_hosts are trusted too and aren't listed here."),
+    h('p', { class: 'muted' }, "Host keys you accepted in Port-Key, for each way a host is reached (directly or through a jump host). Keys in your own known_hosts are trusted too and aren't listed here, unless you replaced one."),
     list);
 }
 
@@ -225,26 +225,35 @@ function drawHostKeys(list, keys, reload) {
   const body = h('tbody');
   for (const k of keys) {
     const host = k.port === 22 ? k.host : `${k.host}:${k.port}`;
+    const label = k.via_id ? `${host} via ${viaName(k)}` : host;
     body.appendChild(h('tr', {},
-      h('td', { class: 'mono' }, host),
+      h('td', {}, h('span', { class: 'mono' }, host), k.via_id ? h('span', { class: 'muted small' }, ` via ${viaName(k)}`) : null),
       h('td', {}, sshKeyTypeLabel(k.key_type)),
       h('td', {}, h('span', { class: 'fp-cell' }, renderStrip(k.fp_sha256), h('span', { class: 'mono small' }, shortFp(k.fp_sha256)))),
-      h('td', { class: 'muted' }, formatDate(k.first_seen_at)),
-      h('td', {}, h('button', { type: 'button', class: 'btn btn--secondary btn--sm', 'aria-label': `Forget host key for ${host}`, onClick: () => forget(k, reload) }, 'Forget'))));
+      h('td', { class: 'muted' }, k.distrusted ? 'Not trusted: you replaced this known_hosts key' : formatDate(k.first_seen_at)),
+      h('td', {}, h('button', { type: 'button', class: 'btn btn--secondary btn--sm', 'aria-label': `Forget host key for ${label}`, onClick: () => forget(k, reload) }, 'Forget'))));
   }
   list.appendChild(h('div', { class: 'table-wrap' }, h('table', { class: 'table' },
     h('thead', {}, h('tr', {}, ...['Host', 'Type', 'Fingerprint', 'Trusted since', ''].map((t) => h('th', { scope: 'col' }, t)))), body)));
 }
 
+/** "build-box", or "a deleted connection" when that jump connection is gone. @param {HostKey} k */
+function viaName(k) {
+  return k.via_name ?? 'a deleted connection';
+}
+
 /** @param {HostKey} k @param {() => Promise<void>} reload */
 async function forget(k, reload) {
   const input = /** @type {HTMLInputElement} */ (h('input', { id: 'forget-host', class: 'input mono', autocomplete: 'off', spellcheck: 'false' }));
+  const what = k.distrusted
+    ? 'Your known_hosts file lists this key, so Port-Key will trust it again without asking. This can\'t be undone.'
+    : 'Port-Key will ask you to check this host\'s identity the next time you connect. This can\'t be undone.';
   const handle = openModal({
     title: `Forget the host key for ${k.host}?`,
     danger: true,
     width: 460,
     body: h('div', { class: 'form' },
-      h('p', { class: 'modal__text' }, `Port-Key will ask you to check this host's identity the next time you connect. This can't be undone.`),
+      h('p', { class: 'modal__text' }, what),
       h('div', { class: 'fp-box' }, renderStrip(k.fp_sha256), h('span', { class: 'mono' }, `${sshKeyTypeLabel(k.key_type)} ${shortFp(k.fp_sha256)}`)),
       field({ id: 'forget-host', label: `Type ${k.host} to confirm`, control: input })),
     buttons: [{ label: 'Cancel', kind: 'secondary', value: 'cancel' }, { label: 'Forget host key', kind: 'danger', value: 'forget', disabled: true }],

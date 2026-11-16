@@ -146,8 +146,39 @@ BEGIN
 END;
 """
 
+# Version 2 (security review, 2026-11-16): host-key records are scoped by route and can
+# distrust a known_hosts key.
+# - ``via``: the id of the jump connection the host is reached through, '' when direct. One
+#   address behind two jump hosts can be two machines, so each route has its own trust.
+#   Existing records become direct ones. Not a foreign key: deleting a jump connection must not
+#   be blocked by its records, and an Undo restores the same id.
+# - ``distrusted``: 1 for a known_hosts key the owner replaced in Port-Key. known_hosts is never
+#   edited, so without this the replaced (maybe compromised) key would stay trusted.
+SCHEMA_V2 = """
+CREATE TABLE host_keys_v2 (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    host           TEXT NOT NULL CHECK (host = lower(host)),
+    port           INTEGER NOT NULL CHECK (port BETWEEN 1 AND 65535),
+    via            TEXT NOT NULL DEFAULT '',
+    key_type       TEXT NOT NULL,
+    public_key     TEXT NOT NULL,
+    fp_sha256      TEXT NOT NULL,
+    distrusted     INTEGER NOT NULL DEFAULT 0 CHECK (distrusted IN (0, 1)),
+    first_seen_at  TEXT NOT NULL,
+    last_seen_at   TEXT NOT NULL,
+    UNIQUE (host, port, via, public_key)
+);
+INSERT INTO host_keys_v2 (id, host, port, key_type, public_key, fp_sha256, first_seen_at,
+                          last_seen_at)
+    SELECT id, host, port, key_type, public_key, fp_sha256, first_seen_at, last_seen_at
+      FROM host_keys;
+DROP TABLE host_keys;
+ALTER TABLE host_keys_v2 RENAME TO host_keys;
+CREATE INDEX host_keys_host ON host_keys (host, port, via);
+"""
+
 # (version, script). Append only; a released entry is never edited.
-MIGRATIONS: tuple[tuple[int, str], ...] = ((1, SCHEMA_V1),)
+MIGRATIONS: tuple[tuple[int, str], ...] = ((1, SCHEMA_V1), (2, SCHEMA_V2))
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 

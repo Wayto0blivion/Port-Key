@@ -19,7 +19,7 @@ Threading and async rules, for every Protocol below unless a method says otherwi
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -155,20 +155,34 @@ def normalize_tag(raw: str) -> str:
 
 
 class HostKeyStore(Protocol):
-    """Host keys trusted in the app database. Hosts are stored lower-case."""
+    """Host-key decisions in the app database. Hosts are stored lower-case. Every record is
+    scoped by ``via``, the jump connection the host is reached through (None: directly); see
+    ``models.HostKeyRecord``."""
 
     def list_all(self) -> list[HostKeyRecord]: ...
 
     def get(self, key_id: int) -> HostKeyRecord:
         """Raises ``NotFound``."""
 
-    def for_host(self, host: str, port: int) -> list[HostKeyRecord]: ...
+    def for_host(self, host: str, port: int, via: str | None = None) -> list[HostKeyRecord]:
+        """Every record for host:port on that route, trusted and distrusted."""
 
-    def add(self, host: str, port: int, public_key: str) -> HostKeyRecord:
-        """Trust a key (idempotent on host, port, key; refreshes last_seen_at)."""
+    def add(self, host: str, port: int, public_key: str, via: str | None = None) -> HostKeyRecord:
+        """Trust a key (idempotent on host, port, route, key; refreshes last_seen_at; clears
+        a distrust of the same key)."""
 
-    def replace(self, host: str, port: int, public_key: str) -> HostKeyRecord:
-        """Delete every app record for host:port, then add this key. One transaction."""
+    def replace(
+        self,
+        host: str,
+        port: int,
+        public_key: str,
+        via: str | None = None,
+        *,
+        supersede: Sequence[str] = (),
+    ) -> HostKeyRecord:
+        """Delete every trusted app record for host:port on that route, mark each key in
+        ``supersede`` (known_hosts keys the owner replaced) distrusted there, then trust this
+        key. One transaction."""
 
     def touch(self, key_id: int) -> None:
         """Set last_seen_at = now."""

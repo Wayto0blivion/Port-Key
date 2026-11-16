@@ -262,8 +262,16 @@ ever used, links open only on modifier-click with `rel=noopener`.
   new fingerprints. The stored key is replaced only if the reply carries `accept: true` and a
   `confirm_name` equal to the connection's name; the server validates the typed name. Declining
   or a mismatch closes with 4409.
+- **Replacing a `known_hosts` key** stores the new key and marks the old `known_hosts` key(s)
+  for that host as distrusted in the app database. The file is not edited, but Port-Key no
+  longer accepts the old key there without the changed-key prompt (it may be the compromised
+  one). The dialog says so and gives the `ssh-keygen -R` command for Windows ssh.
+- **Trust is kept per route.** App records are scoped by the jump connection the host is
+  reached through (none: directly), because one address behind two jump hosts can be two
+  machines. `known_hosts` applies on every route, as in OpenSSH, except where a replacement
+  distrusted its key.
 - Keys marked `@revoked` are always refused.
-- Stored host keys can be forgotten from Settings.
+- Stored host keys (and distrusts) can be forgotten from Settings.
 - Each hop of a jump chain gets its own host key check.
 
 **Never logged.** Passwords, passphrases, keyboard-interactive answers, terminal input and
@@ -283,7 +291,7 @@ One SQLite file, `/data/portkey.db`, WAL mode, migrations tracked by `PRAGMA use
 | `tags` | id, name (unique, lower-case, `[a-z0-9][a-z0-9._-]{0,31}`), created_at | Created on first assignment; a trigger deletes a tag when its last use goes. |
 | `connection_tags` | connection_id, tag_id | Primary key on both; cascades on delete of either side. |
 | `keys_meta` | fp (SHA256, primary key), label, last_path, source (`ssh_dir` or `generated`), hidden, created_at | Keys are discovered by scanning on every list call; this table only holds labels, the hidden flag and provenance. |
-| `host_keys` | id, host, port, key_type, public_key (OpenSSH text), fp_sha256, first_seen_at, last_seen_at | Unique on (host, port, public_key). |
+| `host_keys` | id, host, port, via (jump connection id, '' when direct), key_type, public_key (OpenSSH text), fp_sha256, distrusted, first_seen_at, last_seen_at | Unique on (host, port, via, public_key). `distrusted` marks a replaced known_hosts key (schema version 2). |
 | `dismissed_suggestions` | host, port, dismissed_at | known_hosts suggestions the owner dismissed. |
 | `app_auth` | scrypt salt and hash | One row. |
 | `tokens` | sha256(token), created_at, expires_at, last_used_at | 30-day sliding expiry, capped at created_at + 90 days. |

@@ -87,7 +87,7 @@ async def test_changed_key_confirmed_by_name_is_replaced(
     assert (event.detail["old_fp"], event.detail["new_fp"]) == (FP_A, FP_B)
 
 
-async def test_changed_against_known_hosts_adds_to_the_store_only(
+async def test_changed_against_known_hosts_distrusts_the_old_key_in_the_store_only(
     svc: Services,
     chains: list[OpenChain],
     write_known_hosts: KnownHostsWriter,
@@ -98,8 +98,13 @@ async def test_changed_against_known_hosts_adds_to_the_store_only(
     prompter = FakePrompter(hostkey_changed=(True, "rekeyed-box"))
     chains.append(await open_chain(svc, conn.id, prompter))
     assert prompter.calls[0].detail["first_seen_at"] is None  # the old key is the owner's
-    assert stored_fps(svc) == [FP_B]
+    records = {r.fp_sha256: r.distrusted for r in svc.host_keys.for_host("sshd-rekeyed", 22)}
+    assert records == {FP_B: False, FP_A: True}  # the replaced known_hosts key is distrusted
     assert (fixture_ssh_dir / "known_hosts").read_text() == f"sshd-rekeyed {KEY_A}\n"
+    # The new key is trusted from now on, with no prompt.
+    quiet = FakePrompter()
+    chains.append(await open_chain(svc, conn.id, quiet))
+    assert quiet.kinds() == []
 
 
 async def test_revoked_key_is_refused_without_a_prompt(

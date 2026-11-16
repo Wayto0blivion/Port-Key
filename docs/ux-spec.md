@@ -448,8 +448,10 @@ Only these settings earn a place:
 - "Warn before leaving with connected sessions" (on).
 - Change password: Current password, New password, Confirm, [Change password]. "Changing the
   password signs out every other browser."
-- Trusted host keys: a list of stored host keys (host, type, fingerprint with strip, trusted
-  since) with [Forget], which asks the user to type the host name.
+- Trusted host keys: a list of stored host keys (host, "via build-box" for a host reached
+  through a jump host, type, fingerprint with strip, trusted since) with [Forget], which asks
+  the user to type the host name. A known_hosts key the owner replaced is listed as "Not
+  trusted: you replaced this known_hosts key"; forgetting it lets known_hosts trust it again.
 - A link to Diagnostics.
 - A read-only About block showing the `.ssh` path, the data location and the version.
 
@@ -549,6 +551,9 @@ the palette falls back to Ctrl+Shift+Space.
 - In bold: "Port-Key has sent no password and no key. The connection is closed."
 - The old and new fingerprints are shown side by side, labelled "Trusted since 2 March 2026"
   and "Presented just now", each with its colour strip.
+- When the old key is a line in the owner's known_hosts (labelled "In your known_hosts file"):
+  "Replacing it makes Port-Key stop trusting the old key. Your known_hosts file is not changed;
+  to stop Windows ssh trusting the old key too, run `ssh-keygen -R 192.168.10.42`."
 - A field: "If you know why it changed, type **web-prod** to replace the stored key."
 - Buttons: [Replace key and connect], enabled only when the typed name matches, and
   [Keep it closed], which has initial focus.

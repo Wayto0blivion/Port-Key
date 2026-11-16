@@ -1,10 +1,12 @@
 """Host key dialogs in the browser (docs/ux-spec.md section 4) against the sshd test bed.
 
-``sshd-rekeyed`` (host key set B) is not in the fixture known_hosts, so it is first seen. For a
-changed key the same host:port must present two different keys. The name ``localhost`` does
-that through a jump host: through ``sshd`` it is sshd's own port 22 (set A), through
-``sshd-rekeyed`` it is that server (set B). That is the reused-name case the dialog warns about.
-Each test forgets the records it relies on first, so reruns see the same dialogs.
+``sshd-rekeyed`` (host key set B) is not in the fixture known_hosts, so it is first seen. The
+name ``localhost`` behind a jump host is the jump host itself: through ``sshd`` it presents set
+A, through ``sshd-rekeyed`` set B. Trust is kept per route (the jump connection), so the two
+routes are two hosts, each first seen once. A changed key needs one route to present a new key:
+the spec points that route's jump connection at the other server, as when a jump host is
+rebuilt. Each test forgets the records it relies on and resets what it changed, so reruns see
+the same dialogs.
 """
 
 from __future__ import annotations
@@ -85,6 +87,8 @@ def test_changed_host_key_declined_then_replaced_by_name(
     for host in ("localhost", tb.SSHD_REKEYED.host):
         api.forget_host_keys(host)
     via_a = api.ensure("hk-jump-a", host=tb.SSHD.host, username="keyonly")
+    if via_a["host"] != tb.SSHD.host:  # a rerun: put the jump host back
+        api.call("PATCH", f"/api/connections/{via_a['id']}", {"host": tb.SSHD.host})
     via_b = api.ensure("hk-jump-b", host=tb.SSHD_REKEYED.host, username="keyonly")
     api.ensure("hk-local-a", host="localhost", username="keyonly", jump_id=via_a["id"])
     api.ensure("hk-local-b", host="localhost", username="keyonly", jump_id=via_b["id"])
@@ -99,13 +103,27 @@ def test_changed_host_key_declined_then_replaced_by_name(
     assert stored(api, "localhost") == [FP_A]
 
     # localhost through sshd-rekeyed: the jump host is first seen (named as the jump host),
-    # then the target presents set B where set A is trusted.
+    # then the target is first seen too. Another route is another host: no "changed" warning,
+    # and the first route's key stays (review finding: one address behind two jump hosts).
     open_row(page, "hk-local-b")
     jump = page.get_by_role("dialog", name="Check the jump host's identity")
     expect(jump).to_contain_text("hk-local-b is reached through hk-jump-b (sshd-rekeyed).")
     expect(jump).to_contain_text("Jump host 1 of 1: hk-jump-b")
     jump.get_by_role("button", name="Trust this host").click()
-    changed = page.get_by_role("dialog", name="hk-local-b's host key has changed")
+    page.get_by_role("dialog", name="Check this host's identity").get_by_role(
+        "button", name="Trust this host"
+    ).click()
+    connected(page)
+    assert sorted(stored(api, "localhost")) == sorted([FP_A, FP_B])
+    page.wait_for_timeout(600)
+    open_row(page, "hk-local-a")  # focuses its open tab: still signed in, no prompt
+    expect(page.get_by_role("dialog")).to_have_count(0)
+
+    # hk-jump-a now leads to sshd-rekeyed (already trusted as a jump host): localhost on that
+    # route presents set B where set A is trusted.
+    api.call("PATCH", f"/api/connections/{via_a['id']}", {"host": tb.SSHD_REKEYED.host})
+    row_menu(page, "hk-local-a", "New session")
+    changed = page.get_by_role("dialog", name="hk-local-a's host key has changed")
     expect(changed).to_contain_text("Port-Key has sent no password and no key.")
     expect(changed).to_contain_text("Presented just now")
     expect(changed.locator(".fpcard").first).to_contain_text(re.compile(r"^Trusted since "))
@@ -117,19 +135,20 @@ def test_changed_host_key_declined_then_replaced_by_name(
     changed.get_by_role("button", name="Keep it closed").click()
     panel = active_panel(page).locator(".session__panel")
     expect(panel).to_contain_text("host key has changed")
-    assert stored(api, "localhost") == [FP_A]
+    assert sorted(stored(api, "localhost")) == sorted([FP_A, FP_B])
 
     # Confirmed by typing the connection's name (case and spaces do not matter).
     panel.get_by_role("button", name="Try again").click()
-    changed = page.get_by_role("dialog", name="hk-local-b's host key has changed")
+    changed = page.get_by_role("dialog", name="hk-local-a's host key has changed")
     field = changed.get_by_role("textbox")
     field.fill("hk-local")
     expect(replace).to_be_disabled()
-    field.fill("  HK-Local-B ")
+    field.fill("  HK-Local-A ")
     expect(replace).to_be_enabled()
     replace.click()
     connected(page)
-    expect(active_tab(page)).to_contain_text("hk-local-b")
+    expect(active_tab(page)).to_contain_text("hk-local-a")
     type_command(page, "echo via-b-$((40+2))", "via-b-42")
-    assert stored(api, "localhost") == [FP_B]
+    assert stored(api, "localhost") == [FP_B, FP_B]  # both routes now lead to set B
+    api.call("PATCH", f"/api/connections/{via_a['id']}", {"host": tb.SSHD.host})
     watch.check()

@@ -23,6 +23,11 @@ host:port has trusted records, key not among them  CHANGED      ``hostkey_change
 A host certificate signed by an ``@cert-authority`` entry counts as TRUSTED; ``ssh.chain``
 checks that path before a NEW or CHANGED prompt. Each hop is checked on its own.
 
+App records are scoped by route (``HopRef.via``, the jump connection the hop is reached
+through): one address behind two jump hosts can be two machines. known_hosts applies on every
+route, as in OpenSSH, except where the owner replaced its key in Port-Key: ``store.replace``
+then marks the old known_hosts keys distrusted on that route, and they count as untrusted there.
+
 known_hosts matching follows OpenSSH, not asyncssh: a host on a port other than 22 is looked up
 only as ``[host]:port``, so a port-less ``host`` line does not vouch for ``host:2200``
 (asyncssh's own ``match()`` would fall back to it). ``keys.known_hosts`` implements the lookup;
@@ -65,6 +70,9 @@ class HostKeyDecision:
     old_key_type: str | None = None  # CHANGED
     old_fingerprint: str | None = None  # CHANGED
     old_first_seen_at: datetime | None = None  # CHANGED, None if the old key is in known_hosts
+    # CHANGED: the known_hosts keys still trusted on this route. Replacing the key distrusts
+    # them there, so the old (maybe compromised) key is not accepted again without a prompt.
+    superseded: tuple[str, ...] = ()
 
 
 def normalize_key(public_key: str) -> str:
@@ -103,19 +111,31 @@ def _safe_normalize(public_key: str) -> str | None:
         return None
 
 
+def _not_trusted(known: KnownHostsMatch, stored: list[HostKeyRecord]) -> set[str | None]:
+    """Keys known_hosts revokes plus the known_hosts keys the owner replaced in Port-Key."""
+    out = {_safe_normalize(k) for k in known.revoked}
+    out.update(_safe_normalize(r.public_key) for r in stored if r.distrusted)
+    return out
+
+
 def decide(
     presented_key: str, known: KnownHostsMatch, stored: list[HostKeyRecord]
 ) -> HostKeyDecision:
-    """Pure decision table above. ``presented_key`` is OpenSSH public-key text."""
+    """Pure decision table above. ``presented_key`` is OpenSSH public-key text. ``stored`` are
+    the app records for the hop's host, port and route; a ``distrusted`` one cancels the same
+    key's known_hosts entry (the owner replaced it), so that key counts as changed."""
     key = normalize_key(presented_key)
     key_type, fp = _key_type(key), fingerprint(key)
     revoked = {_safe_normalize(k) for k in known.revoked}
     if key in revoked:
         return HostKeyDecision(Verdict.REVOKED, key_type, fp)
-    trusted = [k for k in (_safe_normalize(t) for t in known.trusted) if k and k not in revoked]
+    excluded = _not_trusted(known, stored)
+    trusted = [k for k in (_safe_normalize(t) for t in known.trusted) if k and k not in excluded]
     if key in trusted:
         return HostKeyDecision(Verdict.TRUSTED, key_type, fp)
-    usable = [r for r in stored if _safe_normalize(r.public_key) not in revoked]
+    usable = [
+        r for r in stored if not r.distrusted and _safe_normalize(r.public_key) not in revoked
+    ]
     for record in usable:
         if _safe_normalize(record.public_key) == key:
             return HostKeyDecision(Verdict.TRUSTED, key_type, fp, trusted_record=record)
@@ -134,6 +154,7 @@ def decide(
             old_key_type=old.key_type,
             old_fingerprint=old.fp_sha256,
             old_first_seen_at=old.first_seen_at,
+            superseded=tuple(trusted),
         )
     old_key = (same_known or trusted)[0]
     return HostKeyDecision(
@@ -142,6 +163,7 @@ def decide(
         fp,
         old_key_type=_key_type(old_key),
         old_fingerprint=fingerprint(old_key),
+        superseded=tuple(trusted),
     )
 
 
@@ -156,10 +178,10 @@ def trusted_algorithms(known: KnownHostsMatch, stored: list[HostKeyRecord]) -> l
     """Host key algorithms of every key already trusted for host:port, in order. Fetching the
     presented key with only these lets a server with several host keys present the one the owner
     already trusts (as OpenSSH does), instead of a false "changed" for another key type."""
-    revoked = {_safe_normalize(k) for k in known.revoked}
+    excluded = _not_trusted(known, stored)
     algs: list[str] = []
     for text in [*known.trusted, *(r.public_key for r in stored)]:
-        if _safe_normalize(text) in revoked:
+        if _safe_normalize(text) in excluded:
             continue
         try:
             key = asyncssh.import_public_key(text)
@@ -175,10 +197,11 @@ def trusted_algorithms(known: KnownHostsMatch, stored: list[HostKeyRecord]) -> l
 async def lookup(
     hop: HopRef, store: HostKeyStore, known_hosts: KnownHostsReader
 ) -> tuple[KnownHostsMatch, list[HostKeyRecord]]:
-    """known_hosts entries and app records for the hop's host:port (off the event loop)."""
+    """known_hosts entries for the hop's host:port and the app records for it on the hop's
+    route (off the event loop)."""
 
     def read() -> tuple[KnownHostsMatch, list[HostKeyRecord]]:
-        return known_hosts.lookup(hop.host, hop.port), store.for_host(hop.host, hop.port)
+        return known_hosts.lookup(hop.host, hop.port), store.for_host(hop.host, hop.port, hop.via)
 
     return await asyncio.to_thread(read)
 
@@ -234,7 +257,7 @@ async def act_on(
 def _store_new(
     hop: HopRef, key: str, decision: HostKeyDecision, store: HostKeyStore, events: EventLog
 ) -> None:
-    store.add(hop.host, hop.port, key)
+    store.add(hop.host, hop.port, key, hop.via)
     events.record(
         "hostkey_accepted",
         hop.connection_id,
@@ -248,7 +271,7 @@ def _store_new(
 def _store_replaced(
     hop: HopRef, key: str, decision: HostKeyDecision, store: HostKeyStore, events: EventLog
 ) -> None:
-    store.replace(hop.host, hop.port, key)
+    store.replace(hop.host, hop.port, key, hop.via, supersede=decision.superseded)
     events.record(
         "hostkey_replaced",
         hop.connection_id,

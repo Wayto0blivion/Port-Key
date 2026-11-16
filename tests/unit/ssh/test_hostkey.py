@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -288,3 +289,72 @@ async def test_portless_known_hosts_line_does_not_cover_another_port(
     quiet = FakePrompter()
     await verify_host_key(on_22, NEW_KEY, quiet, store, known_hosts, events)
     assert quiet.kinds() == []
+
+
+# --- review findings: a replaced known_hosts key; one address behind two jump hosts -------------
+
+
+def test_a_distrusted_known_hosts_key_counts_as_changed() -> None:
+    gone = replace(record(OLD_KEY, rid=1), distrusted=True)
+    stored = [gone, record(NEW_KEY, rid=2)]
+    decision = decide(OLD_KEY, KnownHostsMatch(trusted=(OLD_KEY,)), stored)
+    assert decision.verdict is Verdict.CHANGED
+    assert decision.old_fingerprint == fingerprint(NEW_KEY)
+    assert decide(NEW_KEY, KnownHostsMatch(trusted=(OLD_KEY,)), stored).verdict is Verdict.TRUSTED
+    assert trusted_algorithms(KnownHostsMatch(trusted=(OLD_ECDSA,)), []) != []
+    distrusted_ecdsa = replace(record(OLD_ECDSA), distrusted=True)
+    assert trusted_algorithms(KnownHostsMatch(trusted=(OLD_ECDSA,)), [distrusted_ecdsa]) == []
+
+
+def test_changed_against_known_hosts_lists_what_a_replace_supersedes() -> None:
+    decision = decide(NEW_KEY, KnownHostsMatch(trusted=(OLD_KEY, OLD_ECDSA)), [])
+    assert decision.verdict is Verdict.CHANGED
+    assert set(decision.superseded) == {OLD_KEY, OLD_ECDSA}
+
+
+async def test_a_replaced_known_hosts_key_is_not_trusted_again(
+    tmp_path: Path, store: SqliteHostKeyStore, events: SqliteEventLog
+) -> None:
+    # The owner's read-only known_hosts lists key A; the host now presents B and the owner
+    # replaces the key by typing the name. Before the fix, A stayed trusted with no prompt, so
+    # an attacker holding A's private key was accepted silently afterwards.
+    path = tmp_path / "known_hosts"
+    path.write_text(f"web-prod.example.test {OLD_KEY}\n")
+    known_hosts = FileKnownHosts(path)
+    replacing = FakePrompter(hostkey_changed=(True, "web-prod"))
+    await verify_host_key(HOP, NEW_KEY, replacing, store, known_hosts, events)
+    assert replacing.kinds() == ["hostkey_changed"]
+
+    quiet = FakePrompter()
+    await verify_host_key(HOP, NEW_KEY, quiet, store, known_hosts, events)
+    assert quiet.kinds() == []
+
+    declining = FakePrompter(hostkey_changed=(False, ""))
+    with pytest.raises(HostKeyChanged):
+        await verify_host_key(HOP, OLD_KEY, declining, store, known_hosts, events)
+    assert declining.kinds() == ["hostkey_changed"]
+    assert declining.calls[0].detail["old_fingerprint"] == fingerprint(NEW_KEY)
+    assert path.read_text() == f"web-prod.example.test {OLD_KEY}\n"  # never edited
+
+
+async def test_one_address_behind_two_jump_hosts_is_trusted_per_route(
+    store: SqliteHostKeyStore, events: SqliteEventLog
+) -> None:
+    # Before the fix, trust was keyed by host:port only: each open of one site showed a
+    # "host key changed" warning and its replacement deleted the other site's key.
+    site1 = hop(name="db-site1", host="10.0.0.5", via="11111111-1111-4111-8111-111111111111")
+    site2 = hop(name="db-site2", host="10.0.0.5", via="22222222-2222-4222-8222-222222222222")
+    no_known = StubKnownHosts(KnownHostsMatch())
+    for ref, key in ((site1, OLD_KEY), (site2, NEW_KEY)):
+        first = FakePrompter(hostkey_new=True)
+        await verify_host_key(ref, key, first, store, no_known, events)
+        assert first.kinds() == ["hostkey_new"]
+    for ref, key in ((site1, OLD_KEY), (site2, NEW_KEY), (site1, OLD_KEY)):
+        again = FakePrompter()
+        await verify_host_key(ref, key, again, store, no_known, events)
+        assert again.kinds() == []
+    # A different key on one route is still a changed key there.
+    with pytest.raises(HostKeyChanged):
+        await verify_host_key(
+            site1, NEW_KEY, FakePrompter(hostkey_changed=(False, "")), store, no_known, events
+        )

@@ -122,8 +122,23 @@ def test_plan_new_after_a_saved_jump(connector: ChainConnector, keys: FakeKeys) 
     ]
     assert hops[1].ref.connection_id is None
     assert hops[1].key_fp == rec.fp
+    assert [h.ref.via for h in hops] == [None, jump.id]  # the route scopes host-key records
     [alone] = connector.plan_new(None, target(auth_method="password", key_fp=None))
     assert (alone.ref.index, alone.ref.count, alone.key_fp) == (0, 1, None)
+    assert alone.ref.via is None
+
+
+def test_each_hop_names_the_hop_it_is_reached_through(
+    connector: ChainConnector, keys: FakeKeys
+) -> None:
+    keys.add("id_ed25519")
+    outer = save(connector, "gw")
+    mid = save(connector, "build-box", jump_id=outer.id)
+    inner = save(connector, "web-prod", jump_id=mid.id)
+    assert [h.ref.via for h in connector.plan(inner.id)] == [None, outer.id, mid.id]
+    # The wizard reaches a new host through the same jump with the same route.
+    draft = target(hop(name="new-host", connection_id=None), key_fp=None)
+    assert connector.plan_new(mid.id, draft)[-1].ref.via == mid.id
 
 
 def test_plan_new_unknown_jump_and_no_key(connector: ChainConnector) -> None:

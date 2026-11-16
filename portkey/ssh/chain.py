@@ -142,7 +142,13 @@ class ChainConnector:
         records = self._chain(conn_id)
         count = len(records)
         return [
-            self._target(rec, i, count, force_password=force_password and i == count - 1)
+            self._target(
+                rec,
+                i,
+                count,
+                via=records[i - 1].id if i else None,
+                force_password=force_password and i == count - 1,
+            )
             for i, rec in enumerate(records)
         ]
 
@@ -150,8 +156,17 @@ class ChainConnector:
         jumps = self._chain(jump_id) if jump_id is not None else []
         count = len(jumps) + 1
         self._check_depth(count)
-        hops = [self._target(rec, i, count) for i, rec in enumerate(jumps)]
-        ref = replace(target.ref, index=count - 1, count=count, role="target")
+        hops = [
+            self._target(rec, i, count, via=jumps[i - 1].id if i else None)
+            for i, rec in enumerate(jumps)
+        ]
+        ref = replace(
+            target.ref,
+            index=count - 1,
+            count=count,
+            role="target",
+            via=jumps[-1].id if jumps else None,
+        )
         key_fp = target.key_fp
         if target.auth_method == "key" and key_fp is None and target.allow_key:
             try:
@@ -181,10 +196,16 @@ class ChainConnector:
             raise ProtocolError(too_deep_message(self.limits.max_jump_hops))
 
     def _target(
-        self, rec: ConnectionRecord, index: int, count: int, *, force_password: bool = False
+        self,
+        rec: ConnectionRecord,
+        index: int,
+        count: int,
+        *,
+        via: str | None,
+        force_password: bool = False,
     ) -> HopTarget:
         role: HopRole = "target" if index == count - 1 else "jump"
-        ref = HopRef(index, count, rec.id, rec.name, rec.host, rec.port, role)
+        ref = HopRef(index, count, rec.id, rec.name, rec.host, rec.port, role, via)
         if rec.auth_method != "key":
             return HopTarget(ref, rec.username, "password", None, allow_key=False)
         try:

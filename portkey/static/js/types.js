@@ -128,6 +128,9 @@
  * @property {string} public_key
  * @property {string} first_seen_at
  * @property {string} last_seen_at
+ * @property {string|null} via_id     the jump connection this host is reached through; null = directly
+ * @property {string|null} via_name   null when direct or when that connection was deleted
+ * @property {boolean} distrusted     a known_hosts key the owner replaced: not trusted on this route
  */
 
 /** @typedef {{session_id: string, connection_id: string, started_at: string, attached: boolean, detached_at: string|null}} SessionInfo */

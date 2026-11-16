@@ -49,9 +49,10 @@ def hop(
     port: int = 22,
     role: HopRole | None = None,
     connection_id: str | None = "0b6f3c1e-8a52-4c3e-9d7a-1f2e3d4c5b6a",
+    via: str | None = None,
 ) -> HopRef:
     role = role or ("target" if index == count - 1 else "jump")
-    return HopRef(index, count, connection_id, name, host, port, role)
+    return HopRef(index, count, connection_id, name, host, port, role, via)
 
 
 def target(ref: HopRef | None = None, **kw: Any) -> HopTarget:

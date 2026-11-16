@@ -56,9 +56,22 @@ def restore_suggestion(body: HostPort, services: ServicesDep) -> None:
 
 @router.get("/api/hostkeys", response_model=HostKeyList)
 def list_host_keys(services: ServicesDep) -> HostKeyList:
+    names = {c.id: c.name for c in services.connections.list_all()}
     return HostKeyList(
         host_keys=[
-            HostKeyOut.model_validate(r, from_attributes=True)
+            HostKeyOut(
+                id=r.id,
+                host=r.host,
+                port=r.port,
+                key_type=r.key_type,
+                fp_sha256=r.fp_sha256,
+                public_key=r.public_key,
+                first_seen_at=r.first_seen_at,
+                last_seen_at=r.last_seen_at,
+                via_id=r.via,
+                via_name=names.get(r.via) if r.via else None,
+                distrusted=r.distrusted,
+            )
             for r in services.host_keys.list_all()
         ]
     )

@@ -10,6 +10,7 @@ import httpx
 
 from portkey.keys._kh_parse import hash_name
 from portkey.models import HostKeyRecord
+from tests.unit.keys.conftest import make_conn
 
 
 def _pub() -> str:
@@ -74,7 +75,9 @@ async def test_dismiss_validates(api: httpx.AsyncClient) -> None:
         assert r.status_code == 422
 
 
-def _record(kit: Any, key_id: int, host: str) -> HostKeyRecord:
+def _record(
+    kit: Any, key_id: int, host: str, via: str | None = None, *, distrusted: bool = False
+) -> HostKeyRecord:
     return HostKeyRecord(
         id=key_id,
         host=host,
@@ -84,6 +87,8 @@ def _record(kit: Any, key_id: int, host: str) -> HostKeyRecord:
         fp_sha256="SHA256:pZ8mQ1cWv3Lx5Ny7Oz9Ab1Cd3Ef5Gh7Ij9Kl1MnTw4E",
         first_seen_at=kit.now,
         last_seen_at=kit.now,
+        via=via,
+        distrusted=distrusted,
     )
 
 
@@ -101,6 +106,9 @@ async def test_host_keys(api: httpx.AsyncClient, wired: Any, kit: Any) -> None:
         "public_key": first["public_key"],
         "first_seen_at": "2026-11-15T14:02:00Z",
         "last_seen_at": "2026-11-15T14:02:00Z",
+        "via_id": None,
+        "via_name": None,
+        "distrusted": False,
     }
 
     r = await api.request("DELETE", "/api/hostkeys/8", json={"confirm_host": "web-prd"})
@@ -124,3 +132,21 @@ async def test_host_keys(api: httpx.AsyncClient, wired: Any, kit: Any) -> None:
 
     r = await api.request("DELETE", "/api/hostkeys/99", json={"confirm_host": "web-prod"})
     assert r.status_code == 404
+
+
+async def test_host_keys_name_their_route_and_distrust(
+    api: httpx.AsyncClient, wired: Any, kit: Any
+) -> None:
+    bastion = make_conn("bastion1")
+    wired.connections.conns = [bastion]
+    wired.host_keys.records = {
+        1: _record(kit, 1, "10.0.0.5", bastion.id),
+        2: _record(kit, 2, "10.0.0.5", "00000000-0000-4000-8000-00000000dead"),
+        3: _record(kit, 3, "web-prod", distrusted=True),
+    }
+    keys = (await api.get("/api/hostkeys")).json()["host_keys"]
+    assert [(k["via_id"], k["via_name"], k["distrusted"]) for k in keys] == [
+        (bastion.id, "bastion1", False),
+        ("00000000-0000-4000-8000-00000000dead", None, False),  # that jump was deleted
+        (None, None, True),
+    ]

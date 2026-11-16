@@ -14,7 +14,8 @@
  *                        force_password a password prompt
  *   print-srv            password "pa55word" then a verification code "492039"
  *   vpn-gw               timeout
- * __pkWs.behave(name, kind) overrides: hostkey_changed, hostkey_new, too_many, slow, ok.
+ * __pkWs.behave(name, kind) overrides: hostkey_changed, hostkey_changed_known (the old key is in
+ * known_hosts), hostkey_new, too_many, slow, ok.
  *
  * Hooks on window.__pkWs: sockets (client side, each with .sent and .path), sessions,
  * push(id, text), drop(id), exit(id, reason), stealAttach(id), mute(socket), expireToken(),
@@ -219,9 +220,11 @@
         if (!r.accept) { helpers.fail(sock, 'hostkey_rejected', 'You did not trust the host key.', 1000, { hop: t }); return; }
         trusted.add(c.name); persist();
       }
-      if (kind === 'hostkey_changed') {
+      if (kind === 'hostkey_changed' || kind === 'hostkey_changed_known') {
+        // hostkey_changed_known: the old key is a line in the owner's known_hosts (no first_seen_at).
+        const firstSeen = kind === 'hostkey_changed' ? '2026-03-02T10:00:00Z' : null;
         const r = await this.ask({ kind: 'hostkey_changed', hop: t, host: c.host, port: c.port, key_type: 'ssh-ed25519', old_key_type: 'ssh-ed25519',
-          old_fingerprint: fp, new_fingerprint: 'SHA256:Rb4tY8uI2oP6aS0dF4gH8jK2lZ6xC0vB4nM8qW2eR6t', first_seen_at: '2026-03-02T10:00:00Z', confirm_name: c.name });
+          old_fingerprint: fp, new_fingerprint: 'SHA256:Rb4tY8uI2oP6aS0dF4gH8jK2lZ6xC0vB4nM8qW2eR6t', first_seen_at: firstSeen, confirm_name: c.name });
         if (!r.accept || String(r.confirm_name).trim().toLowerCase() !== c.name.toLowerCase()) {
           helpers.fail(sock, 'hostkey_changed', `${c.name}'s host key has changed. Port-Key sent nothing.`, 4409, { hop: t }); return;
         }

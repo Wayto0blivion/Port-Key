@@ -105,9 +105,11 @@
       suggestions,
       hashed: 6,
       hostKeys: [
-        { id: 7, host: '192.168.10.42', port: 22, key_type: 'ssh-ed25519', fp_sha256: 'SHA256:pZ8mQ1cWv3Lx5Ny7Oz9Ab1Cd3Ef5Gh7Ij9Kl1MnTw4E', public_key: 'ssh-ed25519 AAAA', first_seen_at: '2026-03-02T10:00:00Z', last_seen_at: iso(0, 14, 2) },
-        { id: 8, host: '192.168.10.31', port: 2222, key_type: 'ssh-rsa', fp_sha256: 'SHA256:Rb4tY8uI2oP6aS0dF4gH8jK2lZ6xC0vB4nM8qW2eR6t', public_key: 'ssh-rsa AAAA', first_seen_at: '2026-06-11T08:30:00Z', last_seen_at: iso(0, 9, 12) },
-        { id: 9, host: '10.8.0.1', port: 22, key_type: 'ssh-ed25519', fp_sha256: 'SHA256:Qw2eR4tY6uI8oP0aS2dF4gH6jK8lZ0xC2vB4nM6qW8e', public_key: 'ssh-ed25519 AAAA', first_seen_at: '2026-09-20T12:00:00Z', last_seen_at: iso(10, 8, 0) },
+        { id: 7, host: '192.168.10.42', port: 22, key_type: 'ssh-ed25519', fp_sha256: 'SHA256:pZ8mQ1cWv3Lx5Ny7Oz9Ab1Cd3Ef5Gh7Ij9Kl1MnTw4E', public_key: 'ssh-ed25519 AAAA', first_seen_at: '2026-03-02T10:00:00Z', last_seen_at: iso(0, 14, 2), via_id: null, via_name: null, distrusted: false },
+        { id: 8, host: '192.168.10.31', port: 2222, key_type: 'ssh-rsa', fp_sha256: 'SHA256:Rb4tY8uI2oP6aS0dF4gH8jK2lZ6xC0vB4nM8qW2eR6t', public_key: 'ssh-rsa AAAA', first_seen_at: '2026-06-11T08:30:00Z', last_seen_at: iso(0, 9, 12), via_id: null, via_name: null, distrusted: false },
+        { id: 9, host: '10.8.0.1', port: 22, key_type: 'ssh-ed25519', fp_sha256: 'SHA256:Qw2eR4tY6uI8oP0aS2dF4gH6jK8lZ0xC2vB4nM6qW8e', public_key: 'ssh-ed25519 AAAA', first_seen_at: '2026-09-20T12:00:00Z', last_seen_at: iso(10, 8, 0), via_id: null, via_name: null, distrusted: false },
+        { id: 10, host: '192.168.10.27', port: 22, key_type: 'ssh-ed25519', fp_sha256: 'SHA256:Lm3nB5vC7xZ9aS1dF3gH5jK7lQ9wE1rT3yU5iO7pA2s', public_key: 'ssh-ed25519 AAAA', first_seen_at: '2026-10-01T09:00:00Z', last_seen_at: iso(7, 15, 20), via_id: buildBox.id, via_name: 'build-box', distrusted: false },
+        { id: 11, host: 'switch-core', port: 22, key_type: 'ssh-rsa', fp_sha256: 'SHA256:Zx8cV6bN4mQ2wE0rT8yU6iO4pA2sD0fG8hJ6kL4zX2c', public_key: 'ssh-rsa AAAA', first_seen_at: '2026-10-05T09:00:00Z', last_seen_at: '2026-10-05T09:00:00Z', via_id: null, via_name: null, distrusted: true },
       ],
     };
   }

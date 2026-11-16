@@ -102,6 +102,31 @@ def test_changed_host_key_keep_it_closed(term: TermFactory) -> None:
     }
 
 
+def test_changed_known_hosts_key_says_the_old_line_stops_being_trusted(
+    term: TermFactory,
+) -> None:
+    # Security review: replacing a key from known_hosts must not leave the owner thinking the
+    # old line is gone. Port-Key distrusts it; the file itself is never edited.
+    page = term()
+    page.evaluate("__pkWs.behave('web-prod', 'hostkey_changed_known')")
+    connect(page, "web-prod")
+    dialog = page.get_by_role("dialog", name="web-prod's host key has changed")
+    expect(dialog).to_contain_text("doesn't match the one in your known_hosts file")
+    expect(dialog).to_contain_text("Replacing it makes Port-Key stop trusting the old key.")
+    expect(dialog.locator("code")).to_have_text("ssh-keygen -R 192.168.10.42")
+    dialog.get_by_role("button", name="Keep it closed").click()
+
+
+def test_changed_host_key_from_the_app_store_has_no_known_hosts_note(term: TermFactory) -> None:
+    page = term()
+    page.evaluate("__pkWs.behave('web-prod', 'hostkey_changed')")
+    connect(page, "web-prod")
+    dialog = page.get_by_role("dialog", name="web-prod's host key has changed")
+    expect(dialog).to_contain_text("Presented just now")
+    expect(dialog).not_to_contain_text("ssh-keygen -R")
+    dialog.get_by_role("button", name="Keep it closed").click()
+
+
 def test_changed_host_key_replace_with_typed_name(term: TermFactory) -> None:
     page = term()
     page.evaluate("__pkWs.behave('web-prod', 'hostkey_changed')")

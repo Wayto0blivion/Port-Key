@@ -119,7 +119,13 @@ class BulkChange:
 
 @dataclass(frozen=True, slots=True)
 class HostKeyRecord:
-    """A host key trusted in the app database (never the owner's known_hosts)."""
+    """A host-key decision in the app database (never the owner's known_hosts).
+
+    Records are scoped by route: ``via`` is the id of the jump connection the host is reached
+    through (None: directly), because one address behind two jump hosts can be two machines.
+    ``distrusted`` marks a key from the owner's known_hosts that the owner replaced in Port-Key:
+    known_hosts still lists it, but Port-Key no longer trusts it on this route.
+    """
 
     id: int
     host: str  # lower-case
@@ -129,6 +135,8 @@ class HostKeyRecord:
     fp_sha256: str  # "SHA256:..."
     first_seen_at: datetime
     last_seen_at: datetime
+    via: str | None = None
+    distrusted: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,7 +248,9 @@ class HopRef:
     """Which hop of a chain a status, prompt or error refers to.
 
     ``index`` counts from 0 at the outermost jump host; the target has ``index == count - 1``.
-    ``connection_id`` is None for a wizard target that is not saved yet.
+    ``connection_id`` is None for a wizard target that is not saved yet. ``via`` is the
+    connection id of the previous hop (None for the first hop): the route that scopes the app's
+    host-key records. It is not sent to the browser.
     """
 
     index: int
@@ -250,6 +260,7 @@ class HopRef:
     host: str
     port: int
     role: HopRole
+    via: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

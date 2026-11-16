@@ -217,11 +217,15 @@ was the default key the default is cleared. Unlock `remember: true` holds the ke
 | `GET /api/hosts/suggestions` | `200 {"suggestions": [{"host": "parser-vm", "port": 22, "aliases": ["192.168.10.27"], "key_types": ["ssh-ed25519"]}], "hashed_count": 6}`; dismissed hosts and hosts a saved connection already uses (by host or alias, same port) are left out |
 | `POST /api/hosts/suggestions/dismiss {"host": "parser-vm", "port": 22}` | `204` |
 | `POST /api/hosts/suggestions/restore {"host": "parser-vm", "port": 22}` | `204` (Undo) |
-| `GET /api/hostkeys` | `200 {"host_keys": [{"id": 7, "host": "192.168.10.42", "port": 22, "key_type": "ssh-ed25519", "fp_sha256": "SHA256:pZ8m...", "public_key": "ssh-ed25519 AAAA...", "first_seen_at": "2026-03-02T10:00:00Z", "last_seen_at": "2026-11-15T14:02:00Z"}]}` |
+| `GET /api/hostkeys` | `200 {"host_keys": [{"id": 7, "host": "192.168.10.42", "port": 22, "key_type": "ssh-ed25519", "fp_sha256": "SHA256:pZ8m...", "public_key": "ssh-ed25519 AAAA...", "first_seen_at": "2026-03-02T10:00:00Z", "last_seen_at": "2026-11-15T14:02:00Z", "via_id": null, "via_name": null, "distrusted": false}]}` |
 | `DELETE /api/hostkeys/{id} {"confirm_host": "192.168.10.42"}` | `204`; 422 `confirm_mismatch`; 404 |
 
-Only host keys trusted in Port-Key are listed; the owner's `known_hosts` is never changed.
-`confirm_host` is compared to the record's host ignoring case.
+Only host-key decisions made in Port-Key are listed; the owner's `known_hosts` is never changed.
+`confirm_host` is compared to the record's host ignoring case. Records are per route: `via_id`
+is the jump connection the host is reached through (null: directly), `via_name` its name (null
+when direct or when that connection was deleted). `distrusted: true` is a `known_hosts` key the
+owner replaced: Port-Key no longer trusts it on that route; forgetting the record lets
+`known_hosts` trust it again (decision 18).
 
 ## Sessions
 
@@ -311,3 +315,11 @@ Decided with the owner (2026-11-16):
     (429). `GET /api/auth/status` adds `setup_code` (`"required"`, `"restart"` or `null`), never
     the code. A password reset while the app runs answers 409 `setup_needs_restart` until a
     restart prints a fresh code.
+
+Decided after the security and backend reviews (2026-11-16):
+
+18. Host keys are per route and can be distrusted (`via_id`, `via_name`, `distrusted` on
+    `GET /api/hostkeys`; schema version 2). See "Hosts" and `docs/ws-protocol.md` decisions 8
+    and 22.
+19. Request bodies are at most 256 KB: 413 `payload_too_large`, before anything reads the
+    body.
