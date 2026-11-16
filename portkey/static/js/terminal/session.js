@@ -23,7 +23,7 @@ import { buildChrome } from './chrome.js';
 import { createTerminal, DEFAULT_SIZE } from './xterm.js';
 import { wireInput } from './input.js';
 import { statusLine, connectedFor, hostPort } from './messages.js';
-import { setSessionState, markActivity, restoreDot } from './tabs.js';
+import { setSessionState, markActivity, restoreDot, movingThroughTabs } from './tabs.js';
 import { onSocketClose, showDisconnected, attached } from './lifecycle.js';
 import { setFind, findIn, copySsh, killSession } from './tools.js';
 
@@ -124,7 +124,15 @@ export class TerminalView {
     }
     this.layout();
     restoreDot(this.ctx.tabId);
-    if (this.state === 'connected' || this.state === 'disconnected') this.term.focus();
+    // After the tab strip has done its own focus work: into the shell, unless the user is
+    // moving through the tabs with the arrow keys.
+    if (this.state === 'connected' || this.state === 'disconnected') {
+      setTimeout(() => {
+        if (!this.disposed && !movingThroughTabs() && this.container.offsetParent !== null && !document.querySelector('dialog[open]')) {
+          this.term.focus();
+        }
+      }, 0);
+    }
   }
 
   focus() {
@@ -165,12 +173,13 @@ export class TerminalView {
     this.state = state;
     const dot = state === 'connected' ? 'connected' : state === 'connecting' || state === 'reattaching' ? 'connecting' : 'disconnected';
     setSessionState(this.ctx.tabId, dot);
+    this.chrome.root.classList.toggle('session--off', state === 'disconnected' || state === 'detached');
     this.chrome.setLive(state === 'connected' || state === 'reattaching');
     if (state === 'connected') this.chrome.setStatus(null);
-    else if (state === 'reattaching') this.chrome.setStatus('Reattaching…', 'off');
+    else if (state === 'reattaching') this.chrome.setStatus('Reattaching…');
     else if (state === 'disconnected' || state === 'detached') this.chrome.setStatus('Disconnected', 'off');
     else if (state === 'failed') this.chrome.setStatus('Not signed in', 'error');
-    else if (state === 'connecting') this.chrome.setStatus('Connecting…', 'off');
+    else if (state === 'connecting') this.chrome.setStatus('Connecting…');
     this.ctx.onChange();
   }
 
@@ -252,7 +261,9 @@ export class TerminalView {
 
   /** @param {boolean} attaching @returns {PortKeySocket} */
   newSocket(attaching) {
-    this.socket?.close();
+    const old = this.socket;
+    this.socket = null; // detach first, so the old socket's close is not taken for a drop
+    old?.close();
     this.exitReason = null;
     this.detachedElsewhere = false;
     const socket = new PortKeySocket('/ws/terminal', {

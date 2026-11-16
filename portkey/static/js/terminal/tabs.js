@@ -51,3 +51,14 @@ export function restoreDot(tabId) {
 export function forgetTab(tabId) {
   states.delete(tabId);
 }
+
+let lastStripKey = 0;
+document.addEventListener('keydown', (e) => {
+  const target = e.target instanceof Element ? e.target : null;
+  if (target?.closest('[role="tablist"]') && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) lastStripKey = Date.now();
+}, true);
+
+/** True right after an arrow key in the tab strip: a shown terminal then leaves focus on the tab. */
+export function movingThroughTabs() {
+  return Date.now() - lastStripKey < 60;
+}

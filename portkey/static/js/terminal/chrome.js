@@ -13,7 +13,7 @@
 import { h, clear, labelClass } from '../ui/dom.js';
 import { icon } from '../parts/icons.js';
 
-/** @typedef {{label: string, kind?: 'primary'|'secondary'|'ghost', onClick: () => void, key?: string}} Action */
+/** @typedef {{label: string, kind?: 'primary'|'secondary'|'outline', onClick: () => void, key?: string}} Action */
 
 /**
  * @typedef {object} ChromeHandlers
@@ -92,7 +92,8 @@ export function buildChrome(handlers) {
 
     /** @param {{color: string, user: string, name: string, where: string, via: string, key: string, password: boolean}} info */
     setInfo(info) {
-      root.className = `session ${labelClass(info.color)}`;
+      for (const c of [...root.classList]) if (c.startsWith('lbl-')) root.classList.remove(c);
+      root.classList.add(labelClass(info.color));
       who.textContent = `${info.user}@${info.name}`;
       where.textContent = info.where;
       via.hidden = !info.via;

@@ -26,7 +26,12 @@ def focus(page: Page) -> None:
 
 
 def select_welcome(page: Page) -> None:
-    run(page, "views/sessions.js", "m.viewFor(document.querySelector('.tabpanel:not([hidden])').dataset.panel).term.select(0, 0, 7)")
+    run(
+        page,
+        "views/sessions.js",
+        "m.viewFor(document.querySelector('.tabpanel:not([hidden])').dataset.panel)"
+        ".term.select(0, 0, 7)",
+    )
 
 
 def clipboard(page: Page) -> str:
@@ -46,7 +51,11 @@ def test_ctrl_c_copies_a_selection_and_interrupts_without(term: TermFactory) -> 
     page.keyboard.press("Control+C")
     wait_until(page, "() => navigator.clipboard.readText().then((t) => t === 'Welcome')")
     assert "\x03" not in shell_input(page)
-    assert not run(page, "views/sessions.js", "m.viewFor(document.querySelector('.tabpanel:not([hidden])').dataset.panel).term.hasSelection()")
+    assert not run(
+        page,
+        "views/sessions.js",
+        "m.viewFor(document.querySelector('.tabpanel:not([hidden])').dataset.panel).term.hasSelection()",
+    )
     page.keyboard.press("Control+C")
     wait_until(page, "(id) => __pkWs.inputOf(id).includes('\\x03')", session_ids(page)[0])
     expect(panel(page).locator(".xterm-rows")).to_contain_text("^C")
@@ -74,8 +83,14 @@ def test_multi_line_paste_asks_first(term: TermFactory) -> None:
     expect(panel(page).locator(".xterm-helper-textarea")).to_be_focused()
     assert "echo a" not in shell_input(page)
     page.keyboard.press("Control+V")
-    page.get_by_role("dialog", name="Paste 3 lines into web-prod?").get_by_role("button", name="Paste").click()
-    wait_until(page, "(id) => __pkWs.inputOf(id).includes('echo a\\recho b\\recho c\\r')", session_ids(page)[0])
+    page.get_by_role("dialog", name="Paste 3 lines into web-prod?").get_by_role(
+        "button", name="Paste"
+    ).click()
+    wait_until(
+        page,
+        "(id) => __pkWs.inputOf(id).includes('echo a\\recho b\\recho c\\r')",
+        session_ids(page)[0],
+    )
 
 
 def test_right_click_copies_then_pastes(term: TermFactory) -> None:
@@ -120,7 +135,9 @@ def test_shortcut_rule(term: TermFactory) -> None:
     page.keyboard.press("Control+K")  # the shell's kill-line, not the palette
     page.keyboard.press("Alt+b")  # readline: back one word
     page.keyboard.press("Escape")
-    wait_until(page, "(id) => __pkWs.inputOf(id).endsWith('\\x0b\\x1bb\\x1b')", session_ids(page)[0])
+    wait_until(
+        page, "(id) => __pkWs.inputOf(id).endsWith('\\x0b\\x1bb\\x1b')", session_ids(page)[0]
+    )
     expect(page.locator("dialog[open]")).to_have_count(0)
     page.keyboard.press("Control+Shift+F")
     expect(panel(page).get_by_role("searchbox", name="Find in scrollback")).to_be_focused()

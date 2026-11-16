@@ -69,9 +69,7 @@ def sent(page: Page, index: int = -1, path: str = "/ws/terminal") -> list[dict[s
 
 
 def sockets(page: Page, path: str = "/ws/terminal") -> int:
-    count: int = page.evaluate(
-        "(p) => __pkWs.sockets.filter((x) => x.path === p).length", path
-    )
+    count: int = page.evaluate("(p) => __pkWs.sockets.filter((x) => x.path === p).length", path)
     return count
 
 
@@ -108,7 +106,9 @@ def wait_until(page: Page, js: str, arg: Any = None, timeout: float = 5000) -> A
 
 def wait_connected(page: Page) -> None:
     """The visible session is connected (its status text is gone and the dot is green)."""
-    expect(page.locator(".tabstrip [role=tab][aria-selected=true] .tab__dot--connected")).to_have_count(1)
+    expect(
+        page.locator(".tabstrip [role=tab][aria-selected=true] .tab__dot--connected")
+    ).to_have_count(1)
 
 
 def fast_ping(page: Page, ms: int = 200) -> None:

@@ -103,8 +103,8 @@
   font-size: 15px;
 }
 
-.palette__input:focus { outline: none; }
-.palette__input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+/* The field always has focus while the palette is open; an accent underline marks it. */
+.palette__input:focus, .palette__input:focus-visible { outline: none; border-bottom-color: var(--link); }
 
 .palette__list {
   flex: 1;

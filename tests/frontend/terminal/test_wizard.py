@@ -47,7 +47,9 @@ def test_step_one_fields_and_defaults(term: TermFactory) -> None:
     expect(wizard.get_by_label("Sign in with").locator("option")).to_have_text(
         ["Default key (id_ed25519)", "id_rsa", "id_ed25519_portkey", "Password only"]
     )
-    expect(wizard.get_by_label("Jump via").locator("option").first).to_have_text("None, connect directly")
+    expect(wizard.get_by_label("Jump via").locator("option").first).to_have_text(
+        "None, connect directly"
+    )
     expect(wizard.get_by_label("Folder").locator("option").first).to_have_text("Ungrouped")
     fill_host(wizard, "lab-01.office.lan")
     expect(wizard.get_by_label("Name", exact=True)).to_have_value("lab-01")  # filled from the host
@@ -65,7 +67,9 @@ def test_validation(term: TermFactory) -> None:
     fill_host(wizard, "192.168.10.99")
     wizard.get_by_label("Name", exact=True).fill("Web-Prod")
     wizard.get_by_role("button", name="Next").click()
-    expect(wizard.locator("#wz-name-error")).to_have_text("A connection named web-prod already exists. Choose another name.")
+    expect(wizard.locator("#wz-name-error")).to_have_text(
+        "A connection named web-prod already exists. Choose another name."
+    )
     assert page.evaluate("__pkWs.installs.length") == 0
 
 
@@ -81,8 +85,13 @@ def test_install_with_password(term: TermFactory) -> None:
     expect(wizard.locator(".wsteps__item.is-current")).to_have_text("3 Sign in")
     expect(steps(wizard).nth(0)).to_have_text("✓ Host, done")
     expect(wizard).to_contain_text("✓ Host key matches your known_hosts entry.")
-    expect(wizard).to_contain_text("Your key is not on lab-01 yet. Enter the password for john and Port-Key installs it for you.")
-    expect(wizard).to_contain_text("It adds the public half of id_ed25519 to ~/.ssh/authorized_keys on the host.")
+    expect(wizard).to_contain_text(
+        "Your key is not on lab-01 yet. Enter the password for john and Port-Key installs it "
+        "for you."
+    )
+    expect(wizard).to_contain_text(
+        "It adds the public half of id_ed25519 to ~/.ssh/authorized_keys on the host."
+    )
     field = wizard.get_by_label("Password for john@lab-01")
     expect(field).to_be_focused()
     field.fill("wrong")
@@ -95,21 +104,30 @@ def test_install_with_password(term: TermFactory) -> None:
     field.fill("pa55word")
     page.keyboard.press("Enter")
     expect(wizard.get_by_role("heading", name="Connection saved")).to_be_visible()
-    expect(wizard.locator(".wcheck__text")).to_have_text([
-        "Signed in with password, done", "Added key to ~/.ssh/authorized_keys, done",
-        "Signed in again with the key only, done", "Password discarded, done",
-    ])
+    expect(wizard.locator(".wcheck__text")).to_have_text(
+        [
+            "Signed in with password, done",
+            "Added key to ~/.ssh/authorized_keys, done",
+            "Signed in again with the key only, done",
+            "Password discarded, done",
+        ]
+    )
     expect(wizard.locator(".wsummary")).to_contain_text("lab-01")
     expect(wizard.locator(".wsummary__addr")).to_have_text("john@lab-01 · Office LAN / Servers")
     expect(wizard.locator(".wsummary__key")).to_have_text("id_ed25519")
-    expect(wizard).to_contain_text("From now on, one click opens this host with your key. No password needed.")
+    expect(wizard).to_contain_text(
+        "From now on, one click opens this host with your key. No password needed."
+    )
     open_btn = wizard.get_by_role("button", name="Open terminal")
     expect(open_btn).to_be_focused()
     start = start_msg(page)
-    assert start["type"] == "start" and start["host"] == "lab-01" and start["port"] == 22
-    assert start["username"] == "john" and start["name"] == "lab-01" and start["key_fp"] is None
-    assert start["tags"] == ["lab"] and start["color"] == "blue" and start["group_id"]
-    assert start["assume_installed"] is False and start["connection_id"] is None and start["jump_id"] is None
+    assert start["group_id"]
+    expected = {
+        "type": "start", "host": "lab-01", "port": 22, "username": "john", "name": "lab-01",
+        "key_fp": None, "tags": ["lab"], "color": "blue", "assume_installed": False,
+        "connection_id": None, "jump_id": None,
+    }  # fmt: skip
+    assert {k: start[k] for k in expected} == expected
     replies = [m for m in sent(page, -1, "/ws/install") if m.get("type") == "prompt_reply"]
     assert [r["value"] for r in replies] == ["wrong", "pa55word"]
     expect(page.locator(".sidebar")).to_contain_text("lab-01")  # the store refreshed
@@ -126,10 +144,17 @@ def test_first_seen_host_key_is_step_two(term: TermFactory) -> None:
     wizard.get_by_role("button", name="Next").click()
     expect(wizard.get_by_role("heading", name="Check this host's identity")).to_be_visible()
     expect(wizard.locator(".wsteps__item.is-current")).to_have_text("2 Identity")
-    expect(wizard).to_contain_text("This is the first time Port-Key has connected to new-host (new-host). It presented this key:")
-    expect(wizard.locator(".fpbox__text")).to_have_text("ED25519 SHA256:Qd03vLxB7cD9eF1gH2iJ4kL6mN8oP0qR2sT4uV6h7Rk")
+    expect(wizard).to_contain_text(
+        "This is the first time Port-Key has connected to new-host (new-host). "
+        "It presented this key:"
+    )
+    expect(wizard.locator(".fpbox__text")).to_have_text(
+        "ED25519 SHA256:Qd03vLxB7cD9eF1gH2iJ4kL6mN8oP0qR2sT4uV6h7Rk"
+    )
     expect(wizard).to_contain_text("Nothing has been sent to the host yet.")
-    expect(wizard.locator(".wizard__foot button")).to_have_text(["Back", "Cancel", "Trust this host"])
+    expect(wizard.locator(".wizard__foot button")).to_have_text(
+        ["Back", "Cancel", "Trust this host"]
+    )
     wizard.get_by_role("button", name="Back").click()
     expect(wizard.get_by_label("Host", exact=True)).to_have_value("new-host")  # values kept
     wizard.get_by_role("button", name="Next").click()
@@ -161,7 +186,8 @@ def test_key_already_installed(term: TermFactory) -> None:
     fill_host(wizard, "keyed-host")
     wizard.get_by_role("button", name="Next").click()
     expect(wizard).to_contain_text(
-        "Your key is already installed on keyed-host. Port-Key signed in with it, so no password is needed."
+        "Your key is already installed on keyed-host. Port-Key signed in with it, "
+        "so no password is needed."
     )
     wizard.get_by_role("button", name="Save connection").click()
     expect(wizard.get_by_role("heading", name="Connection saved")).to_be_visible()
@@ -180,7 +206,9 @@ def test_password_only_saves_over_http(term: TermFactory) -> None:
     expect(wizard.get_by_role("heading", name="Connection saved")).to_be_visible()
     expect(wizard).to_contain_text("old-switch is saved with password sign-in.")
     expect(wizard.locator(".wsummary__pw")).to_have_text("Password")
-    post = page.evaluate("__pkMock.calls.filter((c) => c.method === 'POST' && c.path === '/api/connections')")
+    post = page.evaluate(
+        "__pkMock.calls.filter((c) => c.method === 'POST' && c.path === '/api/connections')"
+    )
     assert post[-1]["body"]["auth_method"] == "password"
     assert page.evaluate("__pkWs.installs.length") == 0
 
@@ -198,7 +226,9 @@ def test_prefill_from_a_suggestion_and_from_keys(term: TermFactory) -> None:
     page.locator(".table--keys").get_by_role("button", name="id_ed25519_portkey").click()
     page.get_by_role("button", name="Install on a host…").click()
     wizard = page.get_by_role("dialog", name="Add connection")
-    expect(wizard.get_by_label("Sign in with")).to_have_value("SHA256:9dTgV4hY6jU8kI0oL2pM4nB6vC8xZ0aS2dF4gH6mE1s")
+    expect(wizard.get_by_label("Sign in with")).to_have_value(
+        "SHA256:9dTgV4hY6jU8kI0oL2pM4nB6vC8xZ0aS2dF4gH6mE1s"
+    )
 
 
 def test_jump_via_and_cancel_mid_run(term: TermFactory) -> None:
@@ -209,11 +239,15 @@ def test_jump_via_and_cancel_mid_run(term: TermFactory) -> None:
     wizard.get_by_role("button", name="Next").click()
     expect(wizard.get_by_role("heading", name="Sign in once")).to_be_visible()
     start = start_msg(page)
-    assert start["jump_id"] == page.evaluate("__pkMockData('normal').connections.find((c) => c.name === 'build-box').id")
+    assert start["jump_id"] == page.evaluate(
+        "__pkMockData('normal').connections.find((c) => c.name === 'build-box').id"
+    )
     wizard.get_by_role("button", name="Cancel").click()
     expect(wizard).to_be_hidden()
     assert sent(page, -1, "/ws/install")[-1] == {"type": "close"}
-    expect(page.locator(".sidebar__foot").get_by_role("button", name="Add connection")).to_be_focused()
+    expect(
+        page.locator(".sidebar__foot").get_by_role("button", name="Add connection")
+    ).to_be_focused()
 
 
 def test_changed_host_key_in_the_wizard(term: TermFactory) -> None:

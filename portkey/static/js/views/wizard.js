@@ -281,6 +281,7 @@ export class Wizard {
     if (!c) return;
     await store.refreshConnections().catch(() => {});
     const { openSession } = await import('./sessions.js');
-    await openSession(c.id, { newSession: true });
+    // A tab already open for it (Reinstall key from a failed tab) is focused and reconnects.
+    await openSession(c.id);
   }
 }

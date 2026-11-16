@@ -53,21 +53,40 @@ def test_messages(term: TermFactory) -> None:
     at = "new Date(2026, 10, 16, 14, 32)"
     assert run(page, m, f"m.disconnectedText('web-prod', 'closed', {at})") == {
         "title": "Disconnected from web-prod at 14:32",
-        "body": "The remote host closed the connection. Press Enter or select Reconnect to open a new shell.",
+        "body": "The remote host closed the connection. "
+        "Press Enter or select Reconnect to open a new shell.",
     }
     assert run(page, m, f"m.disconnectedText('imaging-01', 'lost', {at})") == {
         "title": "Connection to imaging-01 lost at 14:32",
         "body": "No response for 90 seconds. Press Enter or select Reconnect to open a new shell.",
     }
     hop = "{index: 0, count: 2, name: 'build-box', host: '192.168.10.20', port: 22, role: 'jump'}"
-    assert run(page, m, f"m.statusLine({{phase: 'auth', hop: {hop}}}).text") == "Reaching build-box…"
-    target = "{index: 1, count: 2, name: 'web-prod', host: '192.168.10.42', port: 22, role: 'target'}"
-    assert run(page, m, f"m.statusLine({{phase: 'connecting', hop: {target}}}).text") == "Reaching 192.168.10.42:22…"
-    assert run(page, m, f"m.statusLine({{phase: 'auth', hop: {target}, method: 'publickey', key_name: 'id_ed25519'}}).text") == "Signing in with id_ed25519…"
-    assert run(page, "ui/dialogs.js", "[m.ttlText(28800), m.ttlText(3600), m.ttlText(1800), m.ttlText(86400)]") == [
-        "8 hours", "1 hour", "30 minutes", "1 day",
+    assert (
+        run(page, m, f"m.statusLine({{phase: 'auth', hop: {hop}}}).text") == "Reaching build-box…"
+    )
+    target = (
+        "{index: 1, count: 2, name: 'web-prod', host: '192.168.10.42', port: 22, role: 'target'}"
+    )
+    assert (
+        run(page, m, f"m.statusLine({{phase: 'connecting', hop: {target}}}).text")
+        == "Reaching 192.168.10.42:22…"
+    )
+    auth = f"{{phase: 'auth', hop: {target}, method: 'publickey', key_name: 'id_ed25519'}}"
+    assert run(page, m, f"m.statusLine({auth}).text") == "Signing in with id_ed25519…"
+    assert run(
+        page,
+        "ui/dialogs.js",
+        "[m.ttlText(28800), m.ttlText(3600), m.ttlText(1800), m.ttlText(86400)]",
+    ) == [
+        "8 hours",
+        "1 hour",
+        "30 minutes",
+        "1 day",
     ]
-    assert run(page, "wizard/hostkey.js", "m.keygenCommand('rsa-sha2-512')") == "ssh-keygen -lf /etc/ssh/ssh_host_rsa_key.pub"
+    assert (
+        run(page, "wizard/hostkey.js", "m.keygenCommand('rsa-sha2-512')")
+        == "ssh-keygen -lf /etc/ssh/ssh_host_rsa_key.pub"
+    )
     assert run(page, "wizard/hostkey.js", "m.nameMatches('  WEB-prod ', 'web-prod')") is True
     assert run(page, "wizard/hostkey.js", "m.nameMatches('', '')") is False
 
@@ -82,7 +101,9 @@ def test_csp_allows_same_origin_ws_and_blocks_others(term: TermFactory) -> None:
         })"""
     )
     problems: list[str] = page.problems  # type: ignore[attr-defined]
-    assert not [p for p in problems if "CSP violation" in p], problems  # connect-src 'self' covers ws://
+    assert not [p for p in problems if "CSP violation" in p], (
+        problems
+    )  # connect-src 'self' covers ws://
     blocked = page.evaluate(
         """() => { try { new __pkWs.RealWebSocket('ws://127.0.0.1:9/x'); return 'opened'; }
           catch (e) { return e.name; } }"""

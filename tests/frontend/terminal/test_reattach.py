@@ -33,18 +33,31 @@ def test_drop_reattaches_with_since_and_no_gap(term: TermFactory) -> None:
     expect_rows(page, "before")
     sid = session_ids(page)[0]
     count = received(page)
-    total = page.evaluate("(id) => { const s = __pkWs.sessions.get(id); return s.base + s.buf.length; }", sid)
+    total = page.evaluate(
+        "(id) => { const s = __pkWs.sessions.get(id); return s.base + s.buf.length; }", sid
+    )
     assert count == total  # every byte the server sent is counted
     page.evaluate("(id) => __pkWs.drop(id)", sid)
     page.evaluate("(id) => __pkWs.push(id, '\\r\\nwritten while away\\r\\n')", sid)
     wait_connected(page)
     expect_rows(page, "written while away")
     attach = sent(page)[1]
-    assert attach == {"type": "attach", "session_id": sid, "since": count, "cols": attach["cols"], "rows": attach["rows"]}
+    assert attach == {
+        "type": "attach",
+        "session_id": sid,
+        "since": count,
+        "cols": attach["cols"],
+        "rows": attach["rows"],
+    }
     assert sum(1 for line in lines(page) if line == "written while away") == 1  # appended once
-    assert sum(1 for line in lines(page) if line.endswith("echo before")) == 1  # nothing replayed twice
+    replayed = [line for line in lines(page) if line.endswith("echo before")]
+    assert len(replayed) == 1  # nothing replayed twice
     type_in_terminal(page, "echo after\r")  # input works again after the reattach
-    wait_until(page, "() => document.querySelector('.tabpanel:not([hidden]) .xterm-rows').textContent.includes('echo afterafter')")
+    wait_until(
+        page,
+        "() => document.querySelector('.tabpanel:not([hidden]) .xterm-rows')"
+        ".textContent.includes('echo afterafter')",
+    )
 
 
 def test_reattach_with_reset_clears_and_replays(term: TermFactory) -> None:
@@ -77,8 +90,15 @@ def test_two_missed_pongs_count_as_a_dead_link(term: TermFactory) -> None:
     page.evaluate("(id) => __pkWs.drop(id)", sid)
     wait_connected(page)
     before = sockets(page)
-    page.evaluate("() => __pkWs.mute(__pkWs.sockets.filter((s) => s.path === '/ws/terminal').at(-1))")
-    wait_until(page, "(n) => __pkWs.sockets.filter((s) => s.path === '/ws/terminal').length > n", before, timeout=8000)
+    page.evaluate(
+        "() => __pkWs.mute(__pkWs.sockets.filter((s) => s.path === '/ws/terminal').at(-1))"
+    )
+    wait_until(
+        page,
+        "(n) => __pkWs.sockets.filter((s) => s.path === '/ws/terminal').length > n",
+        before,
+        timeout=8000,
+    )
     wait_connected(page)
     pings = [m for m in sent(page, -2) if m.get("type") == "ping"]
     assert len(pings) == 2  # two unanswered pings, then the dead socket is dropped
@@ -130,7 +150,8 @@ def test_reload_brings_back_a_vanished_session_as_disconnected(term: TermFactory
     gone = session_ids(page)[1]
     # The server forgets it entirely (expired while the page was away).
     page.evaluate(
-        "(id) => { __pkWs.sessions.delete(id); const raw = JSON.parse(sessionStorage.getItem('__pkWsMock'));"
+        "(id) => { __pkWs.sessions.delete(id);"
+        " const raw = JSON.parse(sessionStorage.getItem('__pkWsMock'));"
         " delete raw.sessions[id]; sessionStorage.setItem('__pkWsMock', JSON.stringify(raw)); }",
         gone,
     )

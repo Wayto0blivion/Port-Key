@@ -93,7 +93,7 @@ function connectFailed(view, state, err) {
       actions: [
         { label: 'Reinstall key', kind: 'primary', key: 'reinstall', onClick: () => reinstall(view) },
         { label: 'Sign in with password this time', key: 'password', onClick: () => view.reconnect({ forcePassword: true }) },
-        { label: 'Edit connection', kind: 'ghost', key: 'edit', onClick: () => editConnection(view) },
+        { label: 'Edit connection', kind: 'outline', key: 'edit', onClick: () => editConnection(view) },
       ],
     }));
     return;

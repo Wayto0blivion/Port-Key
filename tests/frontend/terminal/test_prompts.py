@@ -37,14 +37,16 @@ def test_passphrase_wrong_then_right(term: TermFactory) -> None:
     field.fill("wrong one")
     dialog.get_by_role("button", name="Unlock and connect").click()
     dialog = page.get_by_role("dialog", name="Unlock id_ed25519_portkey")
-    expect(dialog.get_by_role("alert")).to_have_text("That passphrase doesn't unlock id_ed25519_portkey. Try again.")
+    expect(dialog.get_by_role("alert")).to_have_text(
+        "That passphrase doesn't unlock id_ed25519_portkey. Try again."
+    )
     expect(dialog.get_by_label("Passphrase")).to_have_value("")
     dialog.get_by_label("Passphrase").fill("open sesame")
     dialog.get_by_role("checkbox").uncheck()
     page.keyboard.press("Enter")
     wait_connected(page)
     r = replies(page)
-    assert r[0]["value"] == "wrong one" and r[0]["remember"] is True
+    assert r[0] == {"type": "prompt_reply", "id": "p1", "value": "wrong one", "remember": True}
     assert r[1] == {"type": "prompt_reply", "id": "p2", "value": "open sesame", "remember": False}
     expect(panel(page).locator(".sbar__key")).to_have_text("id_ed25519_portkey")
 
@@ -58,7 +60,8 @@ def test_password_then_verification_code(term: TermFactory) -> None:
     dialog.get_by_role("button", name="Sign in").click()
     dialog = page.get_by_role("dialog", name="Sign in to print-srv")
     expect(dialog.get_by_role("alert")).to_have_text(
-        "print-srv rejected the password for root. Check the user name and password, then try again."
+        "print-srv rejected the password for root. Check the user name and password, "
+        "then try again."
     )
     dialog.get_by_label("Password for root@192.168.10.15").fill("pa55word")
     page.keyboard.press("Enter")
@@ -76,8 +79,12 @@ def test_changed_host_key_keep_it_closed(term: TermFactory) -> None:
     connect(page, "web-prod")
     dialog = page.get_by_role("dialog", name="web-prod's host key has changed")
     expect(dialog).to_contain_text("doesn't match the one you trusted on 2 March 2026")
-    expect(dialog).to_contain_text("Port-Key has sent no password and no key. The connection is closed.")
-    expect(dialog.locator(".fpcard__label")).to_have_text(["Trusted since 2 March 2026", "Presented just now"])
+    expect(dialog).to_contain_text(
+        "Port-Key has sent no password and no key. The connection is closed."
+    )
+    expect(dialog.locator(".fpcard__label")).to_have_text(
+        ["Trusted since 2 March 2026", "Presented just now"]
+    )
     expect(dialog.locator(".fp-strip")).to_have_count(2)
     keep = dialog.get_by_role("button", name="Keep it closed")
     expect(keep).to_be_focused()  # the safe button has initial focus
@@ -87,7 +94,12 @@ def test_changed_host_key_keep_it_closed(term: TermFactory) -> None:
     heading = panel(page).get_by_role("heading", name="web-prod's host key has changed")
     expect(heading).to_be_visible()
     expect(panel(page).locator(".session__panel")).to_contain_text("sent no password and no key")
-    assert replies(page)[-1] == {"type": "prompt_reply", "id": "p1", "accept": False, "confirm_name": ""}
+    assert replies(page)[-1] == {
+        "type": "prompt_reply",
+        "id": "p1",
+        "accept": False,
+        "confirm_name": "",
+    }
 
 
 def test_changed_host_key_replace_with_typed_name(term: TermFactory) -> None:
@@ -103,7 +115,12 @@ def test_changed_host_key_replace_with_typed_name(term: TermFactory) -> None:
     expect(replace).to_be_enabled()
     replace.click()
     wait_connected(page)
-    assert replies(page)[-1] == {"type": "prompt_reply", "id": "p1", "accept": True, "confirm_name": "WEB-PROD"}
+    assert replies(page)[-1] == {
+        "type": "prompt_reply",
+        "id": "p1",
+        "accept": True,
+        "confirm_name": "WEB-PROD",
+    }
 
 
 def test_key_refused_panel_and_password_this_time(term: TermFactory) -> None:
@@ -112,10 +129,13 @@ def test_key_refused_panel_and_password_this_time(term: TermFactory) -> None:
     p = panel(page).locator(".session__panel")
     expect(p.get_by_role("heading", name="backup-nas refused your key")).to_be_visible()
     expect(p).to_contain_text(
-        "The server rejected id_ed25519 for admin. The key may have been removed from the host's authorized_keys, or the user name changed."
+        "The server rejected id_ed25519 for admin. The key may have been removed from the "
+        "host's authorized_keys, or the user name changed."
     )
     expect(p).to_contain_text("Server offered: publickey, password")
-    expect(p.get_by_role("button")).to_have_text(["Reinstall key", "Sign in with password this time", "Edit connection"])
+    expect(p.get_by_role("button")).to_have_text(
+        ["Reinstall key", "Sign in with password this time", "Edit connection"]
+    )
     expect(panel(page).locator(".sbar__status")).to_have_text("Not signed in")
     p.get_by_role("button", name="Sign in with password this time").click()
     dialog = page.get_by_role("dialog", name="Sign in to backup-nas")
@@ -132,10 +152,17 @@ def test_key_refused_reinstall_opens_the_wizard_at_sign_in(term: TermFactory) ->
     panel(page).get_by_role("button", name="Reinstall key").click()
     wizard = page.get_by_role("dialog", name="Reinstall key on backup-nas")
     expect(wizard).to_be_visible()
-    expect(wizard.get_by_role("heading", name="Sign in once")).to_be_visible()  # the form is skipped
+    heading = wizard.get_by_role("heading", name="Sign in once")
+    expect(heading).to_be_visible()  # the form is skipped
     start = page.evaluate("__pkWs.installs[0]")
-    assert start["connection_id"] and start["host"] == "192.168.10.60" and start["username"] == "admin"
-    assert start["name"] == "backup-nas" and start["color"] == "purple"
+    assert start["connection_id"]
+    expected = {
+        "host": "192.168.10.60",
+        "username": "admin",
+        "name": "backup-nas",
+        "color": "purple",
+    }
+    assert {k: start[k] for k in expected} == expected
 
 
 def test_key_refused_edit_connection(term: TermFactory) -> None:
@@ -150,7 +177,9 @@ def test_timeout_panel_and_try_again(term: TermFactory) -> None:
     connect(page, "vpn-gw")
     p = panel(page).locator(".session__panel")
     expect(p.get_by_role("heading", name="Couldn't connect to vpn-gw")).to_be_visible()
-    expect(p).to_contain_text("Couldn't reach 10.8.0.1 on port 22. The connection timed out after 10 seconds.")
+    expect(p).to_contain_text(
+        "Couldn't reach 10.8.0.1 on port 22. The connection timed out after 10 seconds."
+    )
     expect(panel(page).locator(".session__overlay")).to_be_hidden()
     expect(tab(page, "vpn-gw").locator(".tab__dot")).to_have_class(re.compile("disconnected"))
     p.get_by_role("button", name="Try again").click()
@@ -166,7 +195,9 @@ def test_connecting_checklist_and_cancel_closes_the_tab(term: TermFactory) -> No
     overlay = panel(page).locator(".session__overlay")
     expect(overlay).to_contain_text("Connecting to web-prod…")
     expect(overlay.locator(".check-line").first).to_have_text("Reaching 192.168.10.42:22…")
-    expect(tab(page, "web-prod").locator(".tab__dot")).to_have_class(re.compile("tab__dot--connecting"))
+    expect(tab(page, "web-prod").locator(".tab__dot")).to_have_class(
+        re.compile("tab__dot--connecting")
+    )
     expect(overlay.locator(".check-line--done").first).to_be_visible()
     overlay.get_by_role("button", name="Cancel").click()
     expect(page.locator(".tabstrip [role=tab]")).to_have_count(1)
@@ -175,7 +206,9 @@ def test_connecting_checklist_and_cancel_closes_the_tab(term: TermFactory) -> No
 def test_cancel_in_a_prompt_closes_the_tab(term: TermFactory) -> None:
     page = term()
     connect(page, "imaging-01")
-    page.get_by_role("dialog", name="Unlock id_ed25519_portkey").get_by_role("button", name="Cancel").click()
+    page.get_by_role("dialog", name="Unlock id_ed25519_portkey").get_by_role(
+        "button", name="Cancel"
+    ).click()
     expect(page.locator(".tabstrip [role=tab]")).to_have_count(1)
     assert replies(page)[-1] == {"type": "prompt_reply", "id": "p1", "cancel": True}
 
@@ -200,7 +233,9 @@ def test_server_text_is_never_markup(term: TermFactory) -> None:
     page.keyboard.press("Enter")
     code = page.get_by_role("dialog", name="<b>Bank</b> login")
     expect(code).to_be_visible()
-    expect(code.locator(".prompt__instructions")).to_have_text("<script>alert(1)</script> Enter the code.")
+    expect(code.locator(".prompt__instructions")).to_have_text(
+        "<script>alert(1)</script> Enter the code."
+    )
     expect(code.locator(".field__label")).to_have_text("<img src=x onerror=alert(1)>Code:")
     expect(code.locator("img, b, script")).to_have_count(0)
     code.locator("input").fill("492039")

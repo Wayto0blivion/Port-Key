@@ -53,7 +53,14 @@
 .sbar__key { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-md); color: var(--brass); }
 .sbar__key--pw { color: var(--muted); }
 .sbar__uptime { font-size: var(--fs-md); color: var(--muted); }
-.sbar__status { font-size: var(--fs-md); color: var(--muted); }
+.sbar__status { display: inline-flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-md); color: var(--muted); }
+.sbar__status--off::before {
+  content: "";
+  width: var(--dot);
+  height: var(--dot);
+  border: 2px solid var(--subtle);
+  border-radius: 50%;
+}
 .sbar__status--error { color: var(--red-text); }
 
 .sbar__actions {
@@ -86,6 +93,7 @@
 .session__term { width: 100%; height: 100%; }
 .session__term.is-covered { visibility: hidden; }
 .session--dim .session__term { opacity: 0.35; }
+.session--off .session__term { opacity: 0.6; }
 .session__term .xterm { height: 100%; }
 .session__term .xterm-viewport { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 

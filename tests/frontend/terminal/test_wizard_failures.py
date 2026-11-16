@@ -54,15 +54,18 @@ def test_refused_and_try_again(term: TermFactory) -> None:
     )
     wizard.get_by_role("button", name="Try again").click()
     wait_until(page, "() => __pkWs.installs.length === 2")
-    expect(wizard.get_by_role("heading", name="refused-host refused the connection")).to_be_visible()
+    expect(
+        wizard.get_by_role("heading", name="refused-host refused the connection")
+    ).to_be_visible()
 
 
 def test_name_not_found(term: TermFactory) -> None:
     page = term()
     wizard = run_host(page, "nohost")
     expect(wizard).to_contain_text(
-        "Couldn't find a host named nohost. Check the spelling or use its IP address. Port-Key looks "
-        "names up from inside its container, so names that exist only in the Windows hosts file may not resolve."
+        "Couldn't find a host named nohost. Check the spelling or use its IP address. "
+        "Port-Key looks names up from inside its container, so names that exist only in "
+        "the Windows hosts file may not resolve."
     )
 
 
@@ -79,25 +82,34 @@ def test_three_wrong_passwords(term: TermFactory) -> None:
         field.fill(f"nope {attempt}")
         page.keyboard.press("Enter")
         if attempt < 2:
-            wait_until(page, "(n) => document.querySelectorAll('#wz-password:not([disabled])').length && "
-                       "__pkWs.sockets.at(-1).sent.filter((m) => m.type === 'prompt_reply').length === n", attempt + 1)
+            wait_until(
+                page,
+                "(n) => document.querySelectorAll('#wz-password:not([disabled])').length && "
+                "__pkWs.sockets.at(-1).sent.filter((m) => m.type === 'prompt_reply').length === n",
+                attempt + 1,
+            )
     expect(wizard.get_by_role("heading", name="Wrong password")).to_be_visible()
-    expect(wizard).to_contain_text("lab-01 rejected the password for john. Check the user name and password, then try again.")
+    expect(wizard).to_contain_text(
+        "lab-01 rejected the password for john. Check the user name and password, then try again."
+    )
     expect(wizard.locator(".wsteps__item.is-problem")).to_have_text("3 Sign in")
 
 
 def test_password_login_disabled(term: TermFactory) -> None:
     page = term()
     wizard = run_host(page, "nopass-host")
-    expect(wizard.get_by_role("heading", name="nopass-host does not accept passwords")).to_be_visible()
+    expect(
+        wizard.get_by_role("heading", name="nopass-host does not accept passwords")
+    ).to_be_visible()
     expect(wizard).to_contain_text(
-        "The server only allows key logins, so Port-Key can't install your key for you. Add the key on "
-        "the host yourself, for example from its console, then check again."
+        "The server only allows key logins, so Port-Key can't install your key for you. "
+        "Add the key on the host yourself, for example from its console, then check again."
     )
     box = wizard.get_by_label("Run this on nopass-host as john")
     expect(box).to_have_value(
-        "mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeFakeFakeForTestsOnly10 "
-        "john@WORKPC' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+        "mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo 'ssh-ed25519 "
+        "AAAAC3NzaC1lZDI1NTE5AAAAIFakeFakeFakeForTestsOnly10 john@WORKPC' "
+        ">> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
     )
     wizard.get_by_role("button", name="Copy install command").click()
     expect(page.locator("#toasts")).to_contain_text("Install command copied")
@@ -115,17 +127,22 @@ def test_key_still_refused_then_fix_permissions(term: TermFactory) -> None:
     wizard = run_host(page, "badperms-host")
     wizard.get_by_label("Password for john@badperms-host").fill("pa55word")
     page.keyboard.press("Enter")
-    expect(wizard.get_by_role("heading", name="badperms-host still refused the key")).to_be_visible()
+    expect(
+        wizard.get_by_role("heading", name="badperms-host still refused the key")
+    ).to_be_visible()
     expect(wizard).to_contain_text(
-        "Port-Key added your key, but badperms-host still refused it. The usual cause is permissions: "
-        "sshd ignores authorized_keys if other users can write to it or to ~/.ssh."
+        "Port-Key added your key, but badperms-host still refused it. "
+        "The usual cause is permissions: sshd ignores authorized_keys if other users can "
+        "write to it or to ~/.ssh."
     )
     expect(wizard).to_contain_text("runs chmod go-w on ~/.ssh and ~/.ssh/authorized_keys as john")
     wizard.locator(".wdetails summary").click()
     expect(wizard.locator(".wdetails__text")).to_contain_text("bad ownership or modes")
     wizard.get_by_role("button", name="Fix permissions and retry").click()
     expect(wizard.get_by_role("heading", name="Connection saved")).to_be_visible()
-    expect(wizard.locator(".wcheck__line--warn")).to_contain_text("Added key to ~/.ssh/authorized_keys")
+    expect(wizard.locator(".wcheck__line--warn")).to_contain_text(
+        "Added key to ~/.ssh/authorized_keys"
+    )
     assert actions(page) == ["fix_permissions"]
 
 
@@ -134,7 +151,9 @@ def test_read_only_authorized_keys(term: TermFactory) -> None:
     wizard = run_host(page, "ro-host")
     wizard.get_by_label("Password for john@ro-host").fill("pa55word")
     page.keyboard.press("Enter")
-    expect(wizard.get_by_role("heading", name="Port-Key couldn't write authorized_keys")).to_be_visible()
+    expect(
+        wizard.get_by_role("heading", name="Port-Key couldn't write authorized_keys")
+    ).to_be_visible()
     expect(buttons(wizard)).to_have_text(["Back", "Cancel", "Save as password-only"])
     wizard.get_by_role("button", name="Save as password-only").click()
     expect(wizard).to_contain_text("ro-host is saved with password sign-in.")
@@ -145,8 +164,8 @@ def test_not_a_posix_shell(term: TermFactory) -> None:
     page = term()
     wizard = run_host(page, "win-host")
     expect(wizard).to_contain_text(
-        "win-host doesn't offer a standard shell, so Port-Key can't install the key for you. Add the "
-        "public key on the host yourself, then select Check key login."
+        "win-host doesn't offer a standard shell, so Port-Key can't install the key for you. "
+        "Add the public key on the host yourself, then select Check key login."
     )
     expect(wizard.locator(".wstep").get_by_role("button")).to_have_text(["Copy public key"])
     expect(buttons(wizard)).to_have_text(["Back", "Cancel", "Check key login"])
@@ -158,8 +177,8 @@ def test_password_expired_opens_a_password_session(term: TermFactory) -> None:
     wizard.get_by_label("Password for john@expired-host").fill("pa55word")
     page.keyboard.press("Enter")
     expect(wizard).to_contain_text(
-        "john's password on expired-host has expired and must be changed. Open a password session to "
-        "change it, then run this wizard again."
+        "john's password on expired-host has expired and must be changed. "
+        "Open a password session to change it, then run this wizard again."
     )
     wizard.get_by_role("button", name="Open password session").click()
     expect(wizard).to_be_hidden()
@@ -172,8 +191,12 @@ def test_manual_path_when_the_key_is_refused(term: TermFactory) -> None:
     page = term()
     wizard = run_host(page, "lab-01", assume=True)
     expect(wizard.get_by_role("heading", name="Key login was refused")).to_be_visible()
-    expect(wizard.locator(".wstep").get_by_role("button")).to_have_text(["Copy public key", "Copy install command"])
-    expect(buttons(wizard)).to_have_text(["Back", "Cancel", "Save as password-only", "Install it with a password"])
+    expect(wizard.locator(".wstep").get_by_role("button")).to_have_text(
+        ["Copy public key", "Copy install command"]
+    )
+    expect(buttons(wizard)).to_have_text(
+        ["Back", "Cancel", "Save as password-only", "Install it with a password"]
+    )
     assert page.evaluate("__pkWs.installs[0].assume_installed") is True
     wizard.get_by_role("button", name="Install it with a password").click()
     expect(wizard.get_by_role("heading", name="Sign in once")).to_be_visible()

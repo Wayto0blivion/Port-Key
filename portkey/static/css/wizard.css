@@ -38,6 +38,7 @@
 /* --- a step's body ------------------------------------------------------------------------------ */
 
 .wstep { display: flex; flex-direction: column; gap: var(--sp-7); }
+.wstep p { margin: 0; }
 .wstep__title { margin: 0; font-size: var(--fs-2xl); font-weight: 600; color: var(--text-strong); }
 .wstep__title:focus { outline: none; }
 .wstep__title:focus-visible { outline: 2px solid var(--focus-ring); }

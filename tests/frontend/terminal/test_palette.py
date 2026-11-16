@@ -11,23 +11,23 @@ from playwright.sync_api import Page, expect
 from tests.frontend.terminal.helpers import TermFactory, connected, run, tab, wait_connected
 
 CONNS = """[
-  {id: 'a', name: 'web-prod', host: '192.168.10.42', port: 22, username: 'john', notes: 'Production',
-   group_id: 'g', tags: ['linux', 'prod'], jump_id: null, last_used_at: null, use_count: 0},
+  {id: 'a', name: 'web-prod', host: '192.168.10.42', port: 22, username: 'john',
+   notes: 'Production', group_id: 'g', tags: ['linux', 'prod'], jump_id: null,
+   last_used_at: null, use_count: 0},
   {id: 'b', name: 'imaging-01', host: '192.168.10.31', port: 2222, username: 'admin', notes: '',
    group_id: null, tags: ['appliance'], jump_id: null, last_used_at: null, use_count: 0},
-  {id: 'c', name: 'build-box', host: '192.168.10.20', port: 22, username: 'john', notes: 'CI builds',
-   group_id: null, tags: ['linux'], jump_id: null, last_used_at: new Date().toISOString(), use_count: 30},
+  {id: 'c', name: 'build-box', host: '192.168.10.20', port: 22, username: 'john',
+   notes: 'CI builds', group_id: null, tags: ['linux'], jump_id: null,
+   last_used_at: new Date().toISOString(), use_count: 30},
   {id: 'd', name: 'webby', host: '10.0.0.9', port: 22, username: 'root', notes: '',
    group_id: null, tags: [], jump_id: null, last_used_at: null, use_count: 0},
 ]"""
+PATHS = "(g) => g === 'g' ? 'Office LAN / Servers' : ''"
 
 
 def rank(page: Page, query: str) -> list[str]:
-    result: list[str] = run(
-        page,
-        "ui/palette.js",
-        f"m.rankConnections({CONNS}, {query!r}, (g) => g === 'g' ? 'Office LAN / Servers' : '').map((c) => c.id)",
-    )
+    body = f"m.rankConnections({CONNS}, {query!r}, {PATHS}).map((c) => c.id)"
+    result: list[str] = run(page, "ui/palette.js", body)
     return result
 
 
@@ -54,14 +54,26 @@ def test_parse_target(term: TermFactory) -> None:
         result: dict[str, Any] = run(page, "ui/palette.js", f"m.parseTarget({text!r})")
         return result
 
-    assert parse("admin@192.168.10.31:2222") == {"username": "admin", "host": "192.168.10.31", "port": 2222}
+    assert parse("admin@192.168.10.31:2222") == {
+        "username": "admin",
+        "host": "192.168.10.31",
+        "port": 2222,
+    }
     assert parse("192.168.10.42") == {"username": None, "host": "192.168.10.42", "port": None}
     assert parse(" nas-02:22 ") == {"username": None, "host": "nas-02", "port": 22}
     assert parse("ssh -p 2200 root@lab-01") == {"username": "root", "host": "lab-01", "port": 2200}
-    assert parse("ssh -l admin -i key lab-01") == {"username": "admin", "host": "lab-01", "port": None}
+    assert parse("ssh -l admin -i key lab-01") == {
+        "username": "admin",
+        "host": "lab-01",
+        "port": None,
+    }
     assert parse("[fd00::5]:2222") == {"username": None, "host": "fd00::5", "port": 2222}
     assert parse("fd00::5") == {"username": None, "host": "fd00::5", "port": None}
-    assert parse("ssh://john@build-box:22/") == {"username": "john", "host": "build-box", "port": 22}
+    assert parse("ssh://john@build-box:22/") == {
+        "username": "john",
+        "host": "build-box",
+        "port": 22,
+    }
     assert parse("host:99999") == {"username": None, "host": "host", "port": None}
 
 
@@ -75,7 +87,9 @@ def open_palette(page: Page) -> Any:
 def test_enter_connects_and_focuses_an_open_session(term: TermFactory) -> None:
     page = term()
     dialog = open_palette(page)
-    expect(dialog.locator(".palette__row--conn").first).to_contain_text("web-prod")  # most recent first
+    expect(dialog.locator(".palette__row--conn").first).to_contain_text(
+        "web-prod"
+    )  # most recent first
     expect(dialog.get_by_role("option").last).to_have_text("Add connection…")
     dialog.get_by_role("combobox").fill("web")
     expect(dialog.get_by_role("option").first).to_have_attribute("aria-selected", "true")
@@ -88,7 +102,9 @@ def test_enter_connects_and_focuses_an_open_session(term: TermFactory) -> None:
     dialog.get_by_role("combobox").fill("web-prod")
     expect(dialog.get_by_role("option").first).to_contain_text("1 session open · Enter to focus")
     page.keyboard.press("Enter")
-    expect(tab(page, "web-prod")).to_have_attribute("aria-selected", "true")  # focused, not a new one
+    expect(tab(page, "web-prod")).to_have_attribute(
+        "aria-selected", "true"
+    )  # focused, not a new one
     expect(page.locator(".tabstrip [role=tab]")).to_have_count(2)
     dialog = open_palette(page)
     dialog.get_by_role("combobox").fill("web-prod")
