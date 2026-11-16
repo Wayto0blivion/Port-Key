@@ -114,7 +114,8 @@
  * @property {{auth_method: AuthMethod, key_fp?: string|null}} [reassign]
  */
 
-/** @typedef {{host: string, port: number, aliases: string[], key_types: string[], saved: boolean}} Suggestion */
+// The server leaves out dismissed hosts and hosts a saved connection already uses.
+/** @typedef {{host: string, port: number, aliases: string[], key_types: string[]}} Suggestion */
 /** @typedef {{suggestions: Suggestion[], hashed_count: number}} SuggestionList */
 
 /**

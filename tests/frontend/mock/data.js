@@ -89,8 +89,9 @@
       ['git-mirror', '192.168.10.34', 22, 'ssh-ed25519'], ['dev-db', '192.168.10.50', 22, 'ssh-ed25519'],
       ['old-web', '192.168.10.41', 22, 'ssh-rsa'], ['monitor', '192.168.10.36', 22, 'ssh-ed25519'],
     ];
-    const suggestions = hosts.map(([h, alias, port, kt]) => ({ host: h, port, aliases: alias ? [alias] : [], key_types: [kt], saved: false }));
-    suggestions.push({ host: 'web-prod', port: 22, aliases: ['192.168.10.42'], key_types: ['ssh-ed25519'], saved: true });
+    const suggestions = hosts.map(([h, alias, port, kt]) => ({ host: h, port, aliases: alias ? [alias] : [], key_types: [kt] }));
+    // Already saved (web-prod's address): the mock server leaves it out, as the real API does.
+    suggestions.push({ host: 'web-prod', port: 22, aliases: ['192.168.10.42'], key_types: ['ssh-ed25519'] });
     return {
       groups: [office, servers, appl, vpn],
       connections,

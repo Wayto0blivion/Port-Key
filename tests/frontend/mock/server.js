@@ -254,7 +254,12 @@
       return keysOut().find((x) => x.id === id);
     }],
     ['POST', /^\/api\/keys\/lock$/, () => { for (const k of db.keys) k.unlocked = false; }],
-    ['GET', /^\/api\/hosts\/suggestions$/, () => ({ suggestions: db.suggestions.filter((s) => !db.dismissed.has(`${s.host}:${s.port}`)), hashed_count: d.hashed })],
+    ['GET', /^\/api\/hosts\/suggestions$/, () => {
+      // Like the real API: dismissed hosts and hosts a saved connection uses are left out.
+      const saved = new Set(db.connections.map((c) => `${c.host.toLowerCase()}:${c.port}`));
+      const hidden = (s) => db.dismissed.has(`${s.host}:${s.port}`) || [s.host, ...s.aliases].some((n) => saved.has(`${n.toLowerCase()}:${s.port}`));
+      return { suggestions: db.suggestions.filter((s) => !hidden(s)), hashed_count: d.hashed };
+    }],
     ['POST', /^\/api\/hosts\/suggestions\/dismiss$/, (req) => { db.dismissed.add(`${req.body.host}:${req.body.port}`); }],
     ['POST', /^\/api\/hosts\/suggestions\/restore$/, (req) => { db.dismissed.delete(`${req.body.host}:${req.body.port}`); }],
     ['GET', /^\/api\/hostkeys$/, () => ({ host_keys: db.hostKeys })],

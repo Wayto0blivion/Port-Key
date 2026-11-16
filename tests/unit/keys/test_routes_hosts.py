@@ -34,26 +34,13 @@ async def test_suggestions(api: httpx.AsyncClient, wired: Any, ssh_dir: Path, ki
     assert r.status_code == 200
     assert r.json() == {
         "suggestions": [
-            {
-                "host": "build-box",
-                "port": 22,
-                "aliases": [],
-                "key_types": ["ssh-ed25519"],
-                "saved": False,
-            },
-            {
-                "host": "imaging-01",
-                "port": 2222,
-                "aliases": [],
-                "key_types": ["ssh-ed25519"],
-                "saved": False,
-            },
+            {"host": "build-box", "port": 22, "aliases": [], "key_types": ["ssh-ed25519"]},
+            {"host": "imaging-01", "port": 2222, "aliases": [], "key_types": ["ssh-ed25519"]},
             {
                 "host": "parser-vm",
                 "port": 22,
                 "aliases": ["192.168.10.27"],
                 "key_types": ["ssh-ed25519"],
-                "saved": False,
             },
         ],
         "hashed_count": 1,

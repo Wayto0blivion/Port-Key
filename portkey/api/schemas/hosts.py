@@ -12,11 +12,12 @@ class SuggestionOut(Response):
     port: int
     aliases: list[str]  # other names/addresses that share the key
     key_types: list[str]  # e.g. ["ssh-ed25519"]
-    saved: bool  # a saved connection already uses host (or an alias) and port
 
 
 class SuggestionList(Response):
-    suggestions: list[SuggestionOut]  # dismissed ones are left out
+    # Left out: dismissed hosts, and hosts a saved connection already uses (by host or alias,
+    # at the same port).
+    suggestions: list[SuggestionOut]
     hashed_count: int
 
 

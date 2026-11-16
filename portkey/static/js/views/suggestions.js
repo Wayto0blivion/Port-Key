@@ -2,8 +2,8 @@
  * suggestions.js — owner: package 8a.
  *
  * Suggestions from known_hosts: merged rows ("parser-vm · 192.168.10.27", key type),
- * saved hosts hidden, [Add] opens the wizard prefilled, [Dismiss] with a 10 s Undo toast
- * (restore), and the hashed-entries footer.
+ * [Add] opens the wizard prefilled, [Dismiss] with a 10 s Undo toast (restore), and the
+ * hashed-entries footer. The server already leaves out saved and dismissed hosts.
  *
  * renderSuggestions(container, {limit, compact, onSeeAll}) renders into `container` from the
  * store (loading the list first if needed). Used by the sidebar section (compact), the Home
@@ -19,9 +19,12 @@ import { addConnection } from '../parts/actions.js';
 /** @typedef {import('../types.js').Suggestion} Suggestion */
 /** @typedef {import('../types.js').SuggestionList} SuggestionList */
 
-/** @param {SuggestionList|null} list @returns {Suggestion[]} */
+/**
+ * Hosts not saved yet. The server leaves saved and dismissed hosts out of the list.
+ * @param {SuggestionList|null} list @returns {Suggestion[]}
+ */
 export function unsavedSuggestions(list) {
-  return list ? list.suggestions.filter((s) => !s.saved) : [];
+  return list ? list.suggestions : [];
 }
 
 /** "parser-vm · 192.168.10.27", with ":2222" when the port is not 22. @param {Suggestion} s */

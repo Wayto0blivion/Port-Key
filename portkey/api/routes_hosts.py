@@ -2,8 +2,7 @@
 Contract: docs/api.md "Hosts".
 
 Suggestions leave out hosts the owner dismissed and hosts a saved connection already uses
-(by host or alias, at the same port), as docs/ux-spec.md asks; ``saved`` is therefore false on
-every suggestion returned.
+(by host or alias, at the same port), as docs/ux-spec.md asks.
 """
 
 from __future__ import annotations
@@ -40,7 +39,6 @@ def list_suggestions(services: ServicesDep) -> SuggestionList:
                 port=s.port,
                 aliases=list(s.aliases),
                 key_types=list(s.key_types),
-                saved=False,
             )
         )
     return SuggestionList(suggestions=out, hashed_count=scan.hashed_count)
