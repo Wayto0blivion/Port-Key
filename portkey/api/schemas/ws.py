@@ -2,7 +2,9 @@
 
 Text frames carry one JSON object with a ``type``. Binary frames carry terminal bytes and have
 no schema. ``parse_client_message`` validates an incoming text frame; server messages are built
-from the models below and sent with ``model_dump_json(exclude_none=True)``.
+from the models below and sent with ``api.ws_common.send``, which leaves out optional fields
+that are None but keeps required nullable ones as ``null`` (``first_seen_at``,
+``Hop.connection_id``, ``exit_status``, ``signal``), as docs/ws-protocol.md says.
 """
 
 from __future__ import annotations

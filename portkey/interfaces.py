@@ -335,8 +335,13 @@ class Prompter(Protocol):
         old_fingerprint: str,
         new_fingerprint: str,
         first_seen_at: datetime | None,
+        *,
+        old_key_type: str | None = None,
     ) -> tuple[bool, str]:
-        """Returns (accept, confirm_name) unvalidated; the caller compares the name."""
+        """Returns (accept, confirm_name) unvalidated; the caller compares the name.
+        ``old_key_type`` (added in package 4) is the stored key's type for the prompt's
+        ``old_key_type``; None means the same as ``key_type``. The SSH core passes it only to
+        prompters whose signature takes it (``ssh._compat``)."""
 
     async def passphrase(self, hop: HopRef, key: KeyRecord, retry: bool) -> tuple[str, bool]:
         """Returns (passphrase, remember)."""
@@ -344,9 +349,17 @@ class Prompter(Protocol):
     async def password(self, hop: HopRef, user: str, retry: bool) -> str: ...
 
     async def kbdint(
-        self, hop: HopRef, name: str, instructions: str, prompts: list[tuple[str, bool]]
+        self,
+        hop: HopRef,
+        name: str,
+        instructions: str,
+        prompts: list[tuple[str, bool]],
+        *,
+        retry: bool = False,
     ) -> list[str]:
-        """``prompts`` is [(text, echo)]. Returns one answer per prompt."""
+        """``prompts`` is [(text, echo)]. Returns one answer per prompt. ``retry`` (added in
+        package 4) is True on the first round of a new attempt after a failed one; passed only
+        to prompters whose signature takes it."""
 
 
 class SshChain(Protocol):
