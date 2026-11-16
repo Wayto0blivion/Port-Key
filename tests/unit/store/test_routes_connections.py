@@ -91,6 +91,19 @@ async def test_delete_and_jump_in_use(api: httpx.AsyncClient) -> None:
     assert r.status_code == 404
 
 
+async def test_restore_after_delete_keeps_the_id(api: httpx.AsyncClient) -> None:
+    rec = await _create(api, "web-prod", tags=["prod"], color="red")
+    r = await api.request("DELETE", f"/api/connections/{rec['id']}", json={})
+    assert r.status_code == 204
+    r = await api.post(f"/api/connections/{rec['id']}/restore", json={})
+    assert r.status_code == 201
+    assert r.json() | {"updated_at": None} == rec | {"updated_at": None}
+    r = await api.post(f"/api/connections/{rec['id']}/restore", json={})
+    assert (r.status_code, _code(r)) == (404, "not_found")
+    r = await api.post(f"/api/connections/{UNKNOWN}/restore", json={})
+    assert r.status_code == 404
+
+
 async def test_duplicate(api: httpx.AsyncClient) -> None:
     rec = await _create(api, "web-prod", pinned=True, tags=["prod"])
     r = await api.post(f"/api/connections/{rec['id']}/duplicate", json={})

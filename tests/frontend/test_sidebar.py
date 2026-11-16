@@ -155,6 +155,21 @@ def test_delete_with_undo(app: AppFactory) -> None:
     expect(page.locator(".tree").get_by_text("vpn-gw", exact=True)).to_have_count(1)
 
 
+def test_undo_delete_restores_the_same_connection(app: AppFactory) -> None:
+    # Review finding: Undo created a new connection (new id, no usage), so open tabs stayed
+    # "(deleted)", Reconnect failed and the host dropped out of Recent.
+    page = app()
+    row(page, "vpn-gw").click(button="right")
+    page.get_by_role("menuitem", name="Delete").click()
+    expect_toast(page, "Deleted vpn-gw.")
+    page.get_by_role("button", name="Undo").click()
+    expect_toast(page, "Restored vpn-gw.")
+    [deleted] = [c["path"] for c in calls(page) if c["method"] == "DELETE"]
+    [restored] = [c["path"] for c in calls(page) if c["path"].endswith("/restore")]
+    assert restored == f"{deleted}/restore"  # the same id comes back
+    assert not [c for c in calls(page) if c["method"] == "POST" and c["path"] == "/api/connections"]
+
+
 def test_delete_jump_host_is_blocked(app: AppFactory) -> None:
     page = app()
     row(page, "build-box").click(button="right")

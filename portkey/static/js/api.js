@@ -219,6 +219,10 @@ export async function deleteConnection(id) {
 export async function duplicateConnection(id) {
   return request('POST', `/api/connections/${enc(id)}/duplicate`);
 }
+/** Undo a delete: the same id, tags, usage and dates. @param {string} id @returns {Promise<Connection>} */
+export async function restoreConnection(id) {
+  return request('POST', `/api/connections/${enc(id)}/restore`);
+}
 /** @param {BulkChange} change @returns {Promise<Connection[]>} */
 export async function bulkUpdateConnections(change) {
   return (await request('POST', '/api/connections/bulk', { body: change })).connections;

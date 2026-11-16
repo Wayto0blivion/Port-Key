@@ -32,7 +32,7 @@
     tokens: new Set(scenario === 'signedout' || firstVisit ? [] : ['mock-token']),
     failures: 0,
     connections: d.connections, groups: d.groups, keys: d.keys, problems: d.problems, defaultFp: d.defaultFp,
-    suggestions: d.suggestions, dismissed: new Set(), hostKeys: d.hostKeys,
+    suggestions: d.suggestions, dismissed: new Set(), hostKeys: d.hostKeys, deleted: new Map(),
     settings: { default_key_fp: null, default_user: 'john', passphrase_ttl: 28800, detach_grace: 900, font_size: 14,
       windows_copy_paste: true, leave_warning: true,
       about: { ssh_dir: 'C:\\Users\\john\\.ssh', keys_dir: 'C:\\Users\\john\\.ssh\\port-key', data_dir: '/data', version: '0.1.0' } },
@@ -190,6 +190,17 @@
           { dependants: deps.map((x) => ({ id: x.id, name: x.name })) });
       }
       db.connections = db.connections.filter((x) => x.id !== id);
+      db.deleted.set(id, c);
+    }],
+    ['POST', /^\/api\/connections\/([^/]+)\/restore$/, (req, id) => {
+      // As the real API: the same id, tags and usage; a folder gone meanwhile -> Ungrouped.
+      const c = db.deleted.get(id);
+      if (!c || byId(id)) throw new Fail(404, 'not_found', 'There is nothing to undo for that connection any more.');
+      checkConnection(Object.assign({}, c, { group_id: null }), id);
+      if (c.group_id && !db.groups.some((g) => g.id === c.group_id)) c.group_id = null;
+      db.deleted.delete(id);
+      db.connections.push(c);
+      return [201, c];
     }],
     ['POST', /^\/api\/connections\/([^/]+)\/duplicate$/, (req, id) => {
       const c = byId(id);

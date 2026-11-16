@@ -117,6 +117,7 @@ Connection object:
 | `PATCH /api/connections/{id}` any subset of the create fields plus `sort_order` | `200 Connection`; same errors plus 404 |
 | `DELETE /api/connections/{id} {}` | `204`; 404; 409 `jump_in_use` with `dependants` |
 | `POST /api/connections/{id}/duplicate {}` | `201 Connection` named `web-prod (copy)`, then `(copy 2)`...; not pinned, no usage |
+| `POST /api/connections/{id}/restore {}` | `201 Connection`: Undo of a delete from the last 10 minutes, with the same id, tags, usage and dates (a folder deleted since leaves it Ungrouped); 404 `not_found` when there is nothing to restore; 409 `name_taken`; 422 `jump_unknown` (its jump host is gone too) |
 | `POST /api/connections/bulk` (below) | `200 {"connections": [updated...]}`; atomic; 404; 422 `group_unknown`, `tag_invalid` (over 32 tags), `validation` |
 | `POST /api/connections/reachability {"ids": [...]}` | `200 {"results": [...]}` |
 
@@ -323,3 +324,6 @@ Decided after the security and backend reviews (2026-11-16):
     and 22.
 19. Request bodies are at most 256 KB: 413 `payload_too_large`, before anything reads the
     body.
+20. Undo after deleting a connection is `POST /api/connections/{id}/restore`, which keeps the
+    id, so open terminal tabs, Reconnect, host-key records and Recent still match it. Deleted
+    connections are kept in memory only (10 minutes, at most 50), so a restart ends the Undo.

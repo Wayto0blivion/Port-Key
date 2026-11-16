@@ -510,9 +510,10 @@ the palette falls back to Ctrl+Shift+Space.
 
 ### Confirmation rules
 
-- Actions that can be undone by re-creating the thing (delete connection, dismiss suggestion)
-  happen immediately and show a 10-second Undo toast. Open sessions for a deleted connection
-  stay open with "(deleted)" after the name.
+- Actions that can be undone (delete connection, dismiss suggestion) happen immediately and
+  show a 10-second Undo toast. Open sessions for a deleted connection stay open with
+  "(deleted)" after the name. Undo of a delete puts the same connection back (same id, tags,
+  usage), so its open tabs lose "(deleted)" and Reconnect works again.
 - Closing one tab asks nothing.
 - "Close all sessions" asks with the count.
 - Actions that can't be undone ask for typed confirmation: replacing a host key, forgetting a

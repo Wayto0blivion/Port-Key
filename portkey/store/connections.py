@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 import uuid
 from collections.abc import Mapping
 from typing import Any
@@ -45,9 +46,13 @@ from portkey.store._conn_rows import (
     tags_of,
     to_record,
 )
-from portkey.store.db import Database, now_iso
+from portkey.store.db import Database, now_iso, to_iso
 
 _ORDER = "ORDER BY pinned DESC, sort_order, name COLLATE NOCASE, id"
+
+# Undo after a delete: how long, and how many, deleted connections are kept in memory.
+DELETED_TTL = 10 * 60.0
+DELETED_KEEP = 50
 
 
 def _links_for(c: sqlite3.Connection, id_json: str) -> dict[str, set[str]]:
@@ -79,6 +84,8 @@ class SqliteConnectionsRepo:
     def __init__(self, db: Database, limits: Limits) -> None:
         self.db = db
         self.limits = limits
+        # Deleted records for Undo (restore), oldest first; guarded by the database lock.
+        self._deleted: dict[str, tuple[ConnectionRecord, float]] = {}
 
     # -- reads ----------------------------------------------------------------------------------
 
@@ -168,6 +175,65 @@ class SqliteConnectionsRepo:
                     dependants=[{"id": d.id, "name": d.name} for d in deps],
                 )
             c.execute("DELETE FROM connections WHERE id = ?", (conn_id,))
+            self._remember_deleted(record)
+
+    def restore(self, conn_id: str) -> ConnectionRecord:
+        with self.db.tx() as c:
+            self._forget_old_deleted()
+            kept = self._deleted.get(conn_id)
+            if (
+                kept is None
+                or c.execute("SELECT 1 FROM connections WHERE id = ?", (conn_id,)).fetchone()
+            ):
+                raise NotFound("There is nothing to undo for that connection any more.")
+            record = kept[0]
+            self._check_name_free(c, record.name, None)
+            _jumps.validate_jump(c, conn_id, record.jump_id, self.limits.max_jump_hops)
+            group_id = record.group_id
+            if (
+                group_id is not None
+                and c.execute("SELECT 1 FROM groups WHERE id = ?", (group_id,)).fetchone() is None
+            ):
+                group_id = None  # its folder was deleted meanwhile: Ungrouped
+            self._write(
+                c,
+                f"INSERT INTO connections ({COLUMNS}) VALUES ({', '.join('?' * 17)})",  # noqa: S608
+                [
+                    record.id,
+                    record.name,
+                    record.host,
+                    record.port,
+                    record.username,
+                    record.auth_method,
+                    record.key_fp,
+                    record.jump_id,
+                    group_id,
+                    record.color,
+                    int(record.pinned),
+                    record.notes,
+                    record.sort_order,
+                    to_iso(record.created_at),
+                    now_iso(),
+                    None if record.last_used_at is None else to_iso(record.last_used_at),
+                    record.use_count,
+                ],
+            )
+            add_links(c, record.id, record.tags)
+            del self._deleted[conn_id]
+            return self._get(c, conn_id)
+
+    def _remember_deleted(self, record: ConnectionRecord) -> None:
+        """Keep a deleted record for ``restore`` (call inside the delete's transaction)."""
+        self._forget_old_deleted()
+        self._deleted[record.id] = (record, time.monotonic())
+        while len(self._deleted) > DELETED_KEEP:
+            self._deleted.pop(next(iter(self._deleted)))
+
+    def _forget_old_deleted(self) -> None:
+        cutoff = time.monotonic() - DELETED_TTL
+        for conn_id, (_, at) in list(self._deleted.items()):
+            if at < cutoff:
+                del self._deleted[conn_id]
 
     def duplicate(self, conn_id: str) -> ConnectionRecord:
         with self.db.tx() as c:

@@ -29,6 +29,7 @@ HTTP_ROUTES = {
     ("PATCH", "/api/connections/{conn_id}"),
     ("DELETE", "/api/connections/{conn_id}"),
     ("POST", "/api/connections/{conn_id}/duplicate"),
+    ("POST", "/api/connections/{conn_id}/restore"),
     ("GET", "/api/groups"),
     ("POST", "/api/groups"),
     ("PATCH", "/api/groups/{group_id}"),

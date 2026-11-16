@@ -344,6 +344,7 @@ auth status, setup and login.
 | `PATCH /api/connections/{id}` | Any subset of the above | `Connection` |
 | `DELETE /api/connections/{id}` | - | 409 with dependants if it is used as a jump |
 | `POST /api/connections/{id}/duplicate` | - | `Connection` |
+| `POST /api/connections/{id}/restore` | - | `Connection` (Undo of a delete, same id) |
 | `POST /api/connections/bulk` | `{ids:[...], set_group_id?: uuid or null, add_tags?: [str], remove_tags?: [str]}` | `{connections:[updated]}`; atomic |
 | `POST /api/connections/reachability` | `{ids:[...]}` | `{results:[{id, state: up|down|skipped, ms?}]}` |
 

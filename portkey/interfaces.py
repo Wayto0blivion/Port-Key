@@ -76,7 +76,14 @@ class ConnectionsRepo(Protocol):
 
     def delete(self, conn_id: str) -> None:
         """Raises ``NotFound``, or ``Conflict(jump_in_use, dependants=[{id,name}])`` while other
-        connections use it as their jump. Removes its tag links (and tags left unused)."""
+        connections use it as their jump. Removes its tag links (and tags left unused). The
+        deleted record is kept in memory for ``restore`` (Undo) for a few minutes."""
+
+    def restore(self, conn_id: str) -> ConnectionRecord:
+        """Put back a connection deleted in the last few minutes with its id, tags, usage and
+        dates, so open tabs, host-key records and Recent still match it. A folder deleted
+        since leaves it Ungrouped. Raises ``NotFound`` (nothing to restore),
+        ``Conflict(name_taken)`` and ``Invalid(jump_unknown|jump_cycle|jump_too_deep)``."""
 
     def duplicate(self, conn_id: str) -> ConnectionRecord:
         """Copy every field except id, timestamps and usage; pinned is False; name gets

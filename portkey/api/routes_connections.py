@@ -140,3 +140,9 @@ def delete_connection(conn_id: str, services: ServicesDep) -> None:
 @router.post("/{conn_id}/duplicate", response_model=Connection, status_code=status.HTTP_201_CREATED)
 def duplicate_connection(conn_id: str, services: ServicesDep) -> Connection:
     return to_out(services.connections.duplicate(conn_id))
+
+
+@router.post("/{conn_id}/restore", response_model=Connection, status_code=status.HTTP_201_CREATED)
+def restore_connection(conn_id: str, services: ServicesDep) -> Connection:
+    """Undo a delete from the last few minutes: the same id, tags, usage and dates."""
+    return to_out(services.connections.restore(conn_id))

@@ -231,6 +231,88 @@ def test_delete_removes_connection_and_unused_tags(
         conns.delete(a.id)
 
 
+# --- restore (Undo after delete; review finding: Undo made a new connection) -------------------
+
+
+def test_restore_brings_back_the_same_connection(make: Any, conns: SqliteConnectionsRepo) -> None:
+    jump = make("build-box")
+    a = make("web-prod", tags=["prod", "web"], jump_id=jump.id, color="red", pinned=True)
+    conns.touch_used(a.id)
+    conns.touch_used(a.id)
+    before = conns.get(a.id)
+    conns.delete(a.id)
+    back = conns.restore(a.id)
+    assert back.id == a.id
+    assert (back.tags, back.jump_id, back.color, back.pinned) == (
+        ("prod", "web"),
+        jump.id,
+        "red",
+        True,
+    )
+    assert (back.use_count, back.last_used_at, back.created_at) == (
+        2,
+        before.last_used_at,
+        before.created_at,
+    )
+    with pytest.raises(NotFound):
+        conns.restore(a.id)  # once only
+
+
+def test_restore_without_a_delete_is_not_found(make: Any, conns: SqliteConnectionsRepo) -> None:
+    a = make("web-prod")
+    with pytest.raises(NotFound):
+        conns.restore(a.id)  # never deleted
+    with pytest.raises(NotFound):
+        conns.restore("0b6f3c1e-8a52-4c3e-9d7a-1f2e3d4c5b6a")
+
+
+def test_restore_after_the_name_was_reused_or_the_jump_deleted(
+    make: Any, conns: SqliteConnectionsRepo
+) -> None:
+    jump = make("build-box")
+    a = make("web-prod", jump_id=jump.id)
+    conns.delete(a.id)
+    other = make("WEB-PROD")
+    with pytest.raises(Conflict) as taken:
+        conns.restore(a.id)
+    assert taken.value.code == "name_taken"
+    conns.delete(other.id)
+    conns.delete(jump.id)
+    with pytest.raises(Invalid) as gone:
+        conns.restore(a.id)
+    assert gone.value.code == "jump_unknown"
+    conns.restore(jump.id)
+    assert conns.restore(a.id).jump_id == jump.id  # the jump is back, so it can be too
+
+
+def test_restore_after_its_folder_was_deleted_is_ungrouped(
+    make: Any, conns: SqliteConnectionsRepo, db: Database
+) -> None:
+    group = "d4e5f6a7-1829-4b0c-9d8e-7f6a5b4c3d2e"
+    db.execute(
+        "INSERT INTO groups (id, name, parent_id, sort_order, created_at)"
+        " VALUES (?, 'Servers', NULL, 0, '2026-11-16T09:00:00Z')",
+        (group,),
+    )
+    a = make("web-prod", group_id=group)
+    conns.delete(a.id)
+    db.execute("DELETE FROM groups")
+    assert conns.restore(a.id).group_id is None
+
+
+def test_deleted_records_are_kept_for_a_while_only(
+    make: Any, conns: SqliteConnectionsRepo, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portkey.store import connections as module
+
+    a = make("web-prod")
+    conns.delete(a.id)
+    later = module.time.monotonic() + module.DELETED_TTL + 1
+    monkeypatch.setattr(module.time, "monotonic", lambda: later)
+    with pytest.raises(NotFound):
+        conns.restore(a.id)
+
+
 def test_using_key_includes_default_key_users(make: Any, conns: SqliteConnectionsRepo) -> None:
     make("web-prod", key_fp=FP_A)
     make("build-box")  # default key

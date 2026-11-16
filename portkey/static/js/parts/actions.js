@@ -73,16 +73,10 @@ export function openQuickConnect() {
   }
 }
 
-/** @param {Connection} c @returns {import('../types.js').ConnectionInput} */
-export function toInput(c) {
-  return {
-    name: c.name, host: c.host, port: c.port, username: c.username, auth_method: c.auth_method,
-    key_fp: c.key_fp, jump_id: c.jump_id, group_id: c.group_id, tags: [...c.tags], color: c.color,
-    pinned: c.pinned, notes: c.notes,
-  };
-}
-
-/** Delete now, Undo re-creates it. @param {Connection} c */
+/**
+ * Delete now; Undo puts it back as it was (the server keeps the id, tags and usage), so open
+ * tabs, Reconnect and Recent still match it. @param {Connection} c
+ */
 export async function deleteWithUndo(c) {
   try {
     await api.deleteConnection(c.id);
@@ -101,7 +95,7 @@ export async function deleteWithUndo(c) {
   toast(`Deleted ${c.name}.`, {
     undo: async () => {
       try {
-        await api.createConnection(toInput(c));
+        await api.restoreConnection(c.id);
         await store.refreshConnections();
         toast(`Restored ${c.name}.`);
       } catch (err) {
