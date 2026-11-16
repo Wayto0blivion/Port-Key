@@ -8,6 +8,9 @@ RUN := $(DC) run --rm --no-deps
 HOST_UID ?= $(shell id -u)
 HOST_GID ?= $(shell id -g)
 export HOST_UID HOST_GID
+# Narrow lint/fmt/unit to your own paths: make fmt FILES="portkey/keys tests/unit/keys"
+FILES ?= .
+TESTS ?= tests/unit
 
 .PHONY: help build lint fmt types unit check integration e2e lint-js lock vendor-xterm clean shell
 
@@ -19,18 +22,18 @@ build:
 	$(DC) build test lint-js
 
 lint:
-	$(RUN) test ruff check .
-	$(RUN) test ruff format --check .
+	$(RUN) test ruff check $(FILES)
+	$(RUN) test ruff format --check $(FILES)
 
 fmt:
-	$(RUN) test ruff format .
-	$(RUN) test ruff check --fix .
+	$(RUN) test ruff format $(FILES)
+	$(RUN) test ruff check --fix $(FILES)
 
 types:
 	$(RUN) test mypy
 
 unit:
-	$(RUN) test pytest tests/unit
+	$(RUN) test pytest $(TESTS)
 
 check: lint types unit
 
