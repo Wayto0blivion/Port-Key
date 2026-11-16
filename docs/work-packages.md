@@ -1,7 +1,12 @@
 # Port-Key work packages: file ownership
 
-Package 0 (contracts and skeleton) is done and frozen. Packages 1, 2, 3, 7 and 8a start now in
-parallel; then 4; then 5, 6 and 8b; then 9. Everyone works in the same tree on branch `dev/v1`.
+Package 0 (contracts and skeleton) is done and frozen. Packages 1, 2, 3, 7 and 8a (phase A) are
+built and integrated; next is 4; then 5, 6 and 8b; then 9. Everyone works in the same tree on
+branch `dev/v1`.
+
+Before you start, read every file in `docs/handoff/`: `phase-a.md` collects what the phase A
+engineers left for each later package, and each package writes `docs/handoff/<package>.md`
+(what the next engineers call, the gotchas, what is left undone) when it finishes.
 
 ## The rule
 
@@ -35,6 +40,8 @@ do not collide:
 ./mk check P=portkey-wp3        # ruff check + ruff format --check + mypy + unit tests
 ./mk unit P=portkey-wp3         # unit tests only
 ./mk lint-js P=portkey-wp8a     # eslint + tsc --checkJs on portkey/static/js
+./mk frontend P=portkey-wp8b    # tests/frontend: Chromium against a mock API, no network
+./mk frontend P=portkey-wp8b FRONTEND=tests/frontend/terminal   # one directory or file
 ./mk fmt P=portkey-wp3 FILES="portkey/keys portkey/api/routes_keys.py tests/unit/keys"
                                 # ruff format + ruff check --fix, on your paths only
 ./mk check P=portkey-wp3 FILES="portkey/keys tests/unit/keys" TESTS=tests/unit/keys
@@ -50,15 +57,19 @@ container runs as uid 1000). Images are shared (`portkey-dev:local`, `portkey-li
 and the source is bind-mounted, so code changes need no rebuild; rebuild only after changing
 `requirements*.lock` (`./mk build`). Never run `./mk fmt` without `FILES`: it would rewrite
 other packages' files. Before you report done, run the full `./mk check P=<yours>` (whole tree)
-and `./mk lint-js` if you touched JavaScript; a failure in a file you do not own goes in your
-report, not into a fix.
+and `./mk lint-js` plus `./mk frontend` if you touched JavaScript, CSS or `index.html`; a
+failure in a file you do not own goes in your report, not into a fix.
+
+From async code on a hot path (SSH connect, terminal sessions, the wizard), call the SQLite
+repositories through `asyncio.to_thread`; see `portkey/interfaces.py` and
+`docs/handoff/phase-a.md`.
 
 ## Ownership
 
 | Path | Owner |
 |---|---|
 | `pyproject.toml`, `requirements.lock`, `requirements-dev.lock`, `scripts/lock.sh` | 0 |
-| `Dockerfile`, `.dockerignore`, `.gitignore`, `compose.yaml`, `compose.dev.yaml` (services `test`, `lint-js`) | 0 |
+| `Dockerfile`, `.dockerignore`, `.gitignore`, `compose.yaml`, `compose.dev.yaml` (services `test`, `lint-js`, `frontend`) | 0 |
 | `compose.dev.yaml` services `integration`, `sshd`, `sshd-rekeyed`, `sshd-inner`, `app`, `evil-origin`, `e2e` | 7 (edit only those service blocks) |
 | `Makefile`, `mk`, `tools/make/`, `tools/lint-js/`, `eslint.config.js`, `jsconfig.json` | 0 |
 | `scripts/vendor-xterm.sh`, `portkey/static/vendor/xterm/` | 0 |
@@ -83,10 +94,12 @@ report, not into a fix.
 | `js/main.js`, `js/store.js`, `js/shell.js` | 8a |
 | `js/views/login.js`, `connections.js` (sidebar folder tree, tag chips, filter), `home.js` (table, bulk bar, first run), `edit-connection.js`, `keys.js`, `suggestions.js`, `settings.js`, `diagnostics.js` | 8a |
 | `js/ui/dom.js`, `toast.js`, `modal.js`, `tabstrip.js`, `folderpicker.js`, `tagfield.js` | 8a |
-| `css/layout.css`, `css/dialogs.css` | 8a |
+| `js/parts/` (private modules of 8a's views) | 8a |
+| `css/layout.css`, `css/dialogs.css`, `css/parts/` (pulled in by `layout.css`) | 8a |
 | `js/views/wizard.js` (including its folder and tag fields), `views/sessions.js` | 8b |
 | `js/terminal/session.js`, `terminal/tabs.js`, `js/ws/protocol.js`, `js/ui/dialogs.js`, `ui/palette.js` | 8b |
-| `css/terminal.css`, `css/prompts.css`, `css/wizard.css` | 8b |
+| `js/terminal/` (any further module), `js/wizard/` (private modules of `views/wizard.js`, `views/sessions.js`, `ui/dialogs.js`, `ui/palette.js`) | 8b |
+| `css/terminal.css`, `css/prompts.css`, `css/wizard.css`, `css/terminal/` (private parts they `@import`) | 8b |
 | `tests/conftest.py`, `tests/unit/skeleton/` | 0 |
 | `tests/unit/security/` (incl. routes_auth tests) | 1 |
 | `tests/unit/store/` (repositories, folders and tags, routes_connections/groups/settings) | 2 |
@@ -99,7 +112,10 @@ report, not into a fix.
 | `tests/integration/ssh/` | 4 |
 | `tests/integration/sessions/` | 5 |
 | `tests/integration/wizard/` | 6 |
-| `tests/e2e/test_*.py` (the Playwright specs) | 9 |
+| `tests/e2e/test_*.py` (the Playwright specs) | 9 (`test_shell_seams.py` was written at the phase A integration; 9 owns it now) |
+| `tests/frontend/` (conftest, `mock/`, `serve.py`, `run.sh`, `screenshots.py`, `test_*.py`) | 8a |
+| `tests/frontend/terminal/` (8b's browser tests; they reuse `tests/frontend/conftest.py`, and add WebSocket mocks of their own here) | 8b |
+| `docs/handoff/<package>.md` | that package |
 
 ## What each package delivers (summary)
 

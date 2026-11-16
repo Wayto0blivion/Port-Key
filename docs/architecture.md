@@ -542,6 +542,7 @@ Everything runs in containers, driven by `compose.dev.yaml`.
 |---|---|
 | `test` | Dev dependencies; runs pytest, ruff and mypy |
 | `lint-js` | eslint, plus `tsc --checkJs` on JSDoc types |
+| `frontend` | Playwright (the `e2e` image) on `tests/frontend`: the views against a mock API, no network |
 | `sshd` | Integration target, host key set A |
 | `sshd-rekeyed` | Same users, host key set B |
 | `sshd-inner` | Reachable only from `sshd`'s network, for jump tests |
