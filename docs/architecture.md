@@ -31,8 +31,8 @@ Fixed facts:
 - Jump hosts (one saved connection reached through another).
 - App login with a single app password.
 - Sessions that survive a dropped WebSocket or a page reload.
-- Duplicate connection, notes, colour label, one group per connection, pinned connections,
-  default user.
+- Duplicate connection, notes, colour label, nested folders (up to 3 levels), tags, bulk move
+  and tag, pinned connections, default user.
 - Scrollback Find, multi-line paste guard, reachability dots.
 - Diagnostics endpoint and view; change password and forget host key in Settings.
 
@@ -245,9 +245,13 @@ One SQLite file, `/data/portkey.db`, WAL mode, migrations tracked by `PRAGMA use
 
 | Table | Columns | Notes |
 |---|---|---|
-| `connections` | id (uuid), name, host, port, username, auth_method (`key` or `password`), key_fp (nullable; null means the default key), jump_id (nullable, references `connections.id`), group_name (nullable), color, pinned, notes, sort_order, created_at, updated_at, last_used_at, use_count | One group per connection. |
+| `connections` | id (uuid), name (unique ignoring case), host, port, username, auth_method (`key` or `password`), key_fp (nullable; null means the default key), jump_id (nullable, references `connections.id`), group_id (nullable, references `groups.id`; null means ungrouped), color, pinned, notes, sort_order, created_at, updated_at, last_used_at, use_count | One folder per connection; tags through `connection_tags`. |
+| `groups` | id (uuid), name, parent_id (nullable, references `groups.id`), sort_order, created_at | Folders. At most 3 levels; names unique among siblings ignoring case. |
+| `tags` | id, name (unique, lower-case, `[a-z0-9][a-z0-9._-]{0,31}`), created_at | Created on first assignment; a trigger deletes a tag when its last use goes. |
+| `connection_tags` | connection_id, tag_id | Primary key on both; cascades on delete of either side. |
 | `keys_meta` | fp (SHA256, primary key), label, last_path, source (`ssh_dir` or `generated`), hidden, created_at | Keys are discovered by scanning on every list call; this table only holds labels, the hidden flag and provenance. |
 | `host_keys` | id, host, port, key_type, public_key (OpenSSH text), fp_sha256, first_seen_at, last_seen_at | Unique on (host, port, public_key). |
+| `dismissed_suggestions` | host, port, dismissed_at | known_hosts suggestions the owner dismissed. |
 | `app_auth` | scrypt salt and hash | One row. |
 | `tokens` | sha256(token), created_at, expires_at | 30-day sliding expiry. |
 | `settings` | key, value (JSON) | default_key_fp, default_user, passphrase_ttl, detach_grace, font size, copy/paste mode, leave warning. |
@@ -261,7 +265,21 @@ One SQLite file, `/data/portkey.db`, WAL mode, migrations tracked by `PRAGMA use
   re-pointed; the API returns a conflict naming them.
 - Each hop authenticates with its own saved connection's settings (user, key or password).
 
+### Folder and tag rules
+
+- Folders (the API calls them groups) nest at most 3 levels. Moving a folder under itself or a
+  descendant is rejected, as is a move that would push anything below level 3.
+- Deleting a folder moves its child folders and connections to its parent (the root /
+  Ungrouped when it has none). It never deletes connections.
+- Tag input is trimmed, a leading `#` is dropped and it is lower-cased. Renaming a tag onto an
+  existing name merges them. A tag disappears with its last use.
+- Folder collapsed/expanded state is per-browser UI state in `localStorage`, not in the
+  database. Filtering and search are client-side.
+
 ## 6. HTTP API
+
+`docs/api.md` is the frozen contract with examples for every endpoint; where it adds detail to
+this section (wrapped list responses, extra endpoints), it wins.
 
 Every error has the shape `{error:{code,message}}`. All endpoints need the bearer token except
 auth status, setup and login.
@@ -281,13 +299,26 @@ auth status, setup and login.
 | Method and path | Request | Response |
 |---|---|---|
 | `GET /api/connections` | - | `{connections:[Connection]}` |
-| `POST /api/connections` | `{name, host, port=22, username, auth_method, key_fp?, jump_id?, group_name?, color?, pinned?, notes?}` | `Connection` |
+| `POST /api/connections` | `{name, host, port=22, username, auth_method, key_fp?, jump_id?, group_id?, tags?, color?, pinned?, notes?}` | `Connection` (carries `group_id` and `tags: [str]`) |
 | `PATCH /api/connections/{id}` | Any subset of the above | `Connection` |
 | `DELETE /api/connections/{id}` | - | 409 with dependants if it is used as a jump |
 | `POST /api/connections/{id}/duplicate` | - | `Connection` |
+| `POST /api/connections/bulk` | `{ids:[...], set_group_id?: uuid or null, add_tags?: [str], remove_tags?: [str]}` | `{connections:[updated]}`; atomic |
 | `POST /api/connections/reachability` | `{ids:[...]}` | `{results:[{id, state: up|down|skipped, ms?}]}` |
 
 Reachability is a TCP connect to the SSH port. Connections that use a jump are `skipped`.
+
+### Folders and tags
+
+| Method and path | Request | Response |
+|---|---|---|
+| `GET /api/groups` | - | `{groups:[{id, name, parent_id, sort_order, connection_count}]}`, flat; counts include descendants |
+| `POST /api/groups` | `{name, parent_id?}` | `Group` |
+| `PATCH /api/groups/{id}` | `{name?, parent_id?, sort_order?}` | `Group` |
+| `DELETE /api/groups/{id}` | - | - (contents move to the parent) |
+| `GET /api/tags` | - | `{tags:[{name, count}]}` |
+| `PATCH /api/tags/{name}` | `{name}` | `{name, count}`; renames everywhere, merging if the new name exists |
+| `DELETE /api/tags/{name}` | - | - (removed from every connection) |
 
 ### Keys
 
@@ -414,7 +445,8 @@ SSH failure codes carried in `error.code`: `dns`, `refused`, `timeout`, `auth_fa
 
 Same auth handshake and prompt sub-protocol as `/ws/terminal`. In addition:
 
-- Client: `{type:"start", host, port, username, key_fp, name, jump_id?, group_name?, color?, assume_installed?}`.
+- Client: `{type:"start", host, port, username, key_fp, name, jump_id?, group_id?, tags?, color?, assume_installed?}`
+  (full message in `docs/ws-protocol.md`, which is the frozen contract for both sockets).
 - Server: `{type:"step", step, state: running|ok|warn|fail, detail}`.
 - Server: `{type:"done", connection}` at the end.
 
@@ -469,27 +501,28 @@ Target: no file over about 400 lines.
 | Path | Contents |
 |---|---|
 | `app.py` | App factory, middleware wiring, static files |
-| `config.py` | Paths, port, environment |
-| `interfaces.py` | Protocols: `Prompter`, `HostKeyStore`, `KeyProvider`, `ConnectionsRepo` |
+| `config.py` | Paths, port, environment, limits |
+| `interfaces.py` | Protocols between packages: `Prompter`, `HostKeyStore`, `KeyProvider`, `ConnectionsRepo`, `GroupsRepo`, `TagsRepo`, settings, events, key vault, connector, session registry |
+| `models.py`, `errors.py`, `services.py` | Shared domain records, the HTTP error hierarchy, service wiring |
 | `security/` | `hostguard.py`, `auth.py`, `tokens.py`, `redact.py`, `headers.py` |
-| `store/` | `db.py` (with migrations), `connections.py`, `hostkeys.py`, `settings.py`, `events.py` |
+| `store/` | `db.py` (with migrations), `connections.py`, `groups.py`, `tags.py`, `hostkeys.py`, `settings.py`, `events.py`, `keys_meta.py` |
 | `keys/` | `textio.py`, `discovery.py`, `keygen.py`, `vault.py`, `known_hosts.py` |
 | `ssh/` | `errors.py`, `client.py` (the asyncssh `SSHClient` subclass that connects auth callbacks to the `Prompter`), `hostkey.py`, `chain.py` (jump chain resolution and connection) |
 | `sessions/` | `ringbuffer.py`, `terminal.py`, `registry.py` |
 | `wizard/` | `remote_script.py`, `install.py` |
-| `api/` | `schemas.py`, `routes_auth.py`, `routes_connections.py`, `routes_keys.py`, `routes_hosts.py`, `routes_sessions.py`, `routes_settings.py`, `routes_diag.py`, `ws_common.py` (auth handshake and prompt round trip), `ws_terminal.py`, `ws_install.py` |
+| `api/` | `schemas/` (a package), `deps.py`, `routes_auth.py`, `routes_connections.py`, `routes_groups.py` (folders and tags), `routes_keys.py`, `routes_hosts.py`, `routes_sessions.py`, `routes_settings.py`, `routes_diag.py`, `ws_common.py` (auth handshake and prompt round trip), `ws_terminal.py`, `ws_install.py` |
 
 ### Frontend, `portkey/static/`
 
 | Path | Contents |
 |---|---|
 | `index.html` | Shell |
-| `css/` | `base.css` (tokens as CSS custom properties), `layout.css`, `terminal.css`, `dialogs.css`, `wizard.css` |
-| `js/main.js`, `js/api.js`, `js/store.js` | Boot, HTTP client, state |
+| `css/` | `base.css` (tokens as CSS custom properties), `layout.css`, `terminal.css`, `dialogs.css`, `prompts.css`, `wizard.css` |
+| `js/main.js`, `js/api.js`, `js/store.js`, `js/shell.js`, `js/types.js` | Boot, HTTP client, state, app shell, JSDoc types |
 | `js/ws/protocol.js` | WebSocket framing, auth, prompts |
-| `js/views/` | `login.js`, `connections.js`, `keys.js`, `suggestions.js`, `wizard.js`, `settings.js`, `sessions.js`, `diagnostics.js` |
+| `js/views/` | `login.js`, `connections.js` (sidebar folder tree, tag chips), `home.js`, `edit-connection.js`, `keys.js`, `suggestions.js`, `wizard.js`, `settings.js`, `sessions.js`, `diagnostics.js` |
 | `js/terminal/` | `session.js`, `tabs.js` |
-| `js/ui/` | `dialogs.js`, `toast.js`, `dom.js`, `palette.js` |
+| `js/ui/` | `dialogs.js`, `toast.js`, `dom.js`, `palette.js`, `modal.js`, `tabstrip.js`, `folderpicker.js`, `tagfield.js`, `fpstrip.js` |
 | `vendor/xterm/` | xterm, fit addon, search addon |
 
 All colours are CSS custom properties in `base.css`. v1 ships a dark theme only.
@@ -526,6 +559,10 @@ Everything runs in containers, driven by `compose.dev.yaml`.
 - 422 redaction.
 - Migrations.
 - Jump chain validation: depth limit, cycles, delete-with-dependants.
+- Folders: depth limit, sibling-name uniqueness, move-under-descendant rejection, delete
+  re-parenting (child folders and connections move up, nothing is deleted).
+- Tags: normalisation (trim, `#`, lower-case, pattern), rename-merge, last-use cleanup.
+- Bulk edit atomicity: one unknown id or invalid tag changes nothing.
 - Routes through the httpx ASGI transport.
 - The remote script runs for real under `dash`, `bash` and `busybox sh` against a temporary
   HOME: fresh, existing file, no trailing newline, a second run, and bad permissions.
@@ -575,14 +612,16 @@ Mounts, ACLs and networking are covered by the manual checklist in `docs/windows
 |---|---|---|---|
 | 0 | Contracts and skeleton | `pyproject` with the lock, `Dockerfile`, compose files, `Makefile`, `api/schemas.py`, `docs/api.md`, `docs/ws-protocol.md`, `ssh/errors.py`, `interfaces.py`, the DB schema in `store/db.py`, frontend stubs, vendored xterm | - |
 | 1 | Security | `security/*`, `routes_auth.py`, `app.py` middleware | 0 |
-| 2 | Storage | `store/*`, `routes_connections.py`, `routes_settings.py` | 0 |
+| 2 | Storage | `store/*` (including `groups.py`, `tags.py`), `routes_connections.py`, `routes_groups.py`, `routes_settings.py` | 0 |
 | 3 | Keys | `keys/*`, `routes_keys.py`, `routes_hosts.py` | 0 |
 | 4 | SSH core | `ssh/*`, `api/ws_common.py` | 2, 3 (interfaces; may stub) |
 | 5 | Terminal | `sessions/*`, `ws_terminal.py`, `routes_sessions.py` | 4 |
 | 6 | Wizard | `wizard/*`, `ws_install.py` | 4 |
 | 7 | Test infrastructure | `tests/sshd/`, fixtures, `evil-origin`, Playwright harness, `routes_diag.py` | 0 |
-| 8a | Frontend shell | `api.js`, `store.js`, and the login, connections, keys, suggestions, settings and diagnostics views | 0 |
-| 8b | Frontend terminal | `terminal/*`, `ws/protocol.js`, `ui/dialogs.js`, `ui/palette.js`, `views/wizard.js`, `views/sessions.js` | 5, 6, 8a |
+| 8a | Frontend shell | `api.js`, `store.js`, and the login, connections (folder tree, tag chips), home (bulk bar), keys, suggestions, settings and diagnostics views | 0 |
+| 8b | Frontend terminal | `terminal/*`, `ws/protocol.js`, `ui/dialogs.js`, `ui/palette.js`, `views/wizard.js` (with its folder and tag fields), `views/sessions.js` | 5, 6, 8a |
+
+File-by-file ownership, including tests, is in `docs/work-packages.md`.
 | 9 | End-to-end hardening | Playwright specs, `docs/windows-smoke.md` | all |
 
 Order: package 0 first and frozen. Then 1, 2, 3, 7 and 8a in parallel. Then 4. Then 5, 6 and 8b

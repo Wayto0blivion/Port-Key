@@ -16,9 +16,9 @@ preferred; passwords are a fallback and are never stored.
 
 - Runs on the owner's Windows PC in a container (Docker Desktop, WSL2 backend). The browser is
   on the same PC. The PC's private key is used directly and never leaves the PC.
-- v1 features: saved connections, in-browser terminal with several sessions as tabs, show/copy
-  public key, key install wizard (ssh-copy-id equivalent), host suggestions from known_hosts,
-  key generation in the app, jump hosts.
+- v1 features: saved connections organised in nested folders and tags, in-browser terminal with
+  several sessions as tabs, show/copy public key, key install wizard (ssh-copy-id equivalent),
+  host suggestions from known_hosts, key generation in the app, jump hosts.
 - The app requires a login: one app password set on first visit, remembered for 30 days.
 - The owner's key is an ordinary key file in `.ssh` with no passphrase today. Passphrase
   support is built anyway because they may add one.
@@ -92,7 +92,7 @@ disabled (show the manual command), key added but still refused (permissions), r
 |---|---|---|
 | 0 | Contracts and skeleton: Dockerfile, compose files, API schemas, WS protocol doc, DB schema, error codes, vendored xterm | - |
 | 1 | Security: host/origin guard, auth, tokens, headers, log redaction | 0 |
-| 2 | Storage: connections, host keys, settings | 0 |
+| 2 | Storage: connections, folders, tags, host keys, settings | 0 |
 | 3 | Keys: discovery, text normalisation (CRLF, BOM, UTF-16), generation, vault, known_hosts | 0 |
 | 7 | Test infrastructure: sshd containers, fixtures, evil-origin page, Playwright harness | 0 |
 | 8a | Frontend shell: connections, keys, suggestions, settings views | 0 |
@@ -118,6 +118,18 @@ three hops and cycles are rejected on save. Each hop signs in with its own saved
 gets its own host key check; prompts say which hop they belong to. A connection that others
 jump through cannot be deleted until they are re-pointed. The wizard can install a key on a
 host that is reached through a jump.
+
+## Folders and tags (added 2026-11-16)
+
+The owner expects a lot of connections, so the single group per connection is replaced by:
+
+- **Folders**: a tree at most 3 levels deep. Sibling names are unique. Deleting a folder moves
+  its contents up a level; it never deletes connections. Collapsed state is per browser.
+- **Tags**: lower-case labels, many per connection, created on first use and gone when unused.
+  Tags have no colour; the colour label stays the per-connection safety signal.
+- The sidebar shows the folder tree (Pinned on top, Ungrouped at the bottom) with a row of tag
+  chips under the filter; Home's table gets Folder and Tags columns and a bulk bar (move to
+  folder, add or remove tags). Filtering and search stay in the browser.
 
 ## Owner's answers (2026-11-15)
 

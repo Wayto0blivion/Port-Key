@@ -42,12 +42,23 @@ with a tab strip.
 
 **Sidebar: connections only.** From top to bottom:
 
-- A filter field.
-- The "Pinned" group.
-- User groups, collapsible, each with a count.
-- "Ungrouped".
+- A filter field. Besides plain text (name, host, user, notes, folder path) it understands
+  `#tag` tokens.
+- A row of tag chips under the filter: most used first, then "More…". Selecting chips filters
+  to connections that have all selected tags. Tags have no colour.
+- The "Pinned" section (virtual, always first).
+- The folder tree: collapsible folders, 12px indent per level, at most 3 levels, each with a
+  count that includes its descendants. Collapsed state is remembered per browser.
+- "Ungrouped" (always last of the tree).
 - "Suggested from known_hosts (14)", collapsed by default.
 - A footer button, "Add connection".
+
+While a filter or tag chip is active, folders with no matching connections are hidden.
+
+**Folder actions.** Drag a connection row onto a folder to move it there. A folder's context
+menu offers New folder, Rename, Move and Delete. Deleting a folder moves its folders and
+connections up one level (to Ungrouped at the top level); it never deletes connections, and it
+shows a 10-second Undo toast.
 
 **Main pane tab strip**
 
@@ -63,8 +74,10 @@ with a tab strip.
 - **Dense two-line rows in the sidebar, not cards.** A few dozen hosts fit on one screen at
   about 44px per row.
 - **Cards appear only on Home,** for Recent, where recognition matters more than density.
-- **One group per connection plus a colour label, not free tags.** Groups are things like
-  "Office LAN", "VPN" and "Appliances".
+- **Folders plus tags plus a colour label.** The owner has a lot of connections. Folders give
+  each connection one place ("Office LAN / Servers", "VPN", "Appliances"); tags cut across
+  folders (`prod`, `web`, `dell`); the colour label stays a per-connection safety signal and
+  is separate from tags.
 - **Pinned connections** stay at the top. Recency is used for Home and for palette ranking.
 - **Multiple sessions are tabs.** There are no split panes.
 
@@ -79,6 +92,8 @@ Each row shows:
   (`admin@192.168.10.31:2222`);
 - on the right: an open-sessions badge ("2") and an auth glyph, a brass key or a grey "pw" for
   password-only connections.
+
+Rows stay 44px high and do not show tag chips.
 
 ### Session tabs
 
@@ -151,9 +166,11 @@ Always show the Windows path, not the container path.
 
 | Column | Example |
 |---|---|
+| Checkbox | selects the row for bulk actions |
 | Name | web-prod |
 | Address (monospace) | `john@192.168.10.42` |
-| Group | Office LAN |
+| Folder | `Office LAN / Servers` (the full path) |
+| Tags | chips: `prod` `web` |
 | Signs in with | `id_ed25519`, or "Password" |
 | Last connected | Today 14:02 |
 | Notes (truncated) | Production. Red on purpose. |
@@ -163,8 +180,12 @@ Example rows:
 
 - `parser-vm`, `root@192.168.10.27`, Appliances
 - `imaging-01`, `admin@192.168.10.31:2222`, Appliances
-- `web-prod`, `john@192.168.10.42`, Office LAN
+- `web-prod`, `john@192.168.10.42`, Office LAN / Servers, `prod` `web`
 - `vpn-gw`, `john@10.8.0.1`, VPN
+
+**Bulk bar.** When any rows are checked, a bar above the table shows "3 selected" and
+[Move to folder…], [Add tag…], [Remove tag…]. Each applies to every selected connection at
+once (all or nothing) and shows an Undo toast.
 
 **Suggestions panel:** shown only if there are undismissed suggestions.
 
@@ -232,7 +253,8 @@ sessions keep running behind it.
 | Port | 22 |
 | User | Prefilled from the default user, for example `john` |
 | Name | Auto-filled from the host, for example `web-prod` |
-| Group | Existing groups, plus "New group…" |
+| Folder | A tree select of folders, "Ungrouped", and "New folder…" |
+| Tags | A token field with autocomplete from existing tags. Typing `#` is optional. Helper: "Lower-case letters, digits, dot, dash and underscore." |
 | Colour label | Six swatches. Helper: "The colour frames the terminal, so you can tell at a glance which host you are typing into." |
 | Sign in with | "Default key (id_ed25519)", another key, or "Password only" |
 | Jump via | "None", or a saved connection. Helper: "Port-Key connects to that host first and reaches this one through it." |
@@ -276,7 +298,7 @@ A checklist that fills in live:
 
 **Final state, "Connection saved"**
 
-- A summary card: `web-prod`, `john@192.168.10.42 · Office LAN`, key `id_ed25519`.
+- A summary card: `web-prod`, `john@192.168.10.42 · Office LAN / Servers`, key `id_ed25519`.
 - "From now on, one click opens this host with your key. No password needed."
 - Buttons: [Open terminal] (primary) and [Add another].
 
@@ -307,8 +329,8 @@ in a collapsed "Details" block.
 
 ### Edit connection
 
-The same fields as wizard step 1 (Host, Port, User, Name, Group, Colour label, Sign in with,
-Jump via) plus Notes and a Pinned toggle, in one dialog with [Save] and [Cancel].
+The same fields as wizard step 1 (Host, Port, User, Name, Folder, Tags, Colour label, Sign in
+with, Jump via) plus Notes and a Pinned toggle, in one dialog with [Save] and [Cancel].
 
 - "Jump via" lists every saved connection except this one and any that would create a loop.
 - Saving a chain that is too long: "Jump chains can be at most 3 hosts long."
@@ -443,7 +465,8 @@ A read-only page for the first run on the PC and for troubleshooting:
 ### Palette
 
 - Ctrl+Shift+K anywhere; Ctrl+K when the terminal does not have focus.
-- Fuzzy search over name, host, user, group and notes, ranked by recent use.
+- Fuzzy search over name, host, user, folder path, tags and notes, ranked by recent use.
+  A `#prod` token narrows the list to connections tagged `prod`.
 - Enter connects. Shift+Enter opens an additional session.
 
 ### Other shortcuts
@@ -581,7 +604,8 @@ Every colour is a CSS custom property so a light theme is cheap to add later.
 
 ### In v1
 
-- Saved connections with one group, a colour label, notes, pinned and a default user.
+- Saved connections in nested folders (up to 3 levels) with tags, a colour label, notes,
+  pinned and a default user; bulk move and tag from Home.
 - Duplicate connection.
 - Terminal sessions as tabs, surviving a reload for 15 minutes.
 - Key install wizard, including 2FA prompts and installing through a jump host.
@@ -611,5 +635,5 @@ Every colour is a CSS custom property so a light theme is cheap to add later.
 - Keys that live only in the Windows ssh-agent, and PuTTY `.ppk` keys.
 - Deleting key files.
 - A light theme.
-- More than one group or tag per connection.
+- More than one folder per connection, and colours on tags.
 - Broadcasting input to several sessions.
