@@ -225,10 +225,17 @@ at 64 KB by uvicorn.
     app holds no code (a password existed at its start), so setup is refused with
     `setup_needs_restart` until a restart prints a fresh code. A reset never reopens setup to
     whoever reaches the port first.
-  - Left open: behind Docker Desktop's port proxy every client has the same address, so a local
-    process can make wrong guesses that lock the owner out of setup for a while (as with login).
-    It cannot set the password.
-- Failed logins get per-client exponential backoff.
+  - Left open (owner decision): behind Docker Desktop's port proxy every client has the same
+    address, so all clients share one backoff record. A local process that sends one wrong
+    password or code each time a lockout ends re-locks for up to 10 minutes every time, and
+    can keep the owner out of setup and of sign-in (a new browser, after logout, after the
+    30/90-day expiry) for as long as it keeps going; a restart clears the record, but the
+    process can simply resume. It cannot set or learn the password, and tokens already issued
+    keep working. Any throttle shared by every client can be held this way; a shorter one
+    trades the lockout for faster guessing. The principled fix needs something only the
+    owner has, for example an unlock code printed to the container log (as the setup code is)
+    that lets a sign-in through a lockout.
+- Failed logins get per-client exponential backoff (see "Left open" above).
 - Login returns a bearer token valid for 30 days, sliding (each use extends it), and never
   longer than 90 days after it was issued. Only the SHA-256 hash of each token is stored, in
   SQLite, so sessions survive restarts.

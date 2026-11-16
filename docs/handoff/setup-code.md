@@ -52,8 +52,10 @@ threat model: `docs/architecture.md` section 4, "App login"; screen: `docs/ux-sp
 ## Left open
 
 - As with login, every client behind Docker Desktop's port proxy shares one address, so a local
-  process can lock the owner out of setup for a while with wrong guesses (up to 10 minutes per
-  lockout). It cannot set the password.
+  process can lock the owner out of setup with wrong guesses (up to 10 minutes per lockout).
+  It cannot set the password. *Corrected after the security review:* one more wrong guess
+  each time a lockout ends keeps the owner out indefinitely, of setup and of sign-in; see
+  `docs/architecture.md` section 4 "Left open" for the trade-off and the suggested fix.
 - Found, not changed: `portkey.*` loggers have no handler in the container (uvicorn configures
   only its own loggers), so the app's own INFO lines (sessions opened, keys generated, wizard
   outcomes) never reach `docker compose logs`, and WARNING+ ones go out through Python's
