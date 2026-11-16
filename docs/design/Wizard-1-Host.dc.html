@@ -13,7 +13,7 @@ body{margin:0}
 a{color:#58a6ff}a:hover{color:#79c0ff}
 </style>
 </helmet>
-<div style="width: 600px; height: 680px; box-sizing: border-box; padding: 20px; display: flex; background: #010409; color: #c9d1d9; font-family: system-ui, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.45">
+<div style="width: 600px; height: 740px; box-sizing: border-box; padding: 20px; display: flex; background: #010409; color: #c9d1d9; font-family: system-ui, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.45">
 <div role="dialog" aria-label="Add connection" style="flex: 1; display: flex; flex-direction: column; background: #161b22; border: 1px solid #30363d; border-radius: 10px">
 
 <div style="display: flex; flex-direction: column; gap: 12px; padding: 18px 22px 14px; border-bottom: 1px solid #30363d">
@@ -52,8 +52,8 @@ a{color:#58a6ff}a:hover{color:#79c0ff}
 
 <div style="display: flex; gap: 12px">
 <div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
-<label for="w-group" style="font-size: 12px; font-weight: 600; color: #e6edf3">Group</label>
-<select id="w-group" style="height: 34px; padding: 0 8px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit"><option>Office LAN</option><option>Appliances</option><option>VPN</option><option>New group…</option></select>
+<label for="w-group" style="font-size: 12px; font-weight: 600; color: #e6edf3">Folder</label>
+<select id="w-group" style="height: 34px; padding: 0 8px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; font: inherit"><option>Office LAN / Servers</option><option>Office LAN</option><option>Appliances</option><option>VPN</option><option>No folder</option><option>New folder…</option></select>
 </div>
 <div style="flex: 1; display: flex; flex-direction: column; gap: 5px">
 <span id="w-colour-label" style="font-size: 12px; font-weight: 600; color: #e6edf3">Colour label</span>
@@ -68,6 +68,16 @@ a{color:#58a6ff}a:hover{color:#79c0ff}
 </div>
 </div>
 <span style="margin-top: -8px; font-size: 12px; color: #8b949e">The colour frames the terminal, so you can tell at a glance which host you are typing into.</span>
+
+<div style="display: flex; flex-direction: column; gap: 5px">
+<label for="w-tags" style="font-size: 12px; font-weight: 600; color: #e6edf3">Tags</label>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 34px; padding: 4px 8px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px">
+<span style="padding: 1px 8px; border: 1px solid #30363d; border-radius: 12px; font-size: 12px; color: #c9d1d9">#linux ×</span>
+<span style="padding: 1px 8px; border: 1px solid #30363d; border-radius: 12px; font-size: 12px; color: #c9d1d9">#docker ×</span>
+<span style="padding: 1px 8px; border: 1px solid #30363d; border-radius: 12px; font-size: 12px; color: #c9d1d9">#prod ×</span>
+<input id="w-tags" placeholder="Add a tag" style="flex: 1; min-width: 80px; height: 24px; padding: 0; background: transparent; border: 0; color: #e6edf3; font: inherit">
+</div>
+</div>
 
 <div style="display: flex; gap: 12px">
 <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px">
@@ -90,7 +100,7 @@ a{color:#58a6ff}a:hover{color:#79c0ff}
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":600,"height":680}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":600,"height":740}}'>
 class Component extends DCLogic {
 renderVals() {
 return {};

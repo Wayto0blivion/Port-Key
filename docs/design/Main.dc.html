@@ -35,15 +35,22 @@ a{color:#58a6ff}a:hover{color:#79c0ff}
 <div style="padding: 12px">
 <input aria-label="Filter connections" placeholder="Filter connections" style="width: 100%; height: 32px; padding: 0 10px; box-sizing: border-box; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font: inherit">
 </div>
+<div role="group" aria-label="Filter by tag" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px">
+<button type="button" style="height: 24px; padding: 0 9px; background: transparent; border: 1px solid #30363d; border-radius: 12px; color: #c9d1d9; font: inherit; font-size: 12px">#linux</button>
+<button type="button" style="height: 24px; padding: 0 9px; background: transparent; border: 1px solid #30363d; border-radius: 12px; color: #c9d1d9; font: inherit; font-size: 12px">#docker</button>
+<button type="button" style="height: 24px; padding: 0 9px; background: transparent; border: 1px solid #30363d; border-radius: 12px; color: #c9d1d9; font: inherit; font-size: 12px">#prod</button>
+<button type="button" style="height: 24px; padding: 0 9px; background: transparent; border: 1px solid #30363d; border-radius: 12px; color: #c9d1d9; font: inherit; font-size: 12px">#appliance</button>
+<button type="button" style="height: 24px; padding: 0 9px; background: transparent; border: 0; color: #8b949e; font: inherit; font-size: 12px">More…</button>
+</div>
 <div style="flex: 1; display: flex; flex-direction: column">
-<sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
 <sc-if value="{{r.isHead}}" hint-placeholder-val="{{ false }}">
-<div style="display: flex; justify-content: space-between; padding: 12px 12px 4px 15px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8b949e"><span>{{r.label}}</span><span>{{r.count}}</span></div>
+<button type="button" aria-expanded="true" style="display: flex; align-items: center; gap: 6px; padding: 10px 12px 4px {{r.pad}}; background: transparent; border: 0; font: inherit; font-size: 12px; font-weight: 600; color: #8b949e; text-align: left"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5l3 3 3-3"></path></svg><span style="flex: 1; color: #c9d1d9">{{r.label}}</span><span>{{r.count}}</span></button>
 </sc-if>
 <sc-if value="{{r.isHost}}" hint-placeholder-val="{{ true }}">
 <a href="Terminal.dc.html" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding-right: 12px; color: #c9d1d9; text-decoration: none">
 <span style="width: 3px; align-self: stretch; background: {{r.color}}"></span>
-<span style="width: 8px; height: 8px; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px solid {{r.dot}}; background: {{r.dotFill}}"></span>
+<span style="width: 8px; height: 8px; flex: none; margin-left: {{r.ind}}; border-radius: 50%; box-sizing: border-box; border: 2px solid {{r.dot}}; background: {{r.dotFill}}"></span>
 <span style="flex: 1; min-width: 0; display: flex; flex-direction: column">
 <span style="font-weight: 600; color: #e6edf3">{{r.name}}</span>
 <span style="font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12px; color: #8b949e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.addr}}</span>
@@ -94,14 +101,24 @@ a{color:#58a6ff}a:hover{color:#79c0ff}
 </section>
 
 <section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px">
 <h2 style="margin: 0; font-size: 14px; font-weight: 600; color: #e6edf3">All connections</h2>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; padding: 4px 6px 4px 12px; background: #161b22; border: 1px solid #1f6feb; border-radius: 6px">
+<span style="font-weight: 600; color: #e6edf3">2 selected</span>
+<button type="button" style="height: 28px; padding: 0 10px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font: inherit; font-size: 12px">Move to folder…</button>
+<button type="button" style="height: 28px; padding: 0 10px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font: inherit; font-size: 12px">Add tag…</button>
+<button type="button" style="height: 28px; padding: 0 10px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font: inherit; font-size: 12px">Remove tag…</button>
+</div>
+</div>
 <div style="overflow-x: auto; border: 1px solid #30363d; border-radius: 6px">
-<table style="width: 100%; min-width: 760px; border-collapse: collapse; text-align: left">
+<table style="width: 100%; min-width: 980px; border-collapse: collapse; text-align: left">
 <thead>
 <tr style="background: #161b22; color: #8b949e; font-size: 12px">
+<th style="width: 20px; padding: 9px 0 9px 14px"><input type="checkbox" aria-label="Select all connections"></th>
 <th style="padding: 9px 14px; font-weight: 600">Name</th>
 <th style="padding: 9px 14px; font-weight: 600">Address</th>
-<th style="padding: 9px 14px; font-weight: 600">Group</th>
+<th style="padding: 9px 14px; font-weight: 600">Folder</th>
+<th style="padding: 9px 14px; font-weight: 600">Tags</th>
 <th style="padding: 9px 14px; font-weight: 600">Signs in with</th>
 <th style="padding: 9px 14px; font-weight: 600">Last connected</th>
 <th style="padding: 9px 14px; font-weight: 600">Notes</th>
@@ -109,10 +126,12 @@ a{color:#58a6ff}a:hover{color:#79c0ff}
 </thead>
 <tbody>
 <sc-for list="{{table}}" as="h" hint-placeholder-count="7">
-<tr style="border-top: 1px solid #21262d">
+<tr style="border-top: 1px solid #21262d; background: {{h.rowBg}}">
+<td style="padding: 9px 0 9px 14px"><input type="checkbox" checked="{{h.sel}}" aria-label="{{h.selLabel}}"></td>
 <td style="padding: 9px 14px"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{h.color}}"></span><a href="Terminal.dc.html" style="font-weight: 600; color: #e6edf3; text-decoration: none">{{h.name}}</a></span></td>
 <td style="padding: 9px 14px; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12px">{{h.addr}}</td>
-<td style="padding: 9px 14px">{{h.group}}</td>
+<td style="padding: 9px 14px">{{h.folder}}</td>
+<td style="padding: 9px 14px; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12px; color: #8b949e">{{h.tags}}</td>
 <td style="padding: 9px 14px; font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 12px; color: {{h.authColor}}">{{h.auth}}</td>
 <td style="padding: 9px 14px; color: #8b949e">{{h.last}}</td>
 <td style="padding: 9px 14px; color: #8b949e">{{h.notes}}</td>
@@ -150,18 +169,37 @@ class Component extends DCLogic {
 renderVals() {
 var G = '#3fb950', X = '#6e7681', R = '#f85149';
 var host = function (name, addr, color, up, extra) {
-var o = { isHost: true, isHead: false, name: name, addr: addr, color: color, dot: up ? G : X, dotFill: up ? G : 'transparent', key: true, pw: false, open: 0 };
+var o = { isHost: true, isHead: false, name: name, addr: addr, color: color, dot: up ? G : X, dotFill: up ? G : 'transparent', key: true, pw: false, open: 0, ind: '0px' };
 for (var k in (extra || {})) o[k] = extra[k];
 return o;
 };
-var head = function (label, count) { return { isHead: true, isHost: false, label: label, count: count }; };
+var head = function (label, count, level) { return { isHead: true, isHost: false, label: label, count: count, pad: (15 + 14 * (level || 0)) + 'px' }; };
+var meta = {
+'backup-nas': ['Office LAN / Servers', '#linux #backup'],
+'build-box': ['Office LAN / Servers', '#linux #docker'],
+'parser-vm': ['Appliances', '#linux #appliance'],
+'web-prod': ['Office LAN / Servers', '#linux #docker #prod'],
+'print-srv': ['Office LAN', '#legacy'],
+'imaging-01': ['Appliances', '#appliance'],
+'vpn-gw': ['VPN', '#network']
+};
+var tbl = function (xs) {
+return xs.map(function (x) {
+var sel = x.group === 'Appliances';
+x.folder = meta[x.name][0]; x.tags = meta[x.name][1]; x.sel = sel; x.selLabel = 'Select ' + x.name; x.rowBg = sel ? '#1c2129' : 'transparent';
+return x;
+});
+};
 return {
 rows: [
 head('Pinned', 2),
 host('build-box', 'john@192.168.10.20', '#2f81f7', true),
 host('web-prod', 'john@192.168.10.42', R, true, { open: 2 }),
-head('Office LAN', 2),
-host('backup-nas', 'admin@192.168.10.60', '#a371f7', true),
+head('Office LAN', 4),
+head('Servers', 3, 1),
+host('backup-nas', 'admin@192.168.10.60', '#a371f7', true, { ind: '14px' }),
+host('build-box', 'john@192.168.10.20', '#2f81f7', true, { ind: '14px' }),
+host('web-prod', 'john@192.168.10.42', R, true, { open: 2, ind: '14px' }),
 host('print-srv', 'root@192.168.10.15', '#8b949e', false, { key: false, pw: true }),
 head('Appliances', 2),
 host('imaging-01', 'admin@192.168.10.31:2222', '#d29922', true, { open: 1 }),
@@ -181,7 +219,7 @@ recent: [
 { name: 'build-box', addr: 'john@192.168.10.20', color: '#2f81f7', dot: G, dotFill: G, last: 'Last connected yesterday' },
 { name: 'vpn-gw', addr: 'john@10.8.0.1', color: '#3fb950', dot: X, dotFill: 'transparent', last: 'Last connected 6 Nov' }
 ],
-table: [
+table: tbl([
 { name: 'backup-nas', addr: 'admin@192.168.10.60', group: 'Office LAN', auth: 'id_ed25519', authColor: '#e3b341', last: '2 Nov', notes: '', color: '#a371f7' },
 { name: 'build-box', addr: 'john@192.168.10.20', group: 'Pinned', auth: 'id_ed25519', authColor: '#e3b341', last: 'Yesterday', notes: 'CI builds', color: '#2f81f7' },
 { name: 'parser-vm', addr: 'root@192.168.10.27', group: 'Appliances', auth: 'id_ed25519', authColor: '#e3b341', last: '9 Nov', notes: '', color: '#d29922' },
@@ -189,7 +227,7 @@ table: [
 { name: 'print-srv', addr: 'root@192.168.10.15', group: 'Office LAN', auth: 'Password', authColor: '#8b949e', last: '21 Oct', notes: 'No key yet', color: '#8b949e' },
 { name: 'imaging-01', addr: 'admin@192.168.10.31:2222', group: 'Appliances', auth: 'id_ed25519_portkey', authColor: '#e3b341', last: 'Today 14:02', notes: '', color: '#d29922' },
 { name: 'vpn-gw', addr: 'john@10.8.0.1', group: 'VPN', auth: 'id_ed25519', authColor: '#e3b341', last: '6 Nov', notes: 'Needs VPN up', color: '#3fb950' }
-],
+]),
 suggest: [
 { host: 'lab-01 · 192.168.10.71', type: 'ED25519' },
 { host: '192.168.10.88:2200', type: 'RSA' },
