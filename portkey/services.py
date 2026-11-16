@@ -92,11 +92,12 @@ def build_services(config: Config) -> Services:
     connector = ChainConnector(
         connections, keys, host_keys, known_hosts, events, settings, limits, vault=vault
     )
+    groups = SqliteGroupsRepo(db, limits)
     return Services(
         config=config,
         db=db,
         connections=connections,
-        groups=SqliteGroupsRepo(db, limits),
+        groups=groups,
         tags=SqliteTagsRepo(db),
         host_keys=host_keys,
         dismissed=SqliteDismissedSuggestions(db),
@@ -110,5 +111,6 @@ def build_services(config: Config) -> Services:
         auth=PasswordAuth(db, tokens),
         connector=connector,
         sessions=MemorySessionRegistry(connector, connections, settings, events, limits),
-        wizard=InstallWizard(connector, connections, keys, events),
+        # groups: an unknown folder fails at `validate`, before any key is installed.
+        wizard=InstallWizard(connector, connections, keys, events, groups=groups),
     )

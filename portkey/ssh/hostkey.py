@@ -44,7 +44,6 @@ import asyncssh
 
 from portkey.interfaces import EventLog, HostKeyStore, KnownHostsReader, Prompter
 from portkey.models import HopRef, HostKeyRecord, KnownHostsMatch
-from portkey.ssh._compat import call_prompter
 from portkey.ssh.errors import HostKeyChanged, HostKeyRejected, HostKeyRevoked
 
 log = logging.getLogger("portkey.ssh")
@@ -215,8 +214,7 @@ async def act_on(
             )
         await asyncio.to_thread(_store_new, hop, presented_key, decision, store, events)
         return
-    accept, typed = await call_prompter(
-        prompter.hostkey_changed,
+    accept, typed = await prompter.hostkey_changed(
         hop,
         decision.key_type,
         decision.old_fingerprint or "",

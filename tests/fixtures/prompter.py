@@ -13,6 +13,9 @@ running out fails the test), a callable (called with the prompt's details), or `
     assert prompter.kinds() == ["hostkey_new", "password", "password"]
     assert prompter.calls[1].detail["retry"] is False
 
+``hostkey_changed`` records ``old_key_type`` and ``kbdint`` records ``retry`` (the keyword-only
+extras of ``interfaces.Prompter``) in ``detail`` like every other argument.
+
 Unscripted kinds fail the test with a clear message, so an unexpected prompt never hangs.
 """
 
@@ -130,6 +133,8 @@ class FakePrompter:
         old_fingerprint: str,
         new_fingerprint: str,
         first_seen_at: datetime | None,
+        *,
+        old_key_type: str | None = None,
     ) -> tuple[bool, str]:
         accept, name = self._ask(
             "hostkey_changed",
@@ -138,6 +143,7 @@ class FakePrompter:
             old_fingerprint=old_fingerprint,
             new_fingerprint=new_fingerprint,
             first_seen_at=first_seen_at,
+            old_key_type=old_key_type,
         )
         return bool(accept), str(name)
 
@@ -151,9 +157,17 @@ class FakePrompter:
         return str(self._ask("password", hop, user=user, retry=retry))
 
     async def kbdint(
-        self, hop: HopRef, name: str, instructions: str, prompts: list[tuple[str, bool]]
+        self,
+        hop: HopRef,
+        name: str,
+        instructions: str,
+        prompts: list[tuple[str, bool]],
+        *,
+        retry: bool = False,
     ) -> list[str]:
-        values = self._ask("kbdint", hop, name=name, instructions=instructions, prompts=prompts)
+        values = self._ask(
+            "kbdint", hop, name=name, instructions=instructions, prompts=prompts, retry=retry
+        )
         return [str(v) for v in values]
 
 

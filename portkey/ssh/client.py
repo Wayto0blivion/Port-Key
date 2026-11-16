@@ -39,7 +39,6 @@ from portkey.interfaces import (
     Prompter,
 )
 from portkey.models import HopTarget, KeyRecord
-from portkey.ssh._compat import call_prompter
 from portkey.ssh.errors import (
     AuthFailed,
     KeyLocked,
@@ -156,8 +155,8 @@ class PortKeySSHClient(asyncssh.SSHClient):
         retry = self._kbdint_attempts > 1 and self._kbdint_rounds == 0
         self._kbdint_rounds += 1
         try:
-            answers = await call_prompter(
-                self.prompter.kbdint, self.hop.ref, name, instructions, questions, retry=retry
+            answers = await self.prompter.kbdint(
+                self.hop.ref, name, instructions, questions, retry=retry
             )
         except Exception as exc:
             raise self._abort(exc) from None

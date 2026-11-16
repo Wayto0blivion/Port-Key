@@ -91,19 +91,26 @@ class FakeConnector:
         return chain
 
 
-async def _reach(hops: list[HopTarget], prompter: Prompter, *, new_key: bool = False) -> None:
+async def _reach(
+    hops: list[HopTarget], prompter: Prompter, *, new_key: bool = False, source: str | None = None
+) -> None:
     for hop in hops:
         await prompter.status("connecting", hop.ref)
-        await prompter.status("hostkey", hop.ref)
+        extra = {"source": source} if source and hop.ref.role == "target" else {}
+        await prompter.status("hostkey", hop.ref, **extra)
         if new_key and hop.ref.role == "target":
             assert await prompter.hostkey_new(hop.ref, "ssh-ed25519", "SHA256:" + "h" * 43)
         if hop.ref.role == "jump":
             await prompter.status("auth", hop.ref, method="publickey", key_name="id_ed25519")
 
 
-def key_works(conn: FakeConn | None = None, *, new_key: bool = False) -> Attempt:
+def key_works(
+    conn: FakeConn | None = None, *, new_key: bool = False, source: str | None = None
+) -> Attempt:
+    """The key is accepted. ``source`` is the SSH core's ``status hostkey`` source."""
+
     async def attempt(hops: list[HopTarget], prompter: Prompter) -> FakeChain:
-        await _reach(hops, prompter, new_key=new_key)
+        await _reach(hops, prompter, new_key=new_key, source=source)
         target = hops[-1]
         assert target.allow_key
         await prompter.status("auth", target.ref, method="publickey", key_name="id_ed25519")

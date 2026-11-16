@@ -33,6 +33,7 @@ async def test_key_login_with_the_default_key(svc: Services, chains: list[OpenCh
     chains.append(chain := await open_chain(svc, conn.id, prompter))
     assert await whoami(chain.target) == "keyonly"
     assert prompter.phases() == [(0, "connecting"), (0, "hostkey"), (0, "auth"), (0, "ready")]
+    assert prompter.statuses[1].detail == {"source": "known_hosts"}  # sshd is in known_hosts
     assert prompter.statuses[2].detail == {"method": "publickey", "key_name": "id_ed25519"}
     assert [h.role for h in chain.hops] == ["target"]
     assert chain.hops[0].connection_id == conn.id

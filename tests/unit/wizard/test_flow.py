@@ -128,6 +128,18 @@ async def test_app_store_key_reports_trusted(world: Callable[..., World]) -> Non
     assert ("hostkey", "ok", "trusted") in io.trail()
 
 
+@pytest.mark.parametrize(("source", "code"), [("known_hosts", "known"), ("store", "trusted")])
+async def test_the_ssh_cores_source_decides_the_hostkey_code(
+    world: Callable[..., World], source: str, code: str
+) -> None:
+    # Both sources hold keys for the host, where the guess from records alone says "trusted";
+    # the SSH core's verdict source is exact.
+    w = world(key_works(source=source))
+    SqliteHostKeyStore(w.db).add("192.168.10.42", 22, "ssh-ed25519 " + "A" * 68)
+    _, _, io, _ = await run(w)
+    assert ("hostkey", "ok", code) in io.trail()
+
+
 async def test_the_password_goes_nowhere_else(
     world: Callable[..., World], caplog: pytest.LogCaptureFixture
 ) -> None:

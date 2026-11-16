@@ -3,9 +3,11 @@
 1. ``status connecting``; fetch the presented key with ``asyncssh.get_server_host_key``
    (through the previous hop when there is one), restricted to the algorithms of keys already
    trusted for host:port when there are any, so a multi-key server shows the trusted one.
-2. ``status hostkey``; ``hostkey.decide``. A key that is not trusted outright may still come
-   with a host certificate from an ``@cert-authority`` in known_hosts: that is tried first, as a
-   connection that trusts only those CAs. Otherwise ``hostkey.act_on`` prompts and stores.
+2. ``hostkey.decide``, then ``status hostkey``, which carries ``source`` (``known_hosts`` or
+   ``store``) when the key is trusted already (the wizard's ``known``/``trusted`` code). A key
+   that is not trusted outright may still come with a host certificate from an
+   ``@cert-authority`` in known_hosts: that is tried first, as a connection that trusts only
+   those CAs. Otherwise ``hostkey.act_on`` prompts and stores.
 3. Open the authenticated connection with ``known_hosts`` holding exactly the accepted key, so
    a different key at this point fails key exchange before any credential is sent.
 
@@ -196,6 +198,14 @@ def _import_keys(texts: tuple[str, ...]) -> list[asyncssh.SSHKey]:
     return out
 
 
+def _hostkey_source(decision: hostkey.HostKeyDecision) -> dict[str, str]:
+    """``source`` detail for ``status hostkey``: where an already-trusted key came from
+    (``known_hosts`` or the app ``store``); nothing when the key still needs a decision."""
+    if decision.verdict is not hostkey.Verdict.TRUSTED:
+        return {}
+    return {"source": "store" if decision.trusted_record is not None else "known_hosts"}
+
+
 async def _try_certificate(
     target: HopTarget,
     tunnel: Conn | None,
@@ -233,8 +243,8 @@ async def connect_hop(
             raise
         raise mapped from None
     presented_text = hostkey.key_text(presented)
-    await prompter.status("hostkey", ref)
     decision = hostkey.decide(presented_text, known, stored)
+    await prompter.status("hostkey", ref, **_hostkey_source(decision))
     if decision.verdict in (hostkey.Verdict.NEW, hostkey.Verdict.CHANGED):
         conn = await _try_certificate(target, tunnel, prompter, known, deps)
         if conn is not None:

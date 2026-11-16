@@ -12,6 +12,7 @@ SSH core                                    wizard step
                                             hop's ``connect`` turns ok
 ``hostkey`` (target)                        ``connect`` ok, ``hostkey`` running
 first ``auth`` on the target                ``hostkey`` ok with code known/trusted/accepted
+                                            (from the ``source`` of ``status hostkey``)
 ``auth`` publickey (attempt "first")        ``try_key`` running
 ``auth`` password or keyboard-interactive   ``try_key`` warn ``refused`` (attempt "first"),
                                             ``password_login`` running
@@ -25,7 +26,6 @@ check key) are quiet, and the flow reports their steps itself.
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
@@ -42,6 +42,8 @@ Attempt = Literal["first", "password", "key"]
 HostKeyCode = Callable[[HopRef], Awaitable[str | None]]
 
 SECRET_METHODS = ("password", "keyboard-interactive")
+#: ``status hostkey`` ``source`` (from the SSH core) -> the ``hostkey`` step's code.
+HOSTKEY_CODES = {"known_hosts": "known", "store": "trusted"}
 
 
 def hop_out(hop: HopRef) -> Hop:
@@ -81,14 +83,6 @@ class Reporter:
             await self.send(step, "fail", code=code, hop=hop)
 
 
-def _accepts(fn: Callable[..., Any], name: str) -> bool:
-    try:
-        params = inspect.signature(fn).parameters
-    except (TypeError, ValueError):
-        return False
-    return name in params or any(p.kind is p.VAR_KEYWORD for p in params.values())
-
-
 class StepPrompter:
     """Implements ``interfaces.Prompter`` for the SSH core during a wizard run."""
 
@@ -101,6 +95,7 @@ class StepPrompter:
         self.secret_started = False
         self._connecting: HopRef | None = None
         self._hostkey: HopRef | None = None
+        self._hostkey_source: str | None = None
         self._accepted = False
         self._target_auth = False
 
@@ -111,6 +106,7 @@ class StepPrompter:
         self.secret_started = False
         self._connecting = None
         self._hostkey = None
+        self._hostkey_source = None
         self._accepted = False
         self._target_auth = False
 
@@ -127,6 +123,8 @@ class StepPrompter:
             await self._connect_ok()
             if self.report_connect:
                 self._hostkey = hop
+                source = detail.get("source")
+                self._hostkey_source = str(source) if source else None
                 await self.reporter.send("hostkey", "running", hop=hop)
         elif phase == "auth" and target:
             await self._target_auth_step(str(detail.get("method") or ""))
@@ -144,7 +142,12 @@ class StepPrompter:
         if self._hostkey is None:
             return
         hop, self._hostkey = self._hostkey, None
-        code = "accepted" if self._accepted else await self.hostkey_code(hop)
+        if self._accepted:
+            code: str | None = "accepted"
+        elif self._hostkey_source in HOSTKEY_CODES:
+            code = HOSTKEY_CODES[self._hostkey_source]
+        else:  # an SSH core that does not say (or a host certificate): best guess
+            code = await self.hostkey_code(hop)
         await self.reporter.send("hostkey", "ok", code=code, hop=hop)
 
     async def _target_auth_step(self, method: str) -> None:
@@ -185,13 +188,13 @@ class StepPrompter:
         *,
         old_key_type: str | None = None,
     ) -> tuple[bool, str]:
-        extra = (
-            {"old_key_type": old_key_type}
-            if _accepts(self.inner.hostkey_changed, "old_key_type")
-            else {}
-        )
         accept, name = await self.inner.hostkey_changed(
-            hop, key_type, old_fingerprint, new_fingerprint, first_seen_at, **extra
+            hop,
+            key_type,
+            old_fingerprint,
+            new_fingerprint,
+            first_seen_at,
+            old_key_type=old_key_type,
         )
         if accept and hop.role == "target":
             self._accepted = True  # a wrong name still ends the run with hostkey_changed
@@ -212,5 +215,4 @@ class StepPrompter:
         *,
         retry: bool = False,
     ) -> list[str]:
-        extra = {"retry": retry} if _accepts(self.inner.kbdint, "retry") else {}
-        return await self.inner.kbdint(hop, name, instructions, prompts, **extra)
+        return await self.inner.kbdint(hop, name, instructions, prompts, retry=retry)
