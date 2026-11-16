@@ -205,6 +205,39 @@ async def test_reattaching_restarts_the_grace(
     assert await registry.reap_once() == [session.session_id]
 
 
+async def test_a_session_reattached_while_the_reaper_closes_another_is_kept(
+    make_registry: MakeRegistry,
+    saved: ConnectionRecord,
+    connector: FakeConnector,
+    clock: FakeClock,
+) -> None:
+    # Review finding: the reaper listed the expired sessions once, then closed them one by one
+    # (seconds per hop when a host does not answer); one reattached meanwhile was killed anyway.
+    registry = make_registry()
+    first = await open_one(registry, saved)
+    first_chain = connector.chains[-1]
+    second = await open_one(registry, saved)
+    release = asyncio.Event()
+    closing = asyncio.Event()
+
+    async def slow_close() -> None:
+        first_chain.close_calls += 1
+        closing.set()
+        await release.wait()
+
+    first_chain.close = slow_close  # type: ignore[method-assign]
+    clock.advance(900)
+    reaping = asyncio.create_task(registry.reap_once())
+    await asyncio.wait_for(closing.wait(), 2)
+    sink = RecordingSink()
+    await registry.get(second).attach(sink, None)  # the owner reopened the page
+    release.set()
+    assert await asyncio.wait_for(reaping, 2) == [first]
+    assert registry.get(second).exit is None
+    await settle()
+    assert "exit" not in sink.kinds()
+
+
 async def test_ended_detached_sessions_are_reaped_too(
     make_registry: MakeRegistry,
     saved: ConnectionRecord,

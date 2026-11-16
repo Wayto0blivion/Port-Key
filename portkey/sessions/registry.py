@@ -171,19 +171,21 @@ class MemorySessionRegistry:
         """Close sessions detached for at least ``detach_grace``; return their ids."""
         settings = await asyncio.to_thread(self.settings.get)
         grace = float(settings.detach_grace)
-        now = self.clock()
-        expired = [
-            s
-            for s in self._sessions.values()
-            if s.detached_since is not None and now - s.detached_since >= grace
-        ]
-        for session in expired:
-            if self._sessions.get(session.session_id) is not session:
+
+        def expired(s: TerminalSession) -> bool:
+            return s.detached_since is not None and self.clock() - s.detached_since >= grace
+
+        reaped: list[str] = []
+        for session in [s for s in self._sessions.values() if expired(s)]:
+            # Closing a chain can take seconds per hop: a session reattached meanwhile (the
+            # owner reopened the page) is checked again here, right before it would be closed.
+            if self._sessions.get(session.session_id) is not session or not expired(session):
                 continue
             del self._sessions[session.session_id]
             log.info("session %s reaped after %d s detached", session.session_id, int(grace))
+            reaped.append(session.session_id)
             await session.close("killed")
-        return [s.session_id for s in expired]
+        return reaped
 
     async def _reap_forever(self) -> None:
         while True:
