@@ -166,6 +166,39 @@ def test_reload_brings_back_a_vanished_session_as_disconnected(term: TermFactory
     wait_connected(page)
 
 
+def test_a_session_that_ended_while_detached_hands_over_its_last_output(
+    term: TermFactory,
+) -> None:
+    page = term()
+    connected(page, "web-prod")
+    sid = session_ids(page)[0]
+    page.evaluate(
+        "(id) => { __pkWs.drop(id); __pkWs.push(id, '\\r\\nlast words\\r\\n');"
+        " __pkWs.exit(id, 'lost'); }",
+        sid,
+    )
+    bar = panel(page).locator(".session__bottom")
+    expect(bar).to_contain_text("Connection to web-prod lost at")
+    expect_rows(page, "last words")
+    assert page.evaluate("__pkWs.attaches.length") == 1
+
+
+def test_reload_after_a_session_ended_shows_its_end(term: TermFactory) -> None:
+    page = term()
+    connected(page, "web-prod")
+    sid = session_ids(page)[0]
+    # The server sees the page go and the shell end; the page has not noticed yet.
+    page.evaluate(
+        "(id) => { __pkWs.sessions.get(id).socket = null; __pkWs.exit(id, 'closed'); }", sid
+    )
+    page.reload()  # the session is no longer listed, but one attach still gets its end
+    page.wait_for_selector(".app .tabstrip [role=tab]")
+    tab(page, "web-prod").click()
+    bar = panel(page).locator(".session__bottom")
+    expect(bar).to_contain_text("The remote host closed the connection.")
+    expect_rows(page, "Welcome to Ubuntu")
+
+
 def test_reload_restores_detached_sessions_nobody_remembers(term: TermFactory) -> None:
     page = term()
     connected(page, "web-prod")

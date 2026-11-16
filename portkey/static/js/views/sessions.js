@@ -23,7 +23,6 @@ import { toast } from '../ui/toast.js';
 import { confirmCloseAll } from '../ui/dialogs.js';
 import { TerminalView } from '../terminal/session.js';
 import { sessionTitle, nextOrdinal, forgetTab } from '../terminal/tabs.js';
-import { showDisconnected } from '../terminal/lifecycle.js';
 import { clampFont } from '../terminal/xterm.js';
 
 /** @typedef {import('../types.js').Connection} Connection */
@@ -282,19 +281,22 @@ async function restoreFrom(saved) {
   } catch {
     live = null;
   }
-  /** @type {{sessionId: string, connectionId: string, startedAt: string|null, gone: boolean}[]} */
+  // Remembered tabs always try to attach: a session that ended while the page was away is not
+  // listed any more but still hands over its last output and `exit` once; a gone one answers
+  // 4410 and the tab shows Disconnected.
+  /** @type {{sessionId: string, connectionId: string, startedAt: string|null}[]} */
   const items = [];
   const seen = new Set();
   for (const t of saved.tabs) {
     if (seen.has(t.s)) continue;
     seen.add(t.s);
     const info = live?.find((x) => x.session_id === t.s);
-    items.push({ sessionId: t.s, connectionId: t.c, startedAt: info?.started_at ?? null, gone: Boolean(live && !info) });
+    items.push({ sessionId: t.s, connectionId: t.c, startedAt: info?.started_at ?? null });
   }
   for (const s of [...(live ?? [])].sort((a, b) => a.started_at.localeCompare(b.started_at))) {
     if (seen.has(s.session_id) || s.attached) continue;
     seen.add(s.session_id);
-    items.push({ sessionId: s.session_id, connectionId: s.connection_id, startedAt: s.started_at, gone: false });
+    items.push({ sessionId: s.session_id, connectionId: s.connection_id, startedAt: s.started_at });
   }
   /** @type {string|null} */
   let focusTab = null;
@@ -304,12 +306,7 @@ async function restoreFrom(saved) {
     const view = entry.view;
     if (!view) continue;
     if (item.sessionId === saved.active) focusTab = entry.tabId;
-    if (item.gone) {
-      view.sessionId = item.sessionId;
-      showDisconnected(view, 'gone');
-    } else {
-      view.attach(item.sessionId, { since: null, startedAt: item.startedAt });
-    }
+    view.attach(item.sessionId, { since: null, startedAt: item.startedAt });
   }
   if (focusTab) activateTab(focusTab);
   sync();

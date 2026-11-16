@@ -154,6 +154,11 @@ def test_read_only_authorized_keys(term: TermFactory) -> None:
     expect(
         wizard.get_by_role("heading", name="Port-Key couldn't write authorized_keys")
     ).to_be_visible()
+    # The server's text carries the reason; the remote output is in Details.
+    expect(wizard).to_contain_text(
+        "Port-Key signed in but couldn't write ~/.ssh/authorized_keys (Read-only file system)."
+    )
+    expect(wizard.locator(".wcheck")).to_have_count(0)
     expect(buttons(wizard)).to_have_text(["Back", "Cancel", "Save as password-only"])
     wizard.get_by_role("button", name="Save as password-only").click()
     expect(wizard).to_contain_text("ro-host is saved with password sign-in.")
@@ -167,8 +172,19 @@ def test_not_a_posix_shell(term: TermFactory) -> None:
         "win-host doesn't offer a standard shell, so Port-Key can't install the key for you. "
         "Add the public key on the host yourself, then select Check key login."
     )
+    expect(wizard).to_contain_text("C:\\ProgramData\\ssh\\administrators_authorized_keys")
     expect(wizard.locator(".wstep").get_by_role("button")).to_have_text(["Copy public key"])
     expect(buttons(wizard)).to_have_text(["Back", "Cancel", "Check key login"])
+
+
+def test_a_rejected_start_goes_back_to_the_form(term: TermFactory) -> None:
+    page = term()
+    wizard = run_host(page, "taken-host")
+    expect(wizard.get_by_label("Host", exact=True)).to_have_value("taken-host")
+    expect(wizard.locator(".modal__error")).to_have_text(
+        "A connection named taken-host already exists. Choose another name."
+    )
+    expect(wizard.locator(".wsteps__item.is-current")).to_have_text("1 Host")
 
 
 def test_password_expired_opens_a_password_session(term: TermFactory) -> None:

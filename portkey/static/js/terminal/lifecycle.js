@@ -6,8 +6,9 @@
  *   "refused your key" panel with Reinstall key / Sign in with password this time / Edit
  *   connection, or a generic one with Try again);
  * - with a session: `exit` shows the Disconnected bar, `detached` (attached elsewhere) offers
- *   Reattach here, a vanished session shows Disconnected, anything else (a drop, a dead link, a
- *   server restart) reattaches with backoff for up to the 15-minute detach grace.
+ *   Reattach here, a vanished session (4410) shows Disconnected, anything else (a drop, a dead
+ *   link, a server restart, 1011, an error after `ready`, which leaves the session detached on
+ *   the server) reattaches with backoff for up to the 15-minute detach grace.
  * - a refused token signs out (the shell shows the sign-in dialog); reattaching waits for it.
  */
 
@@ -44,7 +45,7 @@ export function onSocketClose(view, socket, code, reason) {
     showDisconnected(view, view.exitReason);
   } else if (view.detachedElsewhere) {
     showDetached(view);
-  } else if (state === 'gone' || err?.code === 'bad_message' || err?.code === 'not_found') {
+  } else if (state === 'gone') {
     showDisconnected(view, 'gone');
   } else {
     if (state === 'signed_out') signOut();

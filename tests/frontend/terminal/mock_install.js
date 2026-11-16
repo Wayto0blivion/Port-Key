@@ -14,6 +14,7 @@
  *   expired-host            password accepted, then password_expired
  *   changed-host            hostkey_changed (type the name to go on)
  *   10.9.9.9 / refused-host / nohost   timeout / refused / dns
+ *   taken-host              validate fails: name_taken, close 4400 (the server's InputRejected)
  * With assume_installed the key is refused first (key_refused). With jump_id the jump connects
  * first. `done` creates or updates the connection through the mock HTTP API, so the store sees it.
  * Every start message is recorded in __pkWs.installs.
@@ -39,9 +40,20 @@
       return new Promise((resolve, reject) => { pending = { id, resolve, reject }; sock._json(Object.assign({ type: 'prompt', id }, fields)); })
         .then((r) => { if (r.cancel) fail('cancelled', 'Cancelled.', 1000); return r; });
     };
+    // The server's copy (portkey/wizard/_copy.py), so the client is tested against it.
+    const message = (code) => {
+      const n = start.name;
+      return {
+        key_refused: `Key login was refused. ${n} did not accept id_ed25519. Install it with a password, or save the connection as password-only.`,
+        password_not_allowed: `${n} does not accept passwords. The server only allows key logins, so Port-Key can't install your key for you. Add the key on the host yourself, for example from its console, then check again.`,
+        key_still_refused: `Port-Key added your key, but ${n} still refused it. The usual cause is permissions: sshd ignores authorized_keys if other users can write to it or to ~/.ssh.`,
+        authorized_keys_readonly: "Port-Key signed in but couldn't write ~/.ssh/authorized_keys (Read-only file system). Some appliances store SSH keys elsewhere. Check the device's documentation for how to add a key.",
+        non_posix: `${n} doesn't offer a standard shell, so Port-Key can't install the key for you. Add the public key on the host yourself, then select Check key login. On Windows, an administrator account reads its keys from C:\\ProgramData\\ssh\\administrators_authorized_keys.`,
+      }[code];
+    };
     const needs = (code, actions, extra) => new Promise((resolve, reject) => {
       actionWait = { resolve, reject };
-      sock._json(Object.assign({ type: 'needs_action', code, message: code, actions, public_key: PUB,
+      sock._json(Object.assign({ type: 'needs_action', code, message: message(code), actions, public_key: PUB,
         install_command: `mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo '${PUB}' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys` }, extra || {}));
     }).then((a) => { if (a === 'cancel') fail('cancelled', 'Cancelled.', 1000); return a; });
 
@@ -83,6 +95,11 @@
       start = s;
       hooks.installs.push(s);
       const host = s.host;
+      await step('validate', 'running');
+      if (host === 'taken-host') {
+        await step('validate', 'fail', { code: 'name_taken' });
+        fail('name_taken', `A connection named ${s.name} already exists. Choose another name.`, 4400);
+      }
       await step('validate', 'ok');
       const jump = s.jump_id ? helpers.byId(s.jump_id) : null;
       const count = jump ? 2 : 1;
@@ -126,14 +143,15 @@
       await passwordLogin(target, host);
       await step('install', 'running');
       if (host === 'ro-host') {
-        await step('install', 'fail');
+        await step('install', 'fail', { code: 'authorized_keys_readonly' });
         const a = await needs('authorized_keys_readonly', ['save_password_only', 'cancel'], { output: 'sh: can\'t create /root/.ssh/authorized_keys: Read-only file system' });
         if (a === 'save_password_only') { await save('saved_password_only'); return; }
       }
-      await step('install', host === 'badperms-host' ? 'warn' : 'ok', { code: host === 'badperms-host' ? 'perms_warning' : 'added' });
+      await step('install', 'ok', { code: 'added' });
+      if (host === 'badperms-host') await step('install', 'warn', { code: 'perms_warning' }); // a second install step
       await step('verify', 'running');
       if (host === 'badperms-host') {
-        await step('verify', 'fail');
+        await step('verify', 'fail', { code: 'key_still_refused' });
         const a = await needs('key_still_refused', ['fix_permissions', 'save_password_only', 'cancel'], { output: 'Authentication refused: bad ownership or modes for directory /home/john/.ssh' });
         if (a === 'save_password_only') { await save('saved_password_only'); return; }
         await step('verify', 'running');

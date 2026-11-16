@@ -15,7 +15,7 @@ import { h } from '../ui/dom.js';
 import { PortKeySocket } from '../ws/protocol.js';
 import { answerPrompt } from '../ui/dialogs.js';
 import { firstSeenBody, firstSeenTitle } from './hostkey.js';
-import { stepLine, wizardStepOf, failureCopy, needsCopy } from './copy.js';
+import { stepLine, wizardStepOf, failureCopy, needsCopy, INPUT_CODES } from './copy.js';
 import { checklist, section, details, signinView, commandBox } from './views.js';
 
 /** @typedef {import('./copy.js').Line} Line */
@@ -124,6 +124,8 @@ export class WizardRun {
     if (this.stopped) return;
     if (m.type === 'step') {
       const line = stepLine(/** @type {any} */ (m), this.v);
+      const prev = line ? this.lines.get(line.key) : undefined;
+      if (line && m.code === 'perms_warning' && prev) line.text = prev.text; // "already in" stays
       if (line) this.lines.set(line.key, line);
       const at = wizardStepOf(m.step);
       if (m.step === 'password_login' && m.state === 'running') this.showSignin();
@@ -320,6 +322,12 @@ export class WizardRun {
     this.stopped = true;
     this.view = 'failure';
     if (err?.code === 'unauthorized' || err?.code === 'auth_timeout') window.dispatchEvent(new CustomEvent('portkey:signed-out'));
+    if (err && INPUT_CODES.has(err.code)) {
+      // The form is at fault (a name taken meanwhile, a folder gone, a jump loop): back to it.
+      this.wiz.showForm();
+      this.wiz.setError(err.message);
+      return;
+    }
     const copy = err ? failureCopy(err, this.v) : {
       title: 'Lost the connection to Port-Key',
       body: 'The browser lost its connection to Port-Key while the wizard was running. Check whether the connection was saved, then try again.',

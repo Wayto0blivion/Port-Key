@@ -42,7 +42,7 @@
   let seq = saved.seq || 0;
   function persist() {
     const out = {};
-    for (const [id, s] of sessions) out[id] = { id: s.id, connection_id: s.connection_id, started_at: s.started_at, buf: s.buf, base: s.base, closed: s.closed, input: s.input, line: s.line, size: s.size };
+    for (const [id, s] of sessions) out[id] = { id: s.id, connection_id: s.connection_id, started_at: s.started_at, buf: s.buf, base: s.base, closed: s.closed, pendingExit: s.pendingExit || null, input: s.input, line: s.line, size: s.size };
     try { sessionStorage.setItem(KEY, JSON.stringify({ sessions: out, trusted: [...trusted], seq })); } catch (e) { /* ignore */ }
   }
 
@@ -132,13 +132,20 @@
     if (s.socket) s.socket._bytes(bytes);
     persist();
   }
+  // Like the server: a session that ends while detached is no longer listed, but one attach still
+  // gets its last output and the exit; after that it is gone (4410).
   function endSession(s, reason) {
     if (!s || s.closed) return;
     s.closed = true;
     const sock = s.socket;
     s.socket = null;
+    if (!sock) s.pendingExit = reason;
     persist();
-    if (sock) { sock._json({ type: 'exit', exit_status: reason === 'closed' ? 0 : null, signal: null, reason }); sock._serverClose(1000); }
+    if (sock) sendExit(sock, reason);
+  }
+  function sendExit(sock, reason) {
+    sock._json({ type: 'exit', exit_status: reason === 'closed' ? 0 : null, signal: null, reason });
+    sock._serverClose(1000);
   }
   const PROMPT = (c) => `${c.username}@${c.name}:~$ `;
   /** A connection saved after the page loaded (by the wizard), from the mock HTTP API. */
@@ -260,7 +267,7 @@
       const sock = this.sock;
       const s = sessions.get(msg.session_id);
       hooks.attaches = (hooks.attaches || []).concat([{ session_id: msg.session_id, since: msg.since, cols: msg.cols, rows: msg.rows }]);
-      if (!s || s.closed) { helpers.fail(sock, 'session_gone', 'That session has ended.', 4410); return; }
+      if (!s || (s.closed && !s.pendingExit)) { helpers.fail(sock, 'session_gone', 'That session has ended.', 4410); return; }
       if (s.socket && s.socket !== sock) { const old = s.socket; old._json({ type: 'detached', reason: 'attached_elsewhere' }); old._serverClose(1000); }
       s.socket = sock;
       this.session = s;
@@ -272,6 +279,13 @@
       sock._json({ type: 'ready', session_id: s.id, connection: byId(s.connection_id), offset, reset, reattached: true });
       const replay = s.buf.slice(offset - s.base);
       if (replay) sock._bytes(fromBin(replay));
+      if (s.closed && s.pendingExit) {
+        const reason = s.pendingExit;
+        s.pendingExit = null;
+        s.socket = null;
+        persist();
+        sendExit(sock, reason);
+      }
     }
   }
 

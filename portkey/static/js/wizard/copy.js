@@ -36,7 +36,7 @@ export function stepLine(m, v) {
         known: 'Host key matches your known_hosts entry.',
         trusted: 'Host key matches the one Port-Key trusted before.',
         accepted: 'Host key trusted.',
-      }[m.code ?? ''] ?? (state === 'running' ? 'Checking host key' : 'Host key checked');
+      }[m.code ?? ''] ?? (state === 'done' ? 'Host key checked' : 'Checking host key');
       return { key: 'hostkey', text, state };
     }
     case 'try_key':
@@ -44,8 +44,10 @@ export function stepLine(m, v) {
       if (m.code === 'refused') return { key: 'try_key', text: 'Key not installed yet', state: 'done' };
       return { key: 'try_key', text: 'Trying your key…', state };
     case 'password_login':
-      return { key: 'password_login', text: state === 'running' ? 'Signing in with password…' : 'Signed in with password', state };
+      return { key: 'password_login', text: state === 'done' ? 'Signed in with password' : 'Signing in with password…', state };
     case 'install':
+      // A loose-permissions warning arrives as a second `install` step after ok added or
+      // already_present; the caller keeps the earlier text and adds the note.
       if (m.code === 'already_present') return { key: 'install', text: 'Key was already in authorized_keys', state };
       if (m.code === 'perms_warning') {
         return {
@@ -53,8 +55,10 @@ export function stepLine(m, v) {
           note: 'Other users can write to the home folder, ~/.ssh or authorized_keys, so sshd may ignore the key.',
         };
       }
+      if (state === 'fail') return { key: 'install', text: "Couldn't add the key to ~/.ssh/authorized_keys", state };
       return { key: 'install', text: state === 'running' ? 'Adding key to ~/.ssh/authorized_keys…' : 'Added key to ~/.ssh/authorized_keys', state };
     case 'verify':
+      if (state === 'fail') return { key: 'verify', text: 'Key login with the key only was refused', state };
       return { key: 'verify', text: state === 'running' ? 'Signing in again with the key only…' : 'Signed in again with the key only', state };
     case 'discard_password':
       return { key: 'discard_password', text: 'Password discarded', state };
@@ -114,11 +118,27 @@ export function failureCopy(err, v) {
   }
 }
 
+/** Codes of a `start` the server could not accept: the form is at fault (close 4400). */
+export const INPUT_CODES = new Set(['name_taken', 'group_unknown', 'jump_cycle', 'jump_too_deep', 'tag_invalid', 'validation']);
+
 /**
- * @param {{code: string, output?: string}} m @param {WizardValues} v
+ * The panel for a `needs_action`. The server's message is the same copy with more context (a
+ * read-only reason, a Windows hint, "already fixed"), so it is the body when present; a leading
+ * sentence that repeats the title is dropped. The copy here is the fallback.
+ * @param {{code: string, message?: string, output?: string}} m @param {WizardValues} v
  * @returns {{title: string, body: string, step: 2|3|4}}
  */
 export function needsCopy(m, v) {
+  const local = localNeeds(m, v);
+  let server = (m.message ?? '').trim();
+  if (!/\s/.test(server)) return local; // empty, or a bare code
+  const lead = `${local.title}.`;
+  if (server.toLowerCase().startsWith(lead.toLowerCase())) server = server.slice(lead.length).trim();
+  return { ...local, body: server || local.body };
+}
+
+/** @param {{code: string}} m @param {WizardValues} v @returns {{title: string, body: string, step: 2|3|4}} */
+function localNeeds(m, v) {
   switch (m.code) {
     case 'key_refused':
       return { step: 3, title: 'Key login was refused',
