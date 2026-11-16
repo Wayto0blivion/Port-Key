@@ -24,7 +24,7 @@ import { createTerminal, DEFAULT_SIZE } from './xterm.js';
 import { wireInput } from './input.js';
 import { statusLine, connectedFor, hostPort } from './messages.js';
 import { setSessionState, markActivity, restoreDot, movingThroughTabs } from './tabs.js';
-import { onSocketClose, showDisconnected, attached } from './lifecycle.js';
+import { onSocketClose, showDisconnected, showDetached, attached } from './lifecycle.js';
 import { setFind, findIn, copySsh, killSession } from './tools.js';
 
 /** @typedef {import('../types.js').Connection} Connection */
@@ -353,20 +353,36 @@ export class TerminalView {
       this.socket.send({ type: 'close' });
       return;
     }
-    if (this.state === 'reattaching' || this.state === 'detached') {
+    // Not from 'detached': the session is live in another tab or window, which keeps it.
+    if (this.state === 'reattaching') {
       await killSession(this.sessionId);
       this.reset();
       showDisconnected(this, 'killed');
     }
   }
 
-  /** Close the tab: end the shell (or the attempt) and free everything. */
+  /**
+   * Close the tab: end the shell (or the attempt) and free everything. A tab whose session is
+   * open in another tab or window ('detached') only goes away here; the shell stays there.
+   */
   async kill() {
     const id = this.sessionId;
     const live = this.socket?.isOpen;
     if (live && this.socket) this.socket.send({ type: 'close' });
-    else if (id && (this.state === 'reattaching' || this.state === 'detached')) await killSession(id);
+    else if (id && this.state === 'reattaching') await killSession(id);
     this.dispose();
+  }
+
+  /**
+   * Show a session another page holds (a duplicated browser tab) as "open in another tab",
+   * without attaching: Reattach here takes it over, Close tab leaves it alone.
+   * @param {string} sessionId @param {string|null} [startedAt]
+   */
+  showElsewhere(sessionId, startedAt) {
+    this.sessionId = sessionId;
+    if (startedAt) this.startedAt = new Date(startedAt);
+    this.detachedElsewhere = true;
+    showDetached(this);
   }
 
   /** @param {number} size */

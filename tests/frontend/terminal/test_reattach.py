@@ -121,6 +121,72 @@ def test_attached_elsewhere_does_not_reattach_on_its_own(term: TermFactory) -> N
     assert sent(page)[1]["type"] == "attach"
 
 
+def test_close_tab_while_open_in_another_tab_leaves_that_shell_alone(term: TermFactory) -> None:
+    # Review finding: Close tab in a tab marked "open in another tab" sent DELETE
+    # /api/sessions and ended the shell the owner was using in the other window.
+    page = term()
+    connected(page, "web-prod")
+    sid = session_ids(page)[0]
+    page.evaluate("(id) => __pkWs.stealAttach(id)", sid)
+    bar = panel(page).locator(".session__bottom")
+    expect(bar).to_contain_text("web-prod is open in another tab")
+    expect(bar).to_contain_text("Close tab leaves it running there.")
+    bar.get_by_role("button", name="Close tab").click()
+    expect(tab(page, "web-prod")).to_have_count(0)
+    page.wait_for_timeout(200)
+    assert page.evaluate("__pkWs.deleted || []") == []
+    assert session_ids(page) == [sid]
+
+
+# A page standing in for the original window: it answers "who has these sessions?" on the
+# BroadcastChannel terminal/claims.js uses, claiming the ones in window.__pkClaim.
+CLAIMER = """(() => {
+  const ch = new BroadcastChannel('portkey.sessions');
+  ch.addEventListener('message', (e) => {
+    const ids = (e.data.ids || []).filter((id) => (window.__pkClaim || []).includes(id));
+    if (e.data.type === 'who-has' && ids.length) {
+      ch.postMessage({type: 'has', nonce: e.data.nonce, ids});
+    }
+  });
+})();"""
+
+
+def test_a_duplicated_tab_does_not_take_sessions_another_window_holds(
+    term: TermFactory,
+) -> None:
+    # Review finding: a duplicated browser tab (same sessionStorage) attached every remembered
+    # session and took them from the original window.
+    page = term()
+    connected(page, "web-prod")
+    sid = session_ids(page)[0]
+    page.evaluate("(id) => __pkWs.attachedElsewhere(id)", sid)
+    page.context.add_init_script(script=f"window.__pkClaim = ['{sid}'];")
+    page.context.add_init_script(script=CLAIMER)
+    page.reload()  # stands in for the duplicate: same sessionStorage, another page holds sid
+    page.wait_for_selector(".app .tabstrip [role=tab]")
+    tab(page, "web-prod").click()
+    bar = panel(page).locator(".session__bottom")
+    expect(bar).to_contain_text("web-prod is open in another tab")
+    assert page.evaluate("__pkWs.attaches || []") == []
+    bar.get_by_role("button", name="Close tab").click()
+    page.wait_for_timeout(200)
+    assert page.evaluate("__pkWs.deleted || []") == []
+
+
+def test_a_session_listed_attached_that_nobody_claims_is_reattached(term: TermFactory) -> None:
+    # After a plain reload the server may still list the old page's socket for a moment; no
+    # page claims the session, so it is attached as before.
+    page = term()
+    connected(page, "web-prod")
+    sid = session_ids(page)[0]
+    page.evaluate("(id) => __pkWs.attachedElsewhere(id)", sid)
+    page.reload()
+    page.wait_for_selector(".app .tabstrip [role=tab]")
+    tab(page, "web-prod").click()
+    wait_connected(page)
+    assert page.evaluate("__pkWs.attaches")[0]["since"] is None
+
+
 def test_reload_restores_tabs_with_a_full_replay(term: TermFactory) -> None:
     page = term()
     connected(page, "web-prod")

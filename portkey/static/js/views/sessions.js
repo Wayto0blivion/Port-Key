@@ -10,8 +10,9 @@
  * and the active one), so a reload brings the same tabs back: live sessions reattach with a full
  * replay, ended ones come back Disconnected. Detached sessions the server still holds that no
  * tab remembers (a closed window) are restored too; attached ones belong to another window and
- * are left alone. Every change reports counts to store.setSessionInfo() (sidebar badges, Recent
- * cards, the leave warning).
+ * are left alone. A remembered session that another page says it holds (a duplicated browser
+ * tab, terminal/claims.js) is shown as "open in another tab", not taken. Every change reports
+ * counts to store.setSessionInfo() (sidebar badges, Recent cards, the leave warning).
  *
  * A− / A+ change the font size of every terminal and save it as the Settings value.
  */
@@ -24,6 +25,7 @@ import { confirmCloseAll } from '../ui/dialogs.js';
 import { TerminalView } from '../terminal/session.js';
 import { sessionTitle, nextOrdinal, forgetTab } from '../terminal/tabs.js';
 import { clampFont } from '../terminal/xterm.js';
+import { answerClaims, claimedElsewhere } from '../terminal/claims.js';
 
 /** @typedef {import('../types.js').Connection} Connection */
 /** @typedef {{tabId: string, connectionId: string, ordinal: number, view: TerminalView|null, title: string}} Entry */
@@ -168,10 +170,21 @@ function remembered() {
   }
 }
 
+/** Sessions this page shows or is taking back, for another page that asks (terminal/claims.js). */
+function heldHere() {
+  const out = [];
+  for (const e of entries.values()) {
+    const s = e.view?.state;
+    if (e.view?.sessionId && (s === 'connected' || s === 'reattaching')) out.push(e.view.sessionId);
+  }
+  return out;
+}
+
 /** React to store changes: renamed, recoloured or deleted connections, the font size setting. */
 function watchStore() {
   if (subscribed) return;
   subscribed = true;
+  answerClaims(heldHere);
   /** @type {unknown} */
   let lastConns = null;
   /** @type {number|undefined} */
@@ -293,6 +306,10 @@ async function restoreFrom(saved) {
     const info = live?.find((x) => x.session_id === t.s);
     items.push({ sessionId: t.s, connectionId: t.c, startedAt: info?.started_at ?? null });
   }
+  // A duplicated browser tab starts with this list too: sessions another page is showing stay
+  // there (listed as attached and claimed by that page), instead of being taken from it.
+  const attachedIds = items.filter((i) => live?.some((x) => x.session_id === i.sessionId && x.attached)).map((i) => i.sessionId);
+  const elsewhere = await claimedElsewhere(attachedIds);
   for (const s of [...(live ?? [])].sort((a, b) => a.started_at.localeCompare(b.started_at))) {
     if (seen.has(s.session_id) || s.attached) continue;
     seen.add(s.session_id);
@@ -306,7 +323,8 @@ async function restoreFrom(saved) {
     const view = entry.view;
     if (!view) continue;
     if (item.sessionId === saved.active) focusTab = entry.tabId;
-    view.attach(item.sessionId, { since: null, startedAt: item.startedAt });
+    if (elsewhere.has(item.sessionId)) view.showElsewhere(item.sessionId, item.startedAt);
+    else view.attach(item.sessionId, { since: null, startedAt: item.startedAt });
   }
   if (focusTab) activateTab(focusTab);
   sync();

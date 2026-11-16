@@ -13,7 +13,7 @@ const browserGlobals = Object.fromEntries(
     'MutationObserver', 'IntersectionObserver', 'HTMLElement', 'HTMLInputElement',
     'HTMLButtonElement', 'HTMLSpanElement', 'HTMLDialogElement', 'Element', 'Node',
     'DocumentFragment', 'Blob', 'ClipboardItem', 'getComputedStyle', 'matchMedia',
-    'performance', 'crypto',
+    'performance', 'crypto', 'BroadcastChannel',
   ].map((name) => [name, 'readonly']),
 );
 

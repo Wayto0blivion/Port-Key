@@ -168,12 +168,12 @@ export function showDisconnected(view, reason) {
   view.setState('disconnected');
 }
 
-/** @param {TerminalView} view */
-function showDetached(view) {
+/** The session is live in another tab or window. Close tab here leaves it running there. @param {TerminalView} view */
+export function showDetached(view) {
   view.reset();
   view.chrome.showBottom({
     title: `${view.connection.name} is open in another tab`,
-    body: 'Port-Key moved this session to the other tab or window. Reattach here to take it back.',
+    body: 'The session is running in another tab or window. Reattach here to take it back; Close tab leaves it running there.',
     actions: [
       { label: 'Reattach here', kind: 'primary', key: 'reattach', onClick: () => view.attach(/** @type {string} */ (view.sessionId)) },
       { label: 'Close tab', key: 'close', onClick: () => view.ctx.closeTab() },

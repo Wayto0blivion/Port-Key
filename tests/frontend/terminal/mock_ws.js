@@ -18,8 +18,9 @@
  * known_hosts), hostkey_new, too_many, slow, ok.
  *
  * Hooks on window.__pkWs: sockets (client side, each with .sent and .path), sessions,
- * push(id, text), drop(id), exit(id, reason), stealAttach(id), mute(socket), expireToken(),
- * inputOf(id), behave(name, kind), RealWebSocket. /ws/install lives in mock_install.js.
+ * push(id, text), drop(id), exit(id, reason), stealAttach(id), attachedElsewhere(id),
+ * mute(socket), expireToken(), inputOf(id), behave(name, kind), deleted (ids sent to DELETE
+ * /api/sessions), RealWebSocket. /ws/install lives in mock_install.js.
  */
 (function () {
   'use strict';
@@ -43,7 +44,7 @@
   let seq = saved.seq || 0;
   function persist() {
     const out = {};
-    for (const [id, s] of sessions) out[id] = { id: s.id, connection_id: s.connection_id, started_at: s.started_at, buf: s.buf, base: s.base, closed: s.closed, pendingExit: s.pendingExit || null, input: s.input, line: s.line, size: s.size };
+    for (const [id, s] of sessions) out[id] = { id: s.id, connection_id: s.connection_id, started_at: s.started_at, buf: s.buf, base: s.base, closed: s.closed, pendingExit: s.pendingExit || null, input: s.input, line: s.line, size: s.size, elsewhere: Boolean(s.elsewhere) };
     try { sessionStorage.setItem(KEY, JSON.stringify({ sessions: out, trusted: [...trusted], seq })); } catch (e) { /* ignore */ }
   }
 
@@ -56,6 +57,8 @@
     drop(id) { const s = sessions.get(id); if (s && s.socket) { const sock = s.socket; s.socket = null; sock._finish(1006, ''); } },
     exit(id, reason) { endSession(sessions.get(id), reason || 'closed'); },
     stealAttach(id) { const s = sessions.get(id); if (s && s.socket) { const sock = s.socket; s.socket = null; sock._json({ type: 'detached', reason: 'attached_elsewhere' }); sock._serverClose(1000); } },
+    // Another window holds this session: /api/sessions lists it as attached (survives a reload).
+    attachedElsewhere(id) { const s = sessions.get(id); if (s) { s.elsewhere = true; persist(); } },
     mute(sock) { sock.muted = true; },
     live() { return [...sessions.values()].filter((s) => !s.closed).map((s) => s.id); },
   };
@@ -334,7 +337,10 @@
     const method = ((init && init.method) || 'GET').toUpperCase();
     const json = (status, body) => Promise.resolve(new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
     if (url.pathname === '/api/sessions' && method === 'GET') {
-      return json(200, { sessions: [...sessions.values()].filter((s) => !s.closed).map((s) => ({ session_id: s.id, connection_id: s.connection_id, started_at: s.started_at, attached: Boolean(s.socket), detached_at: s.socket ? null : s.started_at })) });
+      return json(200, { sessions: [...sessions.values()].filter((s) => !s.closed).map((s) => {
+        const attached = Boolean(s.socket || s.elsewhere);
+        return { session_id: s.id, connection_id: s.connection_id, started_at: s.started_at, attached, detached_at: attached ? null : s.started_at };
+      }) });
     }
     const m = /^\/api\/sessions\/([^/]+)$/.exec(url.pathname);
     if (m && method === 'DELETE') {
