@@ -184,3 +184,40 @@ def test_api_errors_and_sign_out(app: AppFactory) -> None:
     gone = run(page, "api.js", "m.listTags().then(() => null, (e) => [e.code, m.getToken()])")
     assert gone == ["unauthorized", None]
     page.wait_for_selector("dialog.login[open]")
+
+
+def test_password_change_401_and_fetch_mode(app: AppFactory) -> None:
+    page = app()
+    # Spy on fetch: the client must never set `mode` (the default "cors" sends the real Origin).
+    page.evaluate(
+        """() => {
+      const inner = window.fetch;
+      window.__modes = [];
+      window.fetch = (input, init) => {
+        window.__modes.push(Boolean(init && 'mode' in init));
+        return inner(input, init);
+      };
+    }"""
+    )
+    # A wrong current password is 401 bad_password: not a sign-out.
+    bad = run(
+        page,
+        "api.js",
+        "m.changePassword('nope', 'a new password').then(() => null,"
+        " (e) => [e.status, e.code, m.getToken()])",
+    )
+    assert bad == [401, "bad_password", "mock-token"]
+    assert page.locator("dialog.login[open]").count() == 0
+    # An expired token on the same call is a sign-out.
+    page.evaluate("window.__pkMock.expire()")
+    gone = run(
+        page,
+        "api.js",
+        "m.changePassword('nope', 'a new password')"
+        ".then(() => null, (e) => [e.code, m.getToken()])",
+    )
+    assert gone == ["unauthorized", None]
+    page.wait_for_selector("dialog.login[open]")
+    modes = page.evaluate("window.__modes")
+    assert len(modes) >= 2
+    assert not any(modes)

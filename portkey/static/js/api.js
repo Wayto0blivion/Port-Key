@@ -5,12 +5,18 @@
  * HTTP client for /api. Every request sends `Authorization: Bearer <token>` when a token is
  * stored; every non-GET request sends `Content-Type: application/json`, `X-Port-Key: 1` and a
  * JSON body (`{}` when there are no fields). Errors reject with ApiError built from the
- * `{error: {code, message, ...}}` envelope; a 401 on any call except login/setup clears the
- * token and calls the handler set with onUnauthorized(). The token lives in localStorage under
- * TOKEN_KEY and never goes into a URL.
+ * `{error: {code, message, ...}}` envelope. A 401 clears the token and calls the handler set
+ * with onUnauthorized() on every call except login and password change: those answer 401
+ * `bad_password` for a wrong app password, which is not a sign-out (setup and status never
+ * answer 401, and logout clears the token anyway). A password change whose own token has
+ * expired (401 `unauthorized`) does sign out. The token lives in localStorage under TOKEN_KEY
+ * and never goes into a URL.
  *
- * Network failures reject with ApiError(0, "network", ...). A 401 with code `bad_password`
- * (wrong app password on login or password change) is not a sign-out.
+ * Every fetch keeps the default mode ("cors"). Never set `mode: 'same-origin'` or 'no-cors':
+ * with Referrer-Policy no-referrer the browser would then send `Origin: null` on POST, and the
+ * server's Origin check refuses every mutating request.
+ *
+ * Network failures reject with ApiError(0, "network", ...).
  */
 
 /** @typedef {import('./types.js').Connection} Connection */
@@ -106,6 +112,7 @@ async function request(method, path, opts = {}) {
   const headers = { Accept: opts.expect === 'text' ? 'text/plain' : 'application/json' };
   const token = opts.auth === false ? null : getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
+  // No `mode`: the default ("cors") is what makes the browser send the page's real Origin.
   /** @type {RequestInit} */
   const init = { method, headers, cache: 'no-store', credentials: 'omit', redirect: 'error' };
   if (method !== 'GET' && method !== 'HEAD') {

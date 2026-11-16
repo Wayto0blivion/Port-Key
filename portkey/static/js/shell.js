@@ -79,7 +79,6 @@ function savedWidth() {
 
 /** @param {HTMLElement} root @returns {void} */
 export function renderShell(root) {
-  root.removeAttribute('aria-live');
   const menuBtn = h('button', {
     type: 'button', class: 'icon-btn topbar__menu', 'aria-label': 'Connections', 'aria-expanded': 'false', 'aria-controls': 'sidebar',
   }, icon('menu', { size: 18 }));
