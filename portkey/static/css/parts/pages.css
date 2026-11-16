@@ -96,7 +96,7 @@
 }
 
 .table th {
-  padding: 9px 14px;
+  padding: 9px var(--sp-6);
   background: var(--panel);
   color: var(--muted);
   font-size: var(--fs-md);
@@ -105,7 +105,7 @@
 }
 
 .table td {
-  padding: 9px 14px;
+  padding: 9px var(--sp-6);
   border-top: 1px solid var(--button-bg);
   vertical-align: middle;
 }
@@ -115,7 +115,7 @@
 .table tbody tr:hover td { background: var(--panel-2); }
 .table--connections { min-width: 1040px; }
 .table--keys { min-width: 820px; }
-.table--keys td { padding: 10px 14px; }
+.table--keys td { padding: 10px 14px; white-space: nowrap; }
 
 .table .col-check { width: 20px; padding-right: 0; }
 .table .col-menu { width: 40px; padding: 0 var(--sp-4) 0 0; text-align: right; }
@@ -127,6 +127,7 @@
 
 .table .col-notes {
   width: 30%;
+  min-width: 120px;
   max-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

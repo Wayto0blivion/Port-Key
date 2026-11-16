@@ -252,7 +252,7 @@
 }
 
 .login:not([open]) { display: none; }
-.login::backdrop { background: var(--bg); opacity: 0.97; }
+.login::backdrop { background: var(--bg); }
 
 .login__card {
   width: 100%;

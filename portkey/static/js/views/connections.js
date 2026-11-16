@@ -162,7 +162,11 @@ function renderSuggestSection(el, state) {
     clear(el);
     head = /** @type {HTMLButtonElement} */ (h('button', {
       type: 'button', class: 'sidebar__suggest-head', 'aria-controls': 'sidebar-suggest-body',
-      onClick: () => store.setFolderCollapsed('__suggestions', !store.isFolderCollapsed('__suggestions')),
+      onClick: () => {
+        const opening = store.isFolderCollapsed('__suggestions');
+        store.setFolderCollapsed('__suggestions', !opening);
+        if (opening) requestAnimationFrame(() => body?.scrollIntoView({ block: 'nearest' }));
+      },
     }));
     body = h('div', { id: 'sidebar-suggest-body', class: 'sidebar__suggest-body' });
     el.append(head, body);

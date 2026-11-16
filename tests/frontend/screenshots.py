@@ -115,7 +115,7 @@ def main(out: Path, only: set[str]) -> None:
                 page = ctx.new_page()
                 page.goto(f"{url}/index.html")
                 page.add_style_tag(content=FONT_FIX)
-                page.wait_for_timeout(250 if scenario == "slow" else 600)
+                page.wait_for_timeout(1700 if scenario == "slow" else 600)
                 if action:
                     action(page)
                     page.wait_for_timeout(300)
