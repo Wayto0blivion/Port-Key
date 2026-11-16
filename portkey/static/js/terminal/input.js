@@ -46,7 +46,11 @@ async function copySelection(term) {
 export async function guardedPaste(term, text, name) {
   if (!text) return;
   const lines = pasteLines(text);
-  if (lines > 1 && !(await confirmPaste(lines, name))) {
+  // One line ending in a line break runs at once in a shell without bracketed paste (busybox,
+  // older bash, many appliances): ask as for several lines. With bracketed paste on, the shell
+  // waits for Enter, so it does not count.
+  const runsNow = lines === 1 && /[\r\n]$/.test(text) && !term.modes.bracketedPasteMode;
+  if ((lines > 1 || runsNow) && !(await confirmPaste(lines, name, runsNow))) {
     term.focus();
     return;
   }

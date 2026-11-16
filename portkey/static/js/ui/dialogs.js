@@ -232,8 +232,19 @@ async function kbdint(p, ctx) {
   return value === 'continue' && reply ? reply : { cancel: true };
 }
 
-/** @param {number} lines @param {string} name @returns {Promise<boolean>} */
-export async function confirmPaste(lines, name) {
+/**
+ * @param {number} lines @param {string} name
+ * @param {boolean} [runsNow] one line that ends in a line break, in a shell that runs it at once
+ * @returns {Promise<boolean>}
+ */
+export async function confirmPaste(lines, name, runsNow = false) {
+  if (runsNow && lines === 1) {
+    return confirmDialog({
+      title: `Paste and run 1 line in ${name}?`,
+      message: 'The text ends with a line break, and this shell runs pasted text at once.',
+      confirmLabel: 'Paste and run',
+    });
+  }
   return confirmDialog({
     title: `Paste ${lines} lines into ${name}?`,
     message: 'The shell may run each line as a separate command.',

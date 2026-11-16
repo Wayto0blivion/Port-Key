@@ -71,6 +71,28 @@ def test_ctrl_v_pastes_one_line_without_asking(term: TermFactory) -> None:
     expect(page.locator("dialog[open]")).to_have_count(0)
 
 
+def test_one_line_with_a_line_break_asks_where_the_shell_runs_it_at_once(
+    term: TermFactory,
+) -> None:
+    # Review finding: 'reboot\n' pasted with no question and ran at once in shells without
+    # bracketed paste (busybox, appliances). The mock shell has bracketed paste off.
+    page = term()
+    connected(page, "web-prod")
+    set_clipboard(page, "echo trail-run\n")
+    focus(page)
+    page.keyboard.press("Control+V")
+    dialog = page.get_by_role("dialog", name="Paste and run 1 line in web-prod?")
+    expect(dialog).to_be_visible()
+    dialog.get_by_role("button", name="Cancel").click()
+    assert "trail-run" not in shell_input(page)
+    # With bracketed paste on, the shell waits for Enter: no question.
+    page.evaluate("(id) => __pkWs.push(id, '\\x1b[?2004h')", session_ids(page)[0])
+    focus(page)
+    page.keyboard.press("Control+V")
+    wait_until(page, "(id) => __pkWs.inputOf(id).includes('trail-run')", session_ids(page)[0])
+    expect(page.locator("dialog[open]")).to_have_count(0)
+
+
 def test_multi_line_paste_asks_first(term: TermFactory) -> None:
     page = term()
     connected(page, "web-prod")
