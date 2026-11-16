@@ -62,9 +62,11 @@ def test_generate_key(app: AppFactory) -> None:
     expect(dialog).to_contain_text(
         "Saved to C:\\Users\\john\\.ssh\\port-key. Port-Key never overwrites an existing file."
     )
-    name.fill("id_rsa")
+    name.fill("id_rsa")  # in .ssh, not in .ssh\port-key: free there
+    expect(dialog).to_contain_text("Name is free.")
+    name.fill("ID_ED25519_PORTKEY")  # the generated-keys folder clashes ignoring case
     expect(dialog.locator("#gk-name-error")).to_have_text(
-        "A key named id_rsa already exists. Choose another name."
+        "A key named ID_ED25519_PORTKEY already exists. Choose another name."
     )
     name.fill("bad name.pub")
     expect(dialog.locator("#gk-name-error")).to_contain_text(

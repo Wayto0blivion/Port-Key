@@ -3,7 +3,8 @@
  *
  * A popup menu (role="menu") for row menus ("⋯", right-click, Shift+F10) and folder menus.
  * openMenu({items, anchor | x/y, label}) positions the menu at the anchor or the pointer,
- * focuses the first item, and closes on selection, Esc, Tab, a click outside or a scroll.
+ * focuses the first item, and closes on selection, Esc, Tab, a click outside or a scroll
+ * (a menu on an anchor instead follows the anchor while it stays in view).
  * Arrow keys, Home and End move between items; a letter jumps to the next item starting
  * with it. Focus returns to the element that opened the menu.
  */
@@ -49,8 +50,14 @@ export function openMenu(opts) {
   const onDocDown = (/** @type {Event} */ e) => {
     if (!menu.contains(/** @type {Node} */ (e.target))) close(false);
   };
+  // A menu on an anchor follows it while the anchor stays in view. Opening one on a "⋯" that
+  // a wide table half hides scrolls the table to reveal it, and that scroll event arrives
+  // after the menu is open; closing on it made the menu vanish at once. A menu at the pointer
+  // closes on any scroll, as before.
   const onScroll = (/** @type {Event} */ e) => {
-    if (!menu.contains(/** @type {Node} */ (e.target))) close(false);
+    if (menu.contains(/** @type {Node} */ (e.target))) return;
+    if (opts.anchor && opts.x == null && opts.anchor.isConnected && inView(opts.anchor)) position(menu, opts);
+    else close(false);
   };
   const close = (/** @type {boolean} */ restore = true) => {
     if (!menu.isConnected) return;
@@ -101,6 +108,12 @@ export function openMenu(opts) {
   closeCurrent = closeFn;
   (buttons.find((b) => !b.getAttribute('aria-disabled')) ?? buttons[0])?.focus();
   return () => close(true);
+}
+
+/** @param {HTMLElement} el @returns {boolean} true when part of `el` is inside the window */
+function inView(el) {
+  const r = el.getBoundingClientRect();
+  return r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
 }
 
 /** @param {HTMLElement} menu @param {{anchor?: HTMLElement, x?: number, y?: number}} opts */

@@ -225,11 +225,13 @@
     ['GET', /^\/api\/keys\/name-check$/, (req) => {
       const name = req.query.get('name') || '';
       const invalid = !/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(name) || /\.(pub|ppk)$/.test(name) || name.length > 64;
-      const taken = db.keys.some((k) => k.name === name);
+      // Like the real API: only the generated-keys folder (.ssh\port-key) can clash, so a
+      // name used in .ssh itself (id_rsa) is free there.
+      const taken = db.keys.some((k) => k.source === 'generated' && k.name.toLowerCase() === name.toLowerCase());
       return { name, available: !invalid && !taken, reason: invalid ? 'invalid' : taken ? 'taken' : null };
     }],
     ['POST', /^\/api\/keys\/generate$/, (req) => {
-      if (db.keys.some((k) => k.name === req.body.name)) throw new Fail(409, 'key_name_taken', `A key named ${req.body.name} already exists.`);
+      if (db.keys.some((k) => k.source === 'generated' && k.name.toLowerCase() === req.body.name.toLowerCase())) throw new Fail(409, 'key_name_taken', `A key named ${req.body.name} already exists.`);
       const fp = `SHA256:${btoa(String(Date.now()) + req.body.name).replace(/=/g, '').padEnd(43, 'A').slice(0, 43).replace(/[^A-Za-z0-9+/]/g, 'x')}`;
       const k = { id: fp.slice(7).replace(/\+/g, '-').replace(/\//g, '_'), fp, name: req.body.name, label: null, type: req.body.type || 'ed25519',
         bits: req.body.type === 'rsa' ? 4096 : 256, comment: req.body.comment || '', path: `C:\\Users\\john\\.ssh\\port-key\\${req.body.name}`,

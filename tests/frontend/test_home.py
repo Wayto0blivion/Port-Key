@@ -198,3 +198,18 @@ def test_load_error_and_retry(app: AppFactory) -> None:
     expect(page.locator(".sidebar")).to_contain_text(
         "Couldn't load connections. Something went wrong inside Port-Key."
     )
+
+
+def test_row_menu_stays_open_when_opening_it_scrolls_the_table(app: AppFactory) -> None:
+    # At 1280 px the table is wider than its pane, so the "⋯" button is half hidden; revealing
+    # it scrolls the table after the menu has opened (found against the real backend).
+    page = app(width=1280, height=800)
+    wrap_scroll = "document.querySelector('.table-wrap').scrollLeft"
+    assert page.evaluate(wrap_scroll) == 0
+    table_row(page, "web-prod").get_by_role("button", name="web-prod menu").click()
+    page.wait_for_timeout(300)
+    assert page.evaluate(wrap_scroll) > 0
+    menu = page.get_by_role("menu")
+    expect(menu).to_be_visible()
+    menu.get_by_role("menuitem", name="Edit").click()
+    expect(page.get_by_role("dialog", name="Edit web-prod")).to_be_visible()

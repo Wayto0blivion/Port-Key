@@ -163,6 +163,7 @@ function passwordSection() {
       toast('Password changed. Other browsers are signed out.');
     } catch (err) {
       if (err instanceof api.ApiError && err.code === 'bad_password') fail(old, 'That password is not correct. Try again.');
+      else if (err instanceof api.ApiError && err.code === 'rate_limited') fail(old, err.message);
       else if (!(err instanceof api.ApiError && err.code === 'unauthorized')) toastError(err);
     } finally {
       button.disabled = false;
