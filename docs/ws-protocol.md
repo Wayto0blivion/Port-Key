@@ -25,6 +25,11 @@ The first message must be `{"type": "auth", "token": "<bearer token>"}` within 5
 | invalid, expired | `{"type": "error", "code": "unauthorized", "message": "Sign in to Port-Key.", "close": 4401}`, close 4401 |
 | nothing in 5 s | `error` `auth_timeout`, close 4401 |
 
+While the socket is open the server re-checks that token every 10 seconds (without extending
+it). Once it is revoked (logout, a password change, `reset_password`) or expired, the server
+sends `error` `unauthorized` and closes 4401: a terminal session only detaches, a wizard run is
+abandoned.
+
 ## Hops
 
 Every `status` and `prompt` carries `hop`, and an `error` carries it when one hop failed:

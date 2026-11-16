@@ -232,7 +232,9 @@ at 64 KB by uvicorn.
 - Login returns a bearer token valid for 30 days, sliding (each use extends it), and never
   longer than 90 days after it was issued. Only the SHA-256 hash of each token is stored, in
   SQLite, so sessions survive restarts.
-- The password can be changed in Settings; changing it revokes all other tokens.
+- The password can be changed in Settings; changing it revokes all other tokens. Open
+  WebSockets re-check their token every 10 seconds and close (4401) once it is revoked or
+  expired, so a stolen token loses its open shells too.
 
 **Response headers.**
 
