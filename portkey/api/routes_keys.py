@@ -136,17 +136,22 @@ def update_key(key_id: str, body: KeyUpdate, services: ServicesDep) -> KeyInfo:
     records = services.keys.list_keys()
     record = _find(records, fp)
     fields = body.model_fields_set
-    if "label" in fields:
-        services.keys_meta.set_label(fp, (body.label or "").strip() or None)
-    if body.hidden is True and not record.hidden:
-        _hide(services, record, records, body)
-    elif body.hidden is False and record.hidden:
-        services.keys_meta.set_hidden(fp, False)
+    # One transaction (db.tx() is re-entrant on this thread, so the repositories' own
+    # transactions join it): a failure part-way, such as hiding after the reassignment,
+    # leaves the label, the connections and the default key as they were.
+    with services.db.tx():
+        if "label" in fields:
+            services.keys_meta.set_label(fp, (body.label or "").strip() or None)
+        if body.hidden is True and not record.hidden:
+            _hide(services, record, records, body)
+        elif body.hidden is False and record.hidden:
+            services.keys_meta.set_hidden(fp, False)
     return _describe(services, fp)
 
 
 def _hide(services: Services, record: KeyRecord, records: list[KeyRecord], body: KeyUpdate) -> None:
-    """Hide ``record``; connections using it move to ``body.reassign`` first."""
+    """Hide ``record``; connections using it move to ``body.reassign`` first. Call inside
+    ``services.db.tx()`` so every write is one transaction."""
     settings = services.settings.get()
     default_fp = _default_fp(services, records)
     users = services.connections.using_key(record.fp, default_fp)

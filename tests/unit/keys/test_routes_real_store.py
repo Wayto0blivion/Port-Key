@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 
 from portkey.api.schemas import fp_to_id
+from portkey.errors import ErrorCode, NotFound
 from portkey.models import ConnectionDraft
 from portkey.services import Services
 
@@ -44,6 +46,49 @@ async def test_keys_with_real_store(
     )
     assert r.status_code == 201, r.text
     assert [e.kind for e in started.events.recent()] == ["key_generated"]
+
+
+async def test_hide_with_reassign_is_one_transaction(
+    authed_client: httpx.AsyncClient,
+    started: Services,
+    ssh_dir: Path,
+    kit: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ed = kit.write_key(ssh_dir, "id_ed25519")
+    spare = kit.write_key(ssh_dir, "spare")
+    on_default = started.connections.create(
+        ConnectionDraft(name="web-prod", host="192.168.10.42", username="john", auth_method="key")
+    )
+    pinned = started.connections.create(
+        ConnectionDraft(
+            name="build-box", host="192.168.10.20", username="john", auth_method="key"
+        )
+    )
+    started.connections.update(pinned.id, {"key_fp": ed.fp})
+    assert (await authed_client.get("/api/keys")).status_code == 200  # upsert_seen both keys
+    started.settings.update({"default_key_fp": ed.fp})
+    before = {c.id: (c.auth_method, c.key_fp) for c in started.connections.list_all()}
+
+    def fail(fp: str, hidden: bool) -> None:  # the last write of the hide fails
+        raise NotFound("Port-Key hasn't seen that key.", code=ErrorCode.KEY_UNKNOWN)
+
+    monkeypatch.setattr(started.keys_meta, "set_hidden", fail)
+    reassign = {
+        "label": "old PC key",
+        "hidden": True,
+        "reassign": {"auth_method": "key", "key_fp": spare.fp},
+    }
+    r = await authed_client.patch(f"/api/keys/{fp_to_id(ed.fp)}", json=reassign)
+    assert r.status_code == 404, r.text
+
+    after = {c.id: (c.auth_method, c.key_fp) for c in started.connections.list_all()}
+    assert after == before
+    assert after[on_default.id] == ("key", None)
+    assert started.settings.get().default_key_fp == ed.fp
+    meta = started.keys_meta.all()[ed.fp]
+    assert meta.label is None
+    assert meta.hidden is False
 
 
 async def test_hosts_with_real_store(
