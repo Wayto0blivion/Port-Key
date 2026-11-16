@@ -349,6 +349,28 @@ async def test_input_goes_to_the_channel_and_stops_after_exit() -> None:
     assert chain.channel.writes == [b"ls\r"]
 
 
+async def test_input_after_the_remote_closed_is_dropped_until_the_exit_arrives() -> None:
+    # Review finding: with reading paused (a slow browser), asyncssh refuses writes as soon as
+    # the remote closes, but connection_lost waits for the held output. A keystroke in that
+    # window raised BrokenPipeError, which the socket turned into "internal" (1011).
+    session, chain = await make_session()
+    sink = RecordingSink()
+    sink.gate.clear()  # the browser is not reading
+    await session.attach(sink, None)
+    chain.channel.feed(b"x" * (session.high_water + 1))
+    await settle()
+    assert chain.channel.paused
+    chain.channel.feed(b"tail")
+    chain.channel.finish(status=0)
+    assert session.exit is None  # the close waits for the held output
+    await session.write(b"\x03")  # Ctrl+C while the output scrolls: dropped, no error
+    assert chain.channel.writes == []
+    sink.gate.set()
+    await sink.wait_for(lambda: "exit" in sink.kinds())
+    assert sink.first("exit") == (0, None, "closed")
+    assert bytes(sink.data).endswith(b"tail")
+
+
 async def test_input_waits_while_the_remote_is_not_taking_it() -> None:
     session, chain = await make_session()
     session.on_pause_writing()

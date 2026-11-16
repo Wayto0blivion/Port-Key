@@ -256,10 +256,16 @@ class TerminalSession:
 
     async def write(self, data: bytes) -> None:
         """Send input to the shell. Waits while the remote is not taking input (a large paste
-        into a stalled program) so input cannot pile up without bound."""
+        into a stalled program) so input cannot pile up without bound. Input to a channel the
+        remote has already closed is dropped: asyncssh stops sending at once on the remote's
+        close, but ``on_closed`` (and so the ``exit``) can come seconds later while reading is
+        paused, and a keystroke then must not turn the exit into an internal error."""
         if self.exit is not None or self._chan is None or not data:
             return
-        self._chan.write(data)
+        try:
+            self._chan.write(data)
+        except OSError:  # BrokenPipeError: "Channel not open for sending"
+            return
         if not self._writable.is_set():
             await self._writable.wait()
 

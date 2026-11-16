@@ -45,6 +45,10 @@ class FakeChannel:
     # --- what the session calls ---
 
     def write(self, data: bytes) -> None:
+        if self._close_pending is True or self.closed:
+            # asyncssh 2.24 stops sending as soon as the remote closes the channel, while
+            # connection_lost waits for held data (reading paused).
+            raise BrokenPipeError("Channel not open for sending")
         self.writes.append(data)
         if self.echo:
             self.feed(data)

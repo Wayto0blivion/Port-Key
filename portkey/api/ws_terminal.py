@@ -14,6 +14,11 @@ and a dropped socket only detaches. Unknown or out-of-order messages -> ``bad_me
 - After ``ready`` the session's pump sends output and the final ``exit`` or ``detached`` through
   this socket's ``_Sink``; this loop only reads. A socket that has been taken over ignores what
   it still receives, so it can never write to or kill the session it lost.
+- Input frames go to the session through ``_Input``, a writer task of their own, so this loop
+  keeps reading (``ping``, ``close``, a drop, server shutdown) while a remote program is not
+  taking input; past ``INPUT_QUEUE_BYTES`` waiting, the loop waits too.
+- A connect attempt that finishes in the same loop turn as the socket giving up on it (a drop,
+  a bad or oversized frame) is killed, never left open and unattached.
 - Input frames over ``ws_max_frame_bytes`` close the socket with 1009 (uvicorn's ``ws_max_size``
   normally does it first). Input and output bytes are never logged.
 """
@@ -55,6 +60,10 @@ log = logging.getLogger("portkey.ws")
 router = APIRouter()
 
 Incoming = ClientMessage | bytes | None  # None: the client went away
+
+# Input frames waiting for a remote that is not taking input, per socket, before the receive
+# loop waits too (the session itself holds up to 256 KB more inside asyncssh).
+INPUT_QUEUE_BYTES = 1024 * 1024
 
 
 @router.websocket("/ws/terminal")
@@ -128,6 +137,48 @@ class _Sink:
         await self.sock.close(CloseCode.INTERNAL)
 
 
+class _Input:
+    """Writes one socket's input frames to its session, in order, in a task of its own, so the
+    receive loop keeps reading (``ping``, ``close``, the client going away, server shutdown)
+    while a remote program is not taking input. At most ``cap`` bytes wait here; past that the
+    receive loop waits too, as the session's own ``write`` does."""
+
+    def __init__(self, session: TerminalSession, sink: _Sink, cap: int) -> None:
+        self.session = session
+        self.sink = sink
+        self.cap = cap
+        self.queue: asyncio.Queue[bytes] = asyncio.Queue()
+        self.pending = 0
+        self.room = asyncio.Event()
+        self.room.set()
+        self.task = asyncio.ensure_future(self._run())
+
+    async def put(self, data: bytes) -> None:
+        self.queue.put_nowait(data)
+        self.pending += len(data)
+        if self.pending > self.cap:
+            self.room.clear()
+            await self.room.wait()
+
+    async def _run(self) -> None:
+        while True:
+            data = await self.queue.get()
+            try:
+                if self.session.has_sink(self.sink):  # never into a session this socket lost
+                    await self.session.write(data)
+            except Exception as exc:  # input is best effort; the bytes are never logged
+                log.warning(
+                    "input to session %s failed: %s", self.session.session_id, type(exc).__name__
+                )
+            finally:
+                self.pending -= len(data)
+                if self.pending <= self.cap:
+                    self.room.set()
+
+    def close(self) -> None:
+        self.task.cancel()
+
+
 class _TerminalSocket:
     def __init__(self, ws: WebSocket, services: Services) -> None:
         self.ws = ws
@@ -137,6 +188,7 @@ class _TerminalSocket:
         self.sock = _Socket(ws)
         self.session: TerminalSession | None = None
         self.sink: _Sink | None = None
+        self.input: _Input | None = None
         self._getter: asyncio.Future[Incoming] | None = None
 
     async def run(self) -> None:
@@ -154,6 +206,8 @@ class _TerminalSocket:
         finally:
             if self._getter is not None:
                 self._getter.cancel()
+            if self.input is not None:
+                self.input.close()
             if self.session is not None and self.sink is not None:
                 self.session.detach(self.sink)
 
@@ -217,11 +271,11 @@ class _TerminalSocket:
                     break
                 incoming = getter.result()  # BadMessage propagates (the attempt is cancelled)
                 if incoming is None:
-                    await _cancel(task)
+                    await self._abandon(task)
                     return False
                 if isinstance(incoming, bytes):
                     if self._too_big(incoming):
-                        await _cancel(task)
+                        await self._abandon(task)
                         await self.sock.close(CloseCode.TOO_BIG)
                         return False
                 elif isinstance(incoming, PromptReplyMsg):
@@ -232,20 +286,26 @@ class _TerminalSocket:
                     size = (incoming.cols, incoming.rows)
                 elif isinstance(incoming, CloseMsg):
                     prompter.cancel_pending()
-                    session = await _cancel(task)
-                    if session is not None:
-                        await _kill_quietly(self.registry, session)
+                    await self._abandon(task)
                     await self.sock.error(PromptCancelled())
                     return False
                 else:
                     raise BadMessage()
         except BaseException:
-            await _cancel(task)
+            await asyncio.shield(self._abandon(task))
             raise
         session = task.result()  # SshError, PromptTimeout, ... -> run() reports it
         if size != (msg.cols, msg.rows):
             await session.resize(*size)
         return await self._start(session, None, reattached=False)
+
+    async def _abandon(self, task: asyncio.Future[TerminalSession]) -> None:
+        """Stop a connect attempt this socket gives up on. The attempt may have finished in
+        the same loop turn as the reason to give up (a drop, a bad or oversized frame): its
+        session is then killed, not left open and unattached until the reaper."""
+        session = await _cancel(task)
+        if session is not None:
+            await _kill_quietly(self.registry, session)
 
     # --- attach --------------------------------------------------------------------------------
 
@@ -270,6 +330,7 @@ class _TerminalSocket:
     # --- after ready ---------------------------------------------------------------------------
 
     async def _serve(self, session: TerminalSession, sink: _Sink) -> None:
+        self.input = _Input(session, sink, INPUT_QUEUE_BYTES)
         while True:
             msg = await self._recv()
             if msg is None:
@@ -280,7 +341,7 @@ class _TerminalSocket:
                     await self.sock.close(CloseCode.TOO_BIG)
                     return
                 if current:
-                    await session.write(msg)
+                    await self.input.put(msg)
             elif isinstance(msg, ResizeMsg):
                 if current:
                     await session.resize(msg.cols, msg.rows)

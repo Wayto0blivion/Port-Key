@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from typing import Any
 
+from portkey.api.schemas.ws import OpenMsg
+from portkey.api.ws_terminal import _TerminalSocket
+from portkey.config import Limits
 from portkey.ssh.errors import ConnectionRefused
 from tests.unit.sessions.conftest import Live
 from tests.unit.sessions.live import TermClient
+
+UUID = "0b6f3c1e-8a52-4c3e-9d7a-1f2e3d4c5b6a"
 
 
 async def open_ready(client: TermClient, live: Live, **extra: Any) -> dict[str, Any]:
@@ -183,6 +189,76 @@ async def test_an_input_frame_over_64_kb_closes_with_1009(live: Live) -> None:
             break
         await asyncio.sleep(0.01)
     assert live.services.sessions.list_all()[0].attached is False
+
+
+async def test_the_socket_keeps_reading_while_the_remote_takes_no_input(live: Live) -> None:
+    # Review finding: the receive loop waited inside session.write, so a stalled remote program
+    # kept it from seeing ping, close, a drop or server shutdown (uvicorn then never reached
+    # the lifespan shutdown).
+    async with live.client() as client:
+        ready = await open_ready(client, live)
+        session = live.services.sessions.get(ready["session_id"])
+        session.on_pause_writing()  # asyncssh: the remote is not taking input
+        await client.send_bytes(b"a" * 1000)
+        await client.send_bytes(b"b" * 1000)
+        await client.send({"type": "ping"})
+        assert await client.until("pong", seconds=2) == {"type": "pong"}
+        assert live.channel().writes == [b"a" * 1000]  # the second waits its turn
+        await client.send({"type": "close"})
+        exit_msg = await client.until("exit", seconds=2)
+        assert exit_msg["reason"] == "killed"
+    assert live.services.sessions.list_all() == []
+
+
+async def test_input_order_is_kept_once_the_remote_takes_input_again(live: Live) -> None:
+    async with live.client() as client:
+        ready = await open_ready(client, live)
+        session = live.services.sessions.get(ready["session_id"])
+        session.on_pause_writing()
+        for chunk in (b"one ", b"two ", b"three"):
+            await client.send_bytes(chunk)
+        await client.send({"type": "ping"})
+        await client.until("pong")
+        session.on_resume_writing()
+        for _ in range(100):
+            if len(live.channel().writes) == 3:
+                break
+            await asyncio.sleep(0.01)
+        assert live.channel().writes == [b"one ", b"two ", b"three"]
+
+
+class _NoSocket:
+    """A WebSocket whose client is already gone: every receive is a disconnect."""
+
+    application_state = None
+
+    async def receive(self) -> dict[str, Any]:
+        return {"type": "websocket.disconnect", "code": 1006}
+
+
+class _InstantRegistry:
+    """``create`` finishes in its first step, as a connect can in the same loop turn as a drop."""
+
+    def __init__(self) -> None:
+        self.session = SimpleNamespace(session_id="s_race")
+        self.killed: list[str] = []
+
+    async def create(self, *args: Any) -> Any:
+        return self.session
+
+    async def kill(self, session_id: str) -> None:
+        self.killed.append(session_id)
+
+
+async def test_a_session_ready_in_the_same_turn_as_a_drop_is_killed() -> None:
+    # Review finding: the drop branch dropped the finished session, which stayed open and
+    # unattached (counting toward the 32) until the reaper or a reload found it.
+    registry = _InstantRegistry()
+    services = SimpleNamespace(config=SimpleNamespace(limits=Limits()), sessions=registry)
+    sock = _TerminalSocket(_NoSocket(), services)  # type: ignore[arg-type]
+    msg = OpenMsg(type="open", connection_id=UUID, cols=80, rows=24)
+    assert await sock._open(msg) is False
+    assert registry.killed == ["s_race"]
 
 
 async def test_a_message_out_of_order_after_ready_detaches(live: Live) -> None:
