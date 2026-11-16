@@ -261,3 +261,19 @@ def test_changed_host_key_in_the_wizard(term: TermFactory) -> None:
     dialog.get_by_role("textbox").fill("changed-host")
     dialog.get_by_role("button", name="Replace key and connect").click()
     expect(wizard.get_by_role("heading", name="Sign in once")).to_be_visible()
+
+
+def test_a_wizard_opened_before_the_keys_arrive_still_offers_the_key(term: TermFactory) -> None:
+    # Found end to end (package 9): Add connection right after a page load built the form with
+    # no keys, said "Port-Key has no key to install" and chose Password only.
+    page = term()
+    page.evaluate(
+        """async () => {
+          const s = await import('/js/store.js');
+          Object.assign(s.getState(), {keys: []});
+          s.getState().status.keys = 'idle';
+        }"""
+    )
+    wizard = open_wizard(page)
+    expect(wizard.locator("#wz-auth option:checked")).to_have_text(re.compile(r"^Default key \("))
+    expect(wizard).not_to_contain_text("Port-Key has no key to install")

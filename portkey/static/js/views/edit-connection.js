@@ -54,6 +54,9 @@ function loopIds(self) {
 
 /** @param {Connection} connection @returns {Promise<Connection|null>} the saved connection, or null if cancelled */
 export async function openEditConnection(connection) {
+  // Without the key list, "Sign in with" would lack the connection's own key and a save would
+  // quietly switch it to the default key.
+  if (store.getState().status.keys !== 'ready') await store.refreshKeys().catch(() => {});
   const state = store.getState();
   const creating = !connection.id;
   /** @type {Color} */

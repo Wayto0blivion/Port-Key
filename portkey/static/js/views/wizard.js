@@ -59,6 +59,22 @@ function initialValues(p) {
 
 /** @type {Wizard|null} */
 let openNow = null;
+let opening = false;
+
+/**
+ * The form reads keys, folders, tags, connections and the default user from the store. Right
+ * after the page loads those may still be on their way (scanning a large .ssh folder takes a
+ * moment), and a form built then would say there is no key and pick "Password only".
+ */
+async function storeLoaded() {
+  const s = store.getState().status;
+  /** @type {Promise<void>[]} */
+  const waits = [];
+  if (s.keys !== 'ready') waits.push(store.refreshKeys());
+  if (s.connections !== 'ready') waits.push(store.refreshConnections());
+  if (s.settings !== 'ready') waits.push(store.refreshSettings());
+  await Promise.allSettled(waits);
+}
 
 /**
  * @param {Prefill} [prefill]
@@ -70,6 +86,14 @@ export async function openWizard(prefill = {}, opts = {}) {
     openNow.frame.dialog.focus();
     return null;
   }
+  if (opening) return null;
+  opening = true;
+  try {
+    await storeLoaded();
+  } finally {
+    opening = false;
+  }
+  if (openNow) return null;
   return new Promise((resolve) => {
     openNow = new Wizard(prefill, opts, (c) => {
       openNow = null;

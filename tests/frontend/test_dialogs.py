@@ -147,3 +147,19 @@ def test_duplicate_opens_the_copy(app: AppFactory) -> None:
     expect(page.get_by_role("dialog", name="Edit web-prod (copy)")).to_be_visible()
     page.keyboard.press("Escape")
     expect(page.locator(".table--connections")).to_contain_text("web-prod (copy)")
+
+
+# Found end to end (package 9): a dialog opened before the key list arrived lacked the
+# connection's own key, so saving switched it to the default key.
+FORGET_KEYS = """async () => {
+  const s = await import('/js/store.js');
+  Object.assign(s.getState(), {keys: []});
+  s.getState().status.keys = 'idle';
+}"""
+
+
+def test_edit_waits_for_the_key_list(app: AppFactory) -> None:
+    page = app()
+    page.evaluate(FORGET_KEYS)
+    edit(page, "imaging-01")
+    expect(page.locator("#ec-auth option:checked")).to_have_text("id_ed25519_portkey")
