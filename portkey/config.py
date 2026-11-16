@@ -38,6 +38,7 @@ class Limits:
     max_body_bytes: int = 256 * 1024  # HTTP request bodies; the biggest real one is ~40 KB
     graceful_shutdown_seconds: int = 5  # uvicorn's wait for open sockets on shutdown
     ws_auth_timeout: float = 5.0
+    ws_token_recheck: float = 10.0  # open sockets re-check their token this often
     ws_ping_interval: float = 20.0
     ws_ping_timeout: float = 20.0
     prompt_timeout: float = 120.0

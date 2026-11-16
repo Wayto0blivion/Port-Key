@@ -36,11 +36,25 @@ from portkey.api.schemas.ws import (
     StepMsg,
     WizardAction,
 )
-from portkey.api.ws_common import WsPrompter, authenticate, parse_message, send, send_error
+from portkey.api.ws_common import (
+    WsPrompter,
+    authenticate_token,
+    parse_message,
+    send,
+    send_error,
+    watch_token,
+)
 from portkey.config import Limits
 from portkey.models import ConnectionRecord
 from portkey.services import Services
-from portkey.ssh.errors import BadMessage, CloseCode, PromptCancelled, PromptTimeout, WsError
+from portkey.ssh.errors import (
+    BadMessage,
+    CloseCode,
+    PromptCancelled,
+    PromptTimeout,
+    WsError,
+    WsUnauthorized,
+)
 
 router = APIRouter()
 log = logging.getLogger("portkey.ws")
@@ -105,9 +119,16 @@ class SocketIO:
 @router.websocket("/ws/install")
 async def install_ws(ws: WebSocket) -> None:
     services = cast(Services, ws.app.state.services)
-    if not await authenticate(ws, services):
+    token = await authenticate_token(ws, services)
+    if token is None:
         return
-    await InstallSocket(ws, services).serve()
+    # A revoked or expired sign-in ends the socket (4401), which cancels the run: every SSH
+    # connection it opened is closed and the password is dropped.
+    watch = watch_token(services, token, lambda: send_error(ws, WsUnauthorized()))
+    try:
+        await InstallSocket(ws, services).serve()
+    finally:
+        watch.cancel()
 
 
 class InstallSocket:

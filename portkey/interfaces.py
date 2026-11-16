@@ -311,6 +311,9 @@ class TokenStore(Protocol):
         """True if valid; extends expiry (sliding, capped by the absolute lifetime). Never
         raises for a bad token."""
 
+    def is_valid(self, token: str) -> bool:
+        """True if valid, without extending the expiry (open WebSockets re-check with it)."""
+
     def revoke(self, token: str) -> None: ...
 
     def revoke_all_except(self, token: str) -> int: ...

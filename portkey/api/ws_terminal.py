@@ -48,12 +48,26 @@ from portkey.api.schemas.ws import (
     ReadyMsg,
     ResizeMsg,
 )
-from portkey.api.ws_common import WsPrompter, authenticate, parse_message, send, send_error
+from portkey.api.ws_common import (
+    WsPrompter,
+    authenticate_token,
+    parse_message,
+    send,
+    send_error,
+    watch_token,
+)
 from portkey.errors import NotFound
 from portkey.services import Services
 from portkey.sessions.registry import MemorySessionRegistry
 from portkey.sessions.terminal import ExitReason, TerminalSession
-from portkey.ssh.errors import BadMessage, CloseCode, PromptCancelled, UnknownConnection, WsError
+from portkey.ssh.errors import (
+    BadMessage,
+    CloseCode,
+    PromptCancelled,
+    UnknownConnection,
+    WsError,
+    WsUnauthorized,
+)
 
 log = logging.getLogger("portkey.ws")
 
@@ -69,9 +83,16 @@ INPUT_QUEUE_BYTES = 1024 * 1024
 @router.websocket("/ws/terminal")
 async def terminal_ws(ws: WebSocket) -> None:
     services: Services = ws.app.state.services
-    if not await authenticate(ws, services):
+    token = await authenticate_token(ws, services)
+    if token is None:
         return
-    await _TerminalSocket(ws, services).run()
+    handler = _TerminalSocket(ws, services)
+    # A revoked or expired sign-in ends the socket (4401); the session only detaches.
+    watch = watch_token(services, token, lambda: handler.sock.error(WsUnauthorized()))
+    try:
+        await handler.run()
+    finally:
+        watch.cancel()
 
 
 class _Socket:

@@ -97,6 +97,21 @@ class SqliteTokenStore:
                 )
         return True
 
+    def is_valid(self, token: str) -> bool:
+        """True while the token is stored and unexpired. Unlike ``verify`` it never extends the
+        expiry: open WebSockets re-check their token with it, and an idle open socket must not
+        keep a token alive."""
+        if not well_formed(token):
+            return False
+        row = self.db.query_one(
+            "SELECT created_at, expires_at FROM tokens WHERE token_hash = ?", (token_hash(token),)
+        )
+        if row is None:
+            return False
+        now = self.clock()
+        dies_at = from_iso(row["created_at"]).timestamp() + self.max_age
+        return from_iso(row["expires_at"]).timestamp() > now and dies_at > now
+
     def expires_at(self, token: str) -> datetime | None:
         """Current expiry of a stored token (tests and diagnostics); None if unknown."""
         if not well_formed(token):

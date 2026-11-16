@@ -6,6 +6,8 @@ module provides:
 - ``authenticate(ws, services)``: accept, then require ``{"type":"auth","token"}`` as the first
   message within ``limits.ws_auth_timeout`` (5 s). On failure send ``error`` (``unauthorized`` or
   ``auth_timeout``) and close 4401; returns False. Tokens are never logged.
+  ``authenticate_token`` returns the token instead, for ``watch_token``, which re-checks it
+  while the socket is open and lets the handler close 4401 once it is revoked or expired.
 - ``WsPrompter``: implements ``interfaces.Prompter`` over the socket. Each ask sends a
   ``prompt`` with a fresh id and awaits the matching ``prompt_reply``, which the handler's receive
   loop feeds in through ``deliver``. ``{"cancel": true}`` -> ``PromptCancelled``; no reply within
@@ -27,7 +29,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
 
@@ -154,20 +156,47 @@ async def send_error(ws: WebSocket, exc: BaseException) -> None:
 
 async def authenticate(ws: WebSocket, services: Services) -> bool:
     """Accept the socket and require a valid ``auth`` message first, within the time limit."""
+    return await authenticate_token(ws, services) is not None
+
+
+async def authenticate_token(ws: WebSocket, services: Services) -> str | None:
+    """``authenticate``, returning the token that signed the socket in (for ``watch_token``),
+    or None after the ``error`` and close 4401 were sent."""
     await ws.accept()
     limits = services.config.limits
     try:
         message = await asyncio.wait_for(ws.receive(), timeout=limits.ws_auth_timeout)
     except TimeoutError:
         await send_error(ws, WsUnauthorized(AUTH_TIMEOUT_MESSAGE, code=WsErrorCode.AUTH_TIMEOUT))
-        return False
+        return None
     if message.get("type") == "websocket.disconnect":
-        return False
+        return None
     token = _auth_token(message.get("text"))
     if token is None or not await asyncio.to_thread(services.tokens.verify, token):
         await send_error(ws, WsUnauthorized())
-        return False
-    return True
+        return None
+    return token
+
+
+def watch_token(
+    services: Services, token: str, on_revoked: Callable[[], Awaitable[None]]
+) -> asyncio.Task[None]:
+    """A task that re-checks ``token`` every ``limits.ws_token_recheck`` seconds (without
+    extending it) and awaits ``on_revoked`` once it is no longer valid: logged out, revoked by
+    a password change or ``reset_password``, or expired. The caller sends ``unauthorized`` and
+    closes 4401 there, and cancels the task when the socket ends. So a stolen token loses its
+    open shells within seconds of the owner revoking it, not only when they close."""
+
+    async def watch() -> None:
+        interval = services.config.limits.ws_token_recheck
+        while True:
+            await asyncio.sleep(interval)
+            if not await asyncio.to_thread(services.tokens.is_valid, token):
+                log.info("closing a WebSocket: its sign-in was revoked or expired")
+                await on_revoked()
+                return
+
+    return asyncio.ensure_future(watch())
 
 
 def _auth_token(text: object) -> str | None:

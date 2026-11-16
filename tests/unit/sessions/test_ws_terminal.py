@@ -227,6 +227,33 @@ async def test_input_order_is_kept_once_the_remote_takes_input_again(live: Live)
         assert live.channel().writes == [b"one ", b"two ", b"three"]
 
 
+async def test_revoking_the_token_ends_the_open_socket(live_with: Any) -> None:
+    # Security review: the token was checked once, in `auth`, so a thief's open shell kept
+    # working after the owner logged out or changed the password.
+    live: Live = await live_with(output_batch_seconds=0.002, ws_token_recheck=0.05)
+    async with live.client() as client:
+        ready = await open_ready(client, live)
+        await asyncio.to_thread(live.services.tokens.revoke, live.token)
+        error = await client.until("error", seconds=3)
+        assert (error["code"], error["close"]) == ("unauthorized", 4401)
+        assert await client.close_code() == 4401
+    for _ in range(100):
+        if not live.services.sessions.list_all()[0].attached:
+            break
+        await asyncio.sleep(0.01)
+    [summary] = live.services.sessions.list_all()  # the shell stays, detached, for the owner
+    assert (summary.session_id, summary.attached) == (ready["session_id"], False)
+
+
+async def test_a_valid_token_keeps_the_socket_open(live_with: Any) -> None:
+    live: Live = await live_with(output_batch_seconds=0.002, ws_token_recheck=0.02)
+    async with live.client() as client:
+        await open_ready(client, live)
+        await asyncio.sleep(0.2)
+        await client.send({"type": "ping"})
+        assert await client.until("pong") == {"type": "pong"}
+
+
 class _NoSocket:
     """A WebSocket whose client is already gone: every receive is a disconnect."""
 

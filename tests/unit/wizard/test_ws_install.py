@@ -82,11 +82,18 @@ class FakeWizard:
             raise
 
 
-def make(script: Script, idle: float = 600.0) -> tuple[FakeWs, FakeWizard]:
+def make(script: Script, idle: float = 600.0, recheck: float = 10.0) -> tuple[FakeWs, FakeWizard]:
     wizard = FakeWizard(script)
+    revoked: set[str] = set()
     services = SimpleNamespace(
-        config=SimpleNamespace(limits=replace(Limits(), wizard_idle_timeout=idle)),
-        tokens=SimpleNamespace(verify=lambda token: token == TOKEN),
+        config=SimpleNamespace(
+            limits=replace(Limits(), wizard_idle_timeout=idle, ws_token_recheck=recheck)
+        ),
+        tokens=SimpleNamespace(
+            verify=lambda token: token == TOKEN,
+            is_valid=lambda token: token == TOKEN and token not in revoked,
+            revoked=revoked,
+        ),
         wizard=wizard,
     )
     ws = FakeWs(services)
@@ -316,6 +323,21 @@ async def test_idle_while_waiting_for_an_action() -> None:
     assert ws.types() == ["needs_action", "error"]
     assert ws.sent[-1]["code"] == "prompt_timeout"
     assert ws.closed == 4408
+
+
+async def test_revoking_the_token_ends_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Security review: a revoked token kept its open wizard (and the password connection).
+    ws, wizard = make(hangs, recheck=0.02)
+    ws.push(START)
+    task = asyncio.create_task(install_ws(ws))  # type: ignore[arg-type]
+    await until(lambda: wizard.started is not None)
+    ws.app.state.services.tokens.revoked.add(TOKEN)
+    await until(lambda: ws.closed is not None)
+    assert ws.closed == 4401
+    assert ws.sent[-1]["code"] == "unauthorized"
+    ws.push({"type": "websocket.disconnect", "code": 4401})  # the server sees the close
+    await asyncio.wait_for(task, 2)
+    assert wizard.cancelled
 
 
 async def test_bad_token_never_reaches_the_wizard() -> None:

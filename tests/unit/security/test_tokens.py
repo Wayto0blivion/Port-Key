@@ -59,6 +59,21 @@ def test_verify_never_raises_for_garbage(tokens: SqliteTokenStore, bad: Any) -> 
     assert tokens.verify(bad) is False
 
 
+def test_is_valid_checks_without_extending(tokens: SqliteTokenStore, wall: Any) -> None:
+    # Open WebSockets re-check their token with is_valid; that must not keep it alive.
+    issued = tokens.issue()
+    before = tokens.expires_at(issued.token)
+    wall.advance(TTL / 2)
+    assert tokens.is_valid(issued.token)
+    assert tokens.expires_at(issued.token) == before
+    wall.advance(TTL / 2 + 1)
+    assert not tokens.is_valid(issued.token)
+    other = tokens.issue()
+    tokens.revoke(other.token)
+    assert not tokens.is_valid(other.token)
+    assert tokens.is_valid("garbage") is False
+
+
 def test_expired_token_is_refused_and_purged(
     tokens: SqliteTokenStore, wall: Any, db: Database
 ) -> None:
