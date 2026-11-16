@@ -90,6 +90,11 @@
     const clash = db.connections.find((x) => x.id !== selfId && x.name.toLowerCase() === c.name.toLowerCase());
     if (clash) throw new Fail(409, 'name_taken', `A connection named ${clash.name} already exists. Choose another name.`);
     if (c.group_id && !db.groups.some((g) => g.id === c.group_id)) throw new Fail(422, 'group_unknown', 'That folder no longer exists.');
+    // The real schema's key_fp pattern (portkey/api/schemas): a malformed value is 422 validation.
+    if (c.key_fp != null && !/^SHA256:[A-Za-z0-9+/]{43}$/.test(c.key_fp)) {
+      throw new Fail(422, 'validation', 'Check the highlighted fields.',
+        { fields: [{ loc: ['body', 'key_fp'], msg: "String should match pattern '^SHA256:[A-Za-z0-9+/]{43}$'", type: 'string_pattern_mismatch' }] });
+    }
     let hop = c.jump_id;
     let hops = 0;
     while (hop) {

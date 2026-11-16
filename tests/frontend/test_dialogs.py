@@ -163,3 +163,52 @@ def test_edit_waits_for_the_key_list(app: AppFactory) -> None:
     page.evaluate(FORGET_KEYS)
     edit(page, "imaging-01")
     expect(page.locator("#ec-auth option:checked")).to_have_text("id_ed25519_portkey")
+
+
+# Found in review: "key:SHA256:..." was split on every colon, so a connection with its own key
+# sent key_fp "SHA256" and the save failed with 422.
+PK_FP = "SHA256:9dTgV4hY6jU8kI0oL2pM4nB6vC8xZ0aS2dF4gH6mE1s"
+RSA_FP = "SHA256:b7Lw2nQ4rT6yU8iO0pA2sD4fG6hJ8kL0zX2cV4bKq0c"
+
+
+def test_edit_keeps_an_explicit_key_when_other_fields_change(app: AppFactory) -> None:
+    page = app()
+    edit(page, "imaging-01")
+    page.locator("#ec-notes").fill("review note")
+    page.get_by_role("button", name="Save", exact=True).click()
+    expect(page.get_by_role("dialog")).to_have_count(0)
+    expect_toast(page, "Saved changes to imaging-01.")
+    patch = [c for c in calls(page) if c["method"] == "PATCH"][-1]
+    assert patch["body"] == {"notes": "review note"}
+
+
+def test_edit_switches_to_a_specific_key(app: AppFactory) -> None:
+    page = app()
+    edit(page, "web-prod")
+    page.locator("#ec-auth").select_option(label="id_rsa")
+    page.get_by_role("button", name="Save", exact=True).click()
+    expect(page.get_by_role("dialog")).to_have_count(0)
+    patch = [c for c in calls(page) if c["method"] == "PATCH"][-1]
+    assert patch["body"] == {"key_fp": RSA_FP}
+    edit(page, "web-prod")
+    expect(page.locator("#ec-auth option:checked")).to_have_text("id_rsa")
+    page.locator("#ec-auth").select_option(label="id_ed25519_portkey")
+    page.get_by_role("button", name="Save", exact=True).click()
+    expect(page.get_by_role("dialog")).to_have_count(0)
+    patch = [c for c in calls(page) if c["method"] == "PATCH"][-1]
+    assert patch["body"] == {"key_fp": PK_FP}
+
+
+# Found in review: a connection whose key is missing from the list (file moved, list failed)
+# fell back to "Default key", and saving only Notes switched its key.
+def test_edit_keeps_a_key_missing_from_the_list(app: AppFactory) -> None:
+    page = app()
+    page.evaluate(FORGET_KEYS)
+    page.evaluate("window.__pkMock.failNext('/api/keys', 500, 'internal', 'down')")
+    edit(page, "imaging-01")
+    expect(page.locator("#ec-auth option:checked")).to_have_text("SHA256:9dTgV4…mE1s (key not found)")
+    page.locator("#ec-notes").fill("still on its own key")
+    page.get_by_role("button", name="Save", exact=True).click()
+    expect(page.get_by_role("dialog")).to_have_count(0)
+    patch = [c for c in calls(page) if c["method"] == "PATCH"][-1]
+    assert patch["body"] == {"notes": "still on its own key"}

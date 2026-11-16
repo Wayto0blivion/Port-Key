@@ -19,6 +19,7 @@ import { createFolderPicker, pickerValue } from '../ui/folderpicker.js';
 import { createTagField, commitTagField, TAG_HELP } from '../ui/tagfield.js';
 import { field, setFieldError, colorSwatches } from '../parts/fields.js';
 import { toast } from '../ui/toast.js';
+import { shortFp as shortFingerprint } from '../ui/fpstrip.js';
 
 /** @typedef {import('../types.js').Connection} Connection */
 /** @typedef {import('../types.js').ConnectionInput} ConnectionInput */
@@ -32,6 +33,16 @@ export function newConnectionDraft(partial = {}) {
     key_fp: null, jump_id: null, group_id: null, tags: [], color: 'grey', pinned: false, notes: '',
     sort_order: 0, created_at: '', updated_at: '', last_used_at: null, use_count: 0, ...partial,
   };
+}
+
+/**
+ * "key:SHA256:abc" -> ['key', 'SHA256:abc']; "password" -> ['password', '']. Splits on the first
+ * colon only: the fingerprint itself contains one.
+ * @param {string} value @returns {[string, string]}
+ */
+export function splitAuthValue(value) {
+  const at = value.indexOf(':');
+  return at < 0 ? [value, ''] : [value.slice(0, at), value.slice(at + 1)];
 }
 
 /** Ids that may not be this connection's jump host: itself and anything that reaches it. @param {Connection} self */
@@ -82,6 +93,12 @@ export async function openEditConnection(connection) {
   for (const k of state.keys) {
     if (k.hidden && k.fp !== connection.key_fp) continue;
     auth.appendChild(h('option', { value: `key:${k.fp}` }, k.hidden ? `${k.name} (hidden)` : k.name));
+  }
+  // The connection's own key may be missing from the list (file moved, list failed to load).
+  // Keep it selected under its fingerprint, so saving other fields never switches the key.
+  const ownKey = connection.auth_method === 'key' ? connection.key_fp : null;
+  if (ownKey && !state.keys.some((k) => k.fp === ownKey)) {
+    auth.appendChild(h('option', { value: `key:${ownKey}` }, `${shortFingerprint(ownKey)} (key not found)`));
   }
   auth.appendChild(h('option', { value: 'password' }, 'Password only'));
   auth.value = connection.auth_method === 'password' ? 'password' : `key:${connection.key_fp ?? ''}`;
@@ -141,7 +158,7 @@ export async function openEditConnection(connection) {
     const nameV = name.value.trim();
     if (!nameV) err(name, 'Enter a name for this connection.');
     if (!ok) return null;
-    const [method, fp] = auth.value.split(':');
+    const [method, fp] = splitAuthValue(auth.value);
     return {
       name: nameV, host: hostV, port: portV, username: userV,
       auth_method: method === 'password' ? 'password' : 'key',
