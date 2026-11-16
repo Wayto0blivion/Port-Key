@@ -198,8 +198,9 @@ same site. Instead:
 
 - One app password, set on first visit, hashed with scrypt.
 - Failed logins get per-client exponential backoff.
-- Login returns a bearer token valid for 30 days, sliding (each use extends it). Only the
-  SHA-256 hash of each token is stored, in SQLite, so sessions survive restarts.
+- Login returns a bearer token valid for 30 days, sliding (each use extends it), and never
+  longer than 90 days after it was issued. Only the SHA-256 hash of each token is stored, in
+  SQLite, so sessions survive restarts.
 - The password can be changed in Settings; changing it revokes all other tokens.
 
 **Response headers.**
@@ -253,7 +254,7 @@ One SQLite file, `/data/portkey.db`, WAL mode, migrations tracked by `PRAGMA use
 | `host_keys` | id, host, port, key_type, public_key (OpenSSH text), fp_sha256, first_seen_at, last_seen_at | Unique on (host, port, public_key). |
 | `dismissed_suggestions` | host, port, dismissed_at | known_hosts suggestions the owner dismissed. |
 | `app_auth` | scrypt salt and hash | One row. |
-| `tokens` | sha256(token), created_at, expires_at | 30-day sliding expiry. |
+| `tokens` | sha256(token), created_at, expires_at, last_used_at | 30-day sliding expiry, capped at created_at + 90 days. |
 | `settings` | key, value (JSON) | default_key_fp, default_user, passphrase_ttl, detach_grace, font size, copy/paste mode, leave warning. |
 | `events` | ts, kind, connection_id, detail | Small audit trail: host key accepted or replaced, key installed, session opened. Capped at 5,000 rows. |
 
@@ -337,7 +338,7 @@ Reachability is a TCP connect to the SSH port. Connections that use a jump are `
 
 | Method and path | Request | Response |
 |---|---|---|
-| `GET /api/hosts/suggestions` | - | `{suggestions:[{host, port, key_types, saved}], hashed_count}` |
+| `GET /api/hosts/suggestions` | - | `{suggestions:[{host, port, aliases, key_types}], hashed_count}`; saved and dismissed hosts left out |
 | `POST /api/hosts/suggestions/dismiss` | `{host, port}` | - |
 | `GET /api/hostkeys` | - | list of stored host keys |
 | `DELETE /api/hostkeys/{id}` | `{confirm_host}` | - |
@@ -570,17 +571,26 @@ Everything runs in containers, driven by `compose.dev.yaml`.
 ### Integration tests (sshd image)
 
 The test server is Ubuntu 24.04 with OpenSSH plus `libpam-google-authenticator`, using a fixed
-secret; tests compute codes with `oathtool`.
+secret; tests compute codes with `pyotp` (in the dev lock; `tests/fixtures/testbed.py` `Totp`).
+`sshd` also listens on port 2222 (non-default port tests). The test bed is described in
+`tests/fixtures/README.md`; `tests/fixtures/testbed.py` is the single source for servers, users,
+passwords, keys and fingerprints.
 
 | User | Setup |
 |---|---|
 | `pw` | Password only, via `Match User` |
 | `keyonly` | `PasswordAuthentication no`, key pre-seeded |
 | `fresh` | No `~/.ssh` |
-| `tfa` | Keyboard-interactive TOTP |
+| `tfa` | Keyboard-interactive in two rounds, `Password: ` (pam_unix) then `Verification code: ` (TOTP); `PasswordAuthentication` off; publickey alone allowed |
 | `fishy` | Login shell fish |
 | `badperms` | `~/.ssh` 0777, so StrictModes makes verification fail |
 | `nosh` | `/usr/sbin/nologin` |
+
+Test bed extras: `keyonly` has every fixture key pre-seeded except
+`port-key/id_ed25519_portkey` (the "unknown key"); `nosh` signs in but every command exits 1;
+each sshd keeps its state for the whole run, so a test that installs a key calls
+`reset_ssh_user(...)` afterwards. The fixture `known_hosts` trusts set A for `sshd`,
+`[sshd]:2222` and `sshd-inner` (hashed) and deliberately omits `sshd-rekeyed`.
 
 Host key sets A and B are committed as test-only fixtures; `sshd-rekeyed` uses set B. The
 changed-key test stores set A's record for `sshd-rekeyed` and expects 4409 when declined and a
@@ -620,9 +630,9 @@ Mounts, ACLs and networking are covered by the manual checklist in `docs/windows
 | 7 | Test infrastructure | `tests/sshd/`, fixtures, `evil-origin`, Playwright harness, `routes_diag.py` | 0 |
 | 8a | Frontend shell | `api.js`, `store.js`, and the login, connections (folder tree, tag chips), home (bulk bar), keys, suggestions, settings and diagnostics views | 0 |
 | 8b | Frontend terminal | `terminal/*`, `ws/protocol.js`, `ui/dialogs.js`, `ui/palette.js`, `views/wizard.js` (with its folder and tag fields), `views/sessions.js` | 5, 6, 8a |
+| 9 | End-to-end hardening | Playwright specs, `docs/windows-smoke.md` | all |
 
 File-by-file ownership, including tests, is in `docs/work-packages.md`.
-| 9 | End-to-end hardening | Playwright specs, `docs/windows-smoke.md` | all |
 
 Order: package 0 first and frozen. Then 1, 2, 3, 7 and 8a in parallel. Then 4. Then 5, 6 and 8b
 in parallel. Last, end-to-end hardening. `docs/ux-spec.md` feeds 8a, 8b and all prompt and

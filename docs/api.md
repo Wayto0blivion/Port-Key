@@ -42,8 +42,14 @@ Optional extras: `fields` (422 `validation`: `[{loc, msg, type}]`, never the inp
 | 415 | `unsupported_media_type` |
 | 421 | `host_not_allowed` |
 | 422 | `validation`, `jump_cycle`, `jump_too_deep`, `jump_unknown`, `group_unknown`, `group_too_deep`, `group_cycle`, `tag_invalid`, `key_unknown`, `key_name_invalid`, `key_unreadable`, `confirm_mismatch` |
-| 429 | `rate_limited` |
+| 429 | `rate_limited` (login and password change) |
 | 500 / 501 | `internal` / `not_implemented` (skeleton only) |
+
+`validation` covers every request body that fails its schema, malformed tags included: the
+schema checks the tag pattern before any repository runs, so a bad tag in a connection, bulk or
+tag-rename body is 422 `validation` with `fields`. `tag_invalid` is left for the repository's
+own checks: a bulk `add_tags` that would give a connection more than 32 tags, and direct
+callers such as the wizard.
 
 ## Health
 
@@ -57,11 +63,16 @@ Optional extras: `fields` (422 `validation`: `[{loc, msg, type}]`, never the inp
 | `POST /api/auth/setup {"password": "correct horse battery"}` | `200 {"token": "q3Jx...", "expires_at": "2026-12-15T14:02:00Z"}`; 409 `already_setup` |
 | `POST /api/auth/login {"password": "correct horse battery"}` | `200 {"token", "expires_at"}`; 401 `bad_password`; 429 `rate_limited` with `retry_after`; 409 `not_setup` |
 | `POST /api/auth/logout {}` | `204`; revokes this token |
-| `POST /api/auth/password {"old": "...", "new": "..."}` | `204`; revokes every other token; 401 `bad_password` |
+| `POST /api/auth/password {"old": "...", "new": "..."}` | `204`; revokes every other token; 401 `bad_password`; 429 `rate_limited` with `retry_after` |
 
 `setup` is true once an app password exists (false: show "Set a password for Port-Key").
 `authenticated` says whether the request's bearer token is valid. Passwords are 8 to 1024
-characters (`new`, `setup`). Tokens are valid 30 days, sliding.
+characters (`new`, `setup`). Tokens are valid 30 days, sliding (each use moves the expiry 30
+days ahead), and never longer than 90 days after they were issued, however often they are
+used; after that every call answers 401 `unauthorized` and the owner signs in again.
+`expires_at` is the expiry at issue (30 days). Wrong current passwords on a password change
+share one backoff, as failed logins do, so a stolen token cannot be used to guess the password.
+A 401 `bad_password` (wrong password on login or password change) is not a sign-out.
 
 ## Connections
 
@@ -81,11 +92,11 @@ Connection object:
 | Request | Response |
 |---|---|
 | `GET /api/connections` | `200 {"connections": [Connection, ...]}` ordered pinned first, then sort_order, then name |
-| `POST /api/connections` (below) | `201 Connection`; 409 `name_taken`; 422 `jump_*`, `group_unknown`, `tag_invalid`, `key_unknown` |
+| `POST /api/connections` (below) | `201 Connection`; 409 `name_taken`; 422 `jump_*`, `group_unknown`, `key_unknown`, `validation` (including malformed tags) |
 | `PATCH /api/connections/{id}` any subset of the create fields plus `sort_order` | `200 Connection`; same errors plus 404 |
 | `DELETE /api/connections/{id} {}` | `204`; 404; 409 `jump_in_use` with `dependants` |
 | `POST /api/connections/{id}/duplicate {}` | `201 Connection` named `web-prod (copy)`, then `(copy 2)`...; not pinned, no usage |
-| `POST /api/connections/bulk` (below) | `200 {"connections": [updated...]}`; atomic |
+| `POST /api/connections/bulk` (below) | `200 {"connections": [updated...]}`; atomic; 404; 422 `group_unknown`, `tag_invalid` (over 32 tags), `validation` |
 | `POST /api/connections/reachability {"ids": [...]}` | `200 {"results": [...]}` |
 
 Create body (defaults shown):
@@ -98,7 +109,9 @@ Create body (defaults shown):
 Rules: names 1-64 characters, unique ignoring case. `host` has no spaces, `@` or `/` (IPv6
 literals without brackets). `notes` up to 2000 characters. A jump chain is at most 3 hops
 before the target, without cycles (`jump_cycle`, `jump_too_deep`, `jump_unknown`). Tags: see
-"Tags"; at most 32 per connection; created on first use.
+"Tags"; at most 32 per connection; created on first use. `key_fp` must name a key that
+`GET /api/keys` lists and that is not hidden: a hidden key counts as unknown (422
+`key_unknown`).
 
 Bulk:
 
@@ -111,7 +124,8 @@ Omit `set_group_id` to leave folders alone; `null` moves to Ungrouped. 1-1000 id
 unknown id (404) or invalid value (422) changes nothing.
 
 Reachability is a TCP connect to each connection's SSH port (2 s timeout). Connections with a
-jump are `skipped`. Unknown ids are left out. At most 500 ids.
+jump are `skipped`. Unknown ids are left out. At most 500 ids. `ms` is present only when
+`state` is `up`; `down` and `skipped` results leave it out (not `null`).
 
 ```json
 {"results": [{"id": "0b6f3c1e-...", "state": "up", "ms": 3}, {"id": "9e8d7c6b-...", "state": "down"},
@@ -138,8 +152,8 @@ uses it.
 | Request | Response |
 |---|---|
 | `GET /api/tags` | `200 {"tags": [{"name": "prod", "count": 6}, {"name": "web", "count": 2}]}` most used first |
-| `PATCH /api/tags/prod {"name": "production"}` | `200 {"name": "production", "count": 6}`; merges into an existing tag of that name; 404; 422 `tag_invalid` |
-| `DELETE /api/tags/prod {}` | `204`; removed from every connection |
+| `PATCH /api/tags/prod {"name": "production"}` | `200 {"name": "production", "count": 6}`; merges into an existing tag of that name; 404 `not_found` when no connection uses `prod`; 422 `validation` for a malformed new name |
+| `DELETE /api/tags/prod {}` | `204`; removed from every connection; 404 `not_found` when no connection uses it |
 
 ## Keys
 
@@ -159,7 +173,7 @@ Key object (`path` is the Windows path):
 | `GET /api/keys/{key_id}/public` | `200 text/plain` `ssh-ed25519 AAAA... john@WORKPC\n`; 404 `key_unknown` |
 | `GET /api/keys/name-check?name=id_ed25519_portkey` | `200 {"name": "id_ed25519_portkey", "available": false, "reason": "taken"}` (`reason`: `taken`, `invalid`, null) |
 | `POST /api/keys/generate` (below) | `201 Key` (`source: "generated"`); 409 `key_name_taken`; 422 `key_name_invalid` |
-| `PATCH /api/keys/{key_id} {"label"?, "hidden"?, "reassign"?}` | `200 Key`; 409 `key_in_use` with `dependants` when hiding a used key without `reassign` |
+| `PATCH /api/keys/{key_id} {"label"?, "hidden"?, "reassign"?}` | `200 Key`; 409 `key_in_use` with `dependants` when hiding a used key without `reassign`; 422 `key_unknown` when `reassign.key_fp` is hidden or not listed. One transaction: on any error nothing changes, the label included |
 | `POST /api/keys/{key_id}/unlock {"passphrase": "...", "remember": true}` | `204`; 400 `bad_passphrase`; 409 `key_not_encrypted` |
 | `POST /api/keys/lock {}` | `204`; drops every unlocked key |
 
@@ -179,7 +193,7 @@ was the default key the default is cleared. Unlock `remember: true` holds the ke
 
 | Request | Response |
 |---|---|
-| `GET /api/hosts/suggestions` | `200 {"suggestions": [{"host": "parser-vm", "port": 22, "aliases": ["192.168.10.27"], "key_types": ["ssh-ed25519"], "saved": false}], "hashed_count": 6}`; dismissed ones left out |
+| `GET /api/hosts/suggestions` | `200 {"suggestions": [{"host": "parser-vm", "port": 22, "aliases": ["192.168.10.27"], "key_types": ["ssh-ed25519"]}], "hashed_count": 6}`; dismissed hosts and hosts a saved connection already uses (by host or alias, same port) are left out |
 | `POST /api/hosts/suggestions/dismiss {"host": "parser-vm", "port": 22}` | `204` |
 | `POST /api/hosts/suggestions/restore {"host": "parser-vm", "port": 22}` | `204` (Undo) |
 | `GET /api/hostkeys` | `200 {"host_keys": [{"id": 7, "host": "192.168.10.42", "port": 22, "key_type": "ssh-ed25519", "fp_sha256": "SHA256:pZ8m...", "public_key": "ssh-ed25519 AAAA...", "first_seen_at": "2026-03-02T10:00:00Z", "last_seen_at": "2026-11-15T14:02:00Z"}]}` |
@@ -206,8 +220,8 @@ Only host keys trusted in Port-Key are listed; the owner's `known_hosts` is neve
 
 `GET /api/settings` -> `200` the above. `PATCH /api/settings` with any subset (not `about`) ->
 `200` the above. Limits: `passphrase_ttl` 60-604800 s, `detach_grace` 60-86400 s, `font_size`
-8-32, `default_user` without spaces. `default_key_fp` must name a known key (422
-`key_unknown`); `null` falls back to id_ed25519, id_ecdsa, id_rsa, then name order.
+8-32, `default_user` without spaces. `default_key_fp` must name a known key that is not
+hidden (422 `key_unknown`); `null` falls back to id_ed25519, id_ecdsa, id_rsa, then name order.
 
 ## Diagnostics
 
@@ -259,3 +273,11 @@ Where `docs/architecture.md` was silent or ambiguous, package 0 decided:
 11. `GET /api/health` (no auth) exists for the container healthcheck; it still needs an allowed
     Host header. `GET /api/openapi.json` is served; the docs UIs are not.
 12. Unknown ids in reachability are left out of `results`.
+
+Decided at the phase A integration (2026-11-16):
+
+13. Malformed tags in a request body are 422 `validation` (schema), not `tag_invalid`.
+14. Suggestions no longer carry `saved`: the server leaves saved hosts out, so it was always
+    false.
+15. Tokens have an absolute lifetime of 90 days on top of the 30-day sliding expiry.
+16. Hiding a key with `reassign` is one database transaction, label change included.
