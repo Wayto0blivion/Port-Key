@@ -1,0 +1,6 @@
+/*
+ * dialogs.css — owner: package 8a (frontend shell).
+ * The modal primitive from ui/modal.js (backdrop, 10px radius, header/body/footer, buttons,
+ * form fields, danger variant) and 8a's dialogs: edit connection (folder picker, tags token
+ * field), generate key, hide key, forget host key, change password. Tokens only.
+ */

@@ -1,0 +1,7 @@
+/*
+ * prompts.css — owner: package 8b (frontend terminal).
+ * Connection-time dialogs from ui/dialogs.js: host key first seen and changed (side-by-side
+ * fingerprints with strips, typed-name field), passphrase, password and keyboard-interactive
+ * prompts, multi-line paste guard, close-all confirmation, and the quick-connect palette.
+ * Builds on the modal primitive in dialogs.css. Tokens only.
+ */

@@ -1,0 +1,7 @@
+/*
+ * terminal.css — owner: package 8b (frontend terminal).
+ * Session bar (colour chip, user@name, host:port, "via build-box", key name in brass, uptime,
+ * Find / Copy ssh command / A− A+ / Disconnect), the 2px colour frame, connecting overlay with
+ * live checklist, reattaching state, disconnected bar, auth-failed panel, find bar, session
+ * tab dots (pulsing amber, green, grey ring) and activity dot. Tokens only.
+ */

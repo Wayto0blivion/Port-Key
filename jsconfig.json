@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "@xterm/xterm": ["portkey/static/vendor/xterm/xterm.d.ts"],
+      "@xterm/addon-fit": ["portkey/static/vendor/xterm/addon-fit.d.ts"],
+      "@xterm/addon-search": ["portkey/static/vendor/xterm/addon-search.d.ts"]
+    }
+  },
+  "include": ["portkey/static/js/**/*.js", "portkey/static/js/**/*.d.ts"]
+}

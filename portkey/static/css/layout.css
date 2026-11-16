@@ -1,0 +1,10 @@
+/*
+ * layout.css — owner: package 8a (frontend shell).
+ * App shell: top bar (wordmark with brass key, quick-connect field, unlocked-keys indicator,
+ * Keys/Settings buttons), resizable sidebar (filter field, tag chip row, folder tree with 12px
+ * indent per level, Pinned at the top, Ungrouped at the bottom, suggestions, Add connection),
+ * the main pane and generic tab strip, Home (recent cards, all-connections table with Folder
+ * and Tags columns, row checkboxes, bulk bar), Keys, Settings, Diagnostics, toasts, menus.
+ * Narrow window: below 900px the sidebar becomes a drawer; below 600px dialogs go full width.
+ * Tokens only (css/base.css); no literal colours.
+ */

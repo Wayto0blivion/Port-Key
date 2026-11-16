@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Port-Key</title>
+<!-- Shell (package 0). No inline scripts or styles: the CSP forbids them. -->
+<link rel="stylesheet" href="vendor/xterm/xterm.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/terminal.css">
+<link rel="stylesheet" href="css/dialogs.css">
+<link rel="stylesheet" href="css/prompts.css">
+<link rel="stylesheet" href="css/wizard.css">
+<!-- xterm builds are UMD: they define window.Terminal, window.FitAddon, window.SearchAddon. -->
+<script src="vendor/xterm/xterm.js" defer></script>
+<script src="vendor/xterm/addon-fit.js" defer></script>
+<script src="vendor/xterm/addon-search.js" defer></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<div id="app" aria-live="polite"></div>
+<div id="dialogs"></div>
+<div id="toasts" role="status" aria-live="polite"></div>
+<noscript>Port-Key needs JavaScript.</noscript>
+</body>
+</html>

@@ -1,0 +1,169 @@
+/*
+ * base.css — design tokens and element defaults (package 0, frozen tokens).
+ *
+ * Every colour in the app is a custom property defined here, so a light theme later is one
+ * more :root block. Values come from docs/ux-spec.md section 5 and docs/design/*.dc.html.
+ * Other stylesheets use only these tokens; ask the package-0 owner to add one.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg: #0d1117;               /* page, inputs */
+  --panel: #161b22;            /* top bar, sidebar, dialogs */
+  --panel-2: #1c2129;          /* selected rows */
+  --button-bg: #21262d;        /* secondary buttons, row separators */
+  --term-bg: #010409;          /* terminal and dialog backdrops */
+  --overlay: rgba(1, 4, 9, 0.72);
+
+  /* Lines */
+  --border: #30363d;
+  --border-strong: #484f58;    /* "pw" glyph outline */
+
+  /* Text */
+  --text: #c9d1d9;
+  --text-strong: #e6edf3;      /* names, headings */
+  --muted: #8b949e;
+  --subtle: #6e7681;           /* not-checked rings, disabled */
+  --on-accent: #ffffff;
+
+  /* Interaction */
+  --accent: #2f81f7;
+  --accent-fill: #1f6feb;      /* primary buttons */
+  --link: #58a6ff;
+  --link-hover: #79c0ff;
+  --focus-ring: #58a6ff;
+
+  /* Status */
+  --brass: #e3b341;            /* key-related things only */
+  --green: #3fb950;            /* connected, reachable, done */
+  --red: #f85149;              /* danger */
+  --red-text: #ff7b72;
+  --amber: #d29922;            /* connecting, warnings */
+
+  /* Colour labels (connection safety signal) */
+  --label-red: #f85149;
+  --label-amber: #d29922;
+  --label-green: #3fb950;
+  --label-blue: #2f81f7;
+  --label-purple: #a371f7;
+  --label-grey: #8b949e;
+
+  /* Fingerprint strip palette (ui/fpstrip.js picks by index 0-7) */
+  --fp-0: #f78166;
+  --fp-1: #58a6ff;
+  --fp-2: #e3b341;
+  --fp-3: #3fb950;
+  --fp-4: #a371f7;
+  --fp-5: #f85149;
+  --fp-6: #79c0ff;
+  --fp-7: #d29922;
+
+  /* Type */
+  --font-ui: system-ui, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-term: "Cascadia Mono", ui-monospace, Consolas, monospace;
+  --fs-xs: 10px;
+  --fs-sm: 11px;
+  --fs-md: 12px;
+  --fs-base: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 16px;
+  --fs-2xl: 18px;
+  --fs-3xl: 20px;
+  --line: 1.45;
+  --term-font-size: 14px;
+
+  /* Spacing (multiples seen in the mockups) */
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 8px;
+  --sp-5: 10px;
+  --sp-6: 12px;
+  --sp-7: 16px;
+  --sp-8: 20px;
+  --sp-9: 24px;
+
+  /* Shape and size */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-dialog: 10px;
+  --topbar-h: 48px;
+  --row-h: 44px;
+  --tab-h: 32px;
+  --control-h: 32px;
+  --button-h: 34px;
+  --input-h: 38px;
+  --sidebar-w: 280px;
+  --sidebar-min: 200px;
+  --sidebar-max: 420px;
+  --tree-indent: 12px;
+  --dialog-w: 560px;
+  --dialog-sm-w: 460px;
+  --label-stripe: 3px;
+  --term-frame: 2px;
+  --dot: 8px;
+  --shadow-menu: 0 8px 24px rgba(1, 4, 9, 0.6);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  line-height: var(--line);
+}
+
+a {
+  color: var(--link);
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+code,
+kbd,
+.mono {
+  font-family: var(--font-mono);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
