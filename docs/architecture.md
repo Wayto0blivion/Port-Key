@@ -582,8 +582,12 @@ All colours are CSS custom properties in `base.css`. v1 ships a dark theme only.
 
 ### Repo root
 
-`Dockerfile`, `compose.yaml` (for Windows), `compose.dev.yaml`, `Makefile` (wraps
-`docker compose run`), `scripts/vendor-xterm.sh` (runs in a container, checks sha256), and
+`Dockerfile`, `compose.yaml` (for Windows: runs the released image
+`ghcr.io/wayto0blivion/port-key`, the one file a user downloads), `compose.build.yaml` (override
+that builds that image from the tree as `portkey:local`), `compose.dev.yaml`, `Makefile` (wraps
+`docker compose run`), `scripts/vendor-xterm.sh` (runs in a container, checks sha256),
+`.github/workflows/release.yml` with `scripts/release-*.sh` (a `vX.Y.Z` tag builds, smoke-tests
+and pushes the image and creates the GitHub release; see `CONTRIBUTING.md`), `CHANGELOG.md`, and
 `docs/{api.md, ws-protocol.md, windows-smoke.md}`.
 
 ## 10. Tests

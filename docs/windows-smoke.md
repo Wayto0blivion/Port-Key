@@ -9,8 +9,17 @@ Go through it once after the first install, and again after an update that touch
 networking. Tick each box; when one fails, stop and send what "What to send back" lists. Allow
 about 30 minutes.
 
-Commands are for PowerShell, run in the `Port-Key` folder. `<you>` is your Windows user name,
-`<host>` and `<user>` a server of yours.
+Commands are for PowerShell, run in the `Port-Key` folder that holds `compose.yaml`. `<you>` is
+your Windows user name, `<host>` and `<user>` a server of yours.
+
+## Verified so far
+
+On 2026-11-17 the owner went through this on the Windows PC (Docker Desktop, WSL2) and
+confirmed: the first start (step 1), the `.ssh` folder mounted and read (step 3), the
+`port-key` folder created and writable (steps 1 and 3), a suggestion from `known_hosts`
+(step 3), and a terminal session (step 4). Not tested yet: hosts reached over
+Tailscale or another VPN (step 5). That run used an image built from the source tree; the
+download path below (the released image) is what to check next.
 
 ## 0. Before you start
 
@@ -23,12 +32,23 @@ Commands are for PowerShell, run in the `Port-Key` folder. `<you>` is your Windo
 
 ## 1. First start
 
+In an empty `Port-Key` folder, download `compose.yaml` from the latest release and start it
+(README.md, "Run it on Windows"):
+
 ```powershell
-docker compose up -d --build
+Invoke-WebRequest https://github.com/Wayto0blivion/Port-Key/releases/latest/download/compose.yaml -OutFile compose.yaml
+docker compose up -d
 docker compose ps
 ```
 
+(Built from source instead: `docker compose -f compose.yaml -f compose.build.yaml up -d
+--build` in the clone; README.md, "Build from source".)
+
+- [ ] `docker compose up -d` downloads `ghcr.io/wayto0blivion/port-key` without asking you to
+      sign in (`docker login` is not needed).
 - [ ] `docker compose ps` shows `portkey` as `running (healthy)` within a minute.
+- [ ] `docker image inspect ghcr.io/wayto0blivion/port-key:latest --format '{{json .Config.Labels}}'`
+      shows `"org.opencontainers.image.version":"0.1.0"` (the release's version).
 - [ ] `docker compose logs portkey` shows `Uvicorn running on http://0.0.0.0:8000` (the port
       inside the container; Docker publishes it as 8822) and no `Traceback`.
 - [ ] The same log shows one block between two lines of `=` with `Setup code:` and a code like
@@ -137,6 +157,9 @@ If you have none, add one (as administrator) to `C:\Windows\System32\drivers\etc
 ## 9. Restart and update
 
 - [ ] `docker compose restart`: you stay signed in; connections and trusted host keys are kept.
+- [ ] `docker compose pull`, then `docker compose up -d`: it says the image is up to date (or
+      downloads a newer one and recreates `portkey`); you stay signed in and everything is
+      kept. Settings > About shows the version you expect.
 - [ ] Settings > Change password works, and the old password no longer signs in.
 - [ ] Optional: `docker compose exec portkey python -m portkey.reset_password --yes`, then
       reload the page: it asks to set a password again and says Port-Key needs a restart for a

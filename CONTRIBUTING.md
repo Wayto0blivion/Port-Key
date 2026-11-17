@@ -56,6 +56,25 @@ Run `./mk check` and, if you touched JavaScript, CSS or `index.html`, `./mk lint
 anything a user can see end to end needs `./mk e2e`. Finish with `./mk clean` for every
 project name you used.
 
+## Cutting a release
+
+1. Bump the version in `pyproject.toml` and the same version in `portkey/__init__.py` (what
+   the app reports; `tests/unit/skeleton/test_release.py` fails when they differ).
+2. Add a `## [X.Y.Z] - <date>` section to `CHANGELOG.md`, written for users: what changed,
+   and whether `compose.yaml` changed (users only download it again when it did).
+3. Run the checks above, commit, and merge to `main`.
+4. Tag that commit on `main` and push the tag: `git tag vX.Y.Z`, then
+   `git push origin vX.Y.Z`.
+
+`.github/workflows/release.yml` does the rest: it refuses a tag that is not `v` + the
+`pyproject.toml` version (or a version without a CHANGELOG section), builds the image for
+linux/amd64 and linux/arm64, smoke-tests the amd64 image read-only with every capability
+dropped, pushes `ghcr.io/wayto0blivion/port-key` as `X.Y.Z`, `X.Y` and `latest`, and creates the
+GitHub release with the CHANGELOG section as its notes and `compose.yaml` attached. The checks
+it runs are scripts you can run first in a container: `scripts/release-check.sh vX.Y.Z` and
+`scripts/release-notes.sh X.Y.Z` (both need python3 or awk only), and
+`scripts/release-smoke.sh <image> <version>` (needs the docker CLI).
+
 ## Conventions
 
 - No file over about 400 lines; split a module into private modules in its own package.
