@@ -9,23 +9,32 @@ your own Windows PC and listens on that PC only.
 What v1 does: terminal sessions as tabs that survive a page reload for 15 minutes, jump hosts,
 host key checks (first-seen confirmation, changed keys replaced only by typing the name),
 passphrase-protected keys held unlocked in memory, key generation, suggestions from your
-`known_hosts`, a quick-connect palette (Ctrl+Shift+K), and a Diagnostics tab.
+`known_hosts`, a quick-connect palette (Ctrl+Shift+K), and a Diagnostics tab. What changed in
+each release, and the known limitations: `CHANGELOG.md`.
 
 Design: `docs/PLAN.md`, `docs/architecture.md`, `docs/ux-spec.md`. Wire contracts:
 `docs/api.md`, `docs/ws-protocol.md`. First start on the PC: `docs/windows-smoke.md`.
 
 ## Run it on Windows (Docker Desktop)
 
-Requirements: Docker Desktop with the WSL2 backend, and Git for Windows (the update below uses
-`git pull`). An SSH key in `%USERPROFILE%\.ssh` helps (Port-Key can generate one if you have
-none); if you have no `.ssh` folder at all, create it first with `mkdir "$env:USERPROFILE\.ssh"`.
+Requirements: Docker Desktop with the WSL2 backend. An SSH key in `%USERPROFILE%\.ssh` helps
+(Port-Key can generate one if you have none); if you have no `.ssh` folder at all, create it
+first with `mkdir "$env:USERPROFILE\.ssh"`.
+
+Port-Key is a ready-built image, `ghcr.io/wayto0blivion/port-key`, and one file, `compose.yaml`,
+that tells Docker how to run it. Download that file from the latest release into an empty
+folder and start it (PowerShell):
 
 ```powershell
-git clone https://github.com/Wayto0blivion/Port-Key.git
+mkdir Port-Key
 cd Port-Key
-docker compose up -d --build
+Invoke-WebRequest https://github.com/Wayto0blivion/Port-Key/releases/latest/download/compose.yaml -OutFile compose.yaml
+docker compose up -d
 docker compose logs portkey
 ```
+
+(Or download `compose.yaml` from the release page in the browser and save it in the folder.)
+The first `docker compose up -d` downloads the image.
 
 The log shows a one-time **setup code** in a framed block, such as `Setup code:   K7QM-3XRP-W9TD`.
 Open <http://localhost:8822>, type that code in the "Setup code" field (any case, dashes
@@ -35,6 +44,8 @@ another program on the PC from setting the password before you do. Use `localhos
 `127.0.0.1`) exactly: Port-Key refuses any other host name, so a web page cannot reach it under
 a name of its own.
 
+The PowerShell commands below all run in that folder (the one with `compose.yaml`).
+
 - `%USERPROFILE%\.ssh` is mounted read-only: Port-Key never changes or deletes your files.
 - Keys generated in Port-Key are saved to `%USERPROFILE%\.ssh\port-key` (Docker creates the
   folder on first start), so Windows `ssh -i ~\.ssh\port-key\<name> user@host` (PowerShell) can use them too.
@@ -43,9 +54,8 @@ a name of its own.
   folder. Back it up: see "Back up and restore" below.
 - Another `.ssh` folder: create a file named `.env` next to `compose.yaml` with the line
   `PORTKEY_SSH_DIR=D:\keys\.ssh`, then `docker compose up -d`. Compose reads `.env` on every
-  run (git ignores it), so the setting survives updates and new PowerShell windows; a
-  `$env:PORTKEY_SSH_DIR` set in one window does not, and the next update would mount
-  `%USERPROFILE%\.ssh` again.
+  run, so the setting survives updates and new PowerShell windows; a `$env:PORTKEY_SSH_DIR`
+  set in one window does not, and the next update would mount `%USERPROFILE%\.ssh` again.
 - Host names that only exist in the Windows hosts file may not resolve inside the container.
   Diagnostics > "Check a host" shows what the container sees; add missing names under
   `extra_hosts:` in `compose.yaml`, or save the connection with its IP address.
@@ -53,13 +63,29 @@ a name of its own.
 ### Update
 
 ```powershell
-cd Port-Key
-git pull
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-Saved connections, trusted host keys and settings stay in the `portkey_portkey-data` volume.
-Open terminal sessions end when the container restarts; open them again from the sidebar.
+`pull` downloads the newest image; `up -d` restarts Port-Key on it (if there was nothing new,
+nothing restarts). Saved connections, trusted host keys and settings stay in the
+`portkey_portkey-data` volume. Open terminal sessions end when the container restarts; open
+them again from the sidebar. The release notes say when a release also changes
+`compose.yaml`; only then download it again (and redo any `extra_hosts:` lines you added).
+
+### Stay on one version
+
+By default `compose.yaml` runs the newest release (the image tag `latest`). To stay on one,
+add a line to `.env` next to `compose.yaml` (create the file if you have none):
+
+```
+PORTKEY_VERSION=0.1.0
+```
+
+then `docker compose pull` and `docker compose up -d`. `PORTKEY_VERSION=0.1` follows the
+bug-fix releases of 0.1 only. Delete the line to go back to the newest. Back up before you
+move to an older version: once a newer Port-Key has upgraded the database, an older one refuses
+to start on it (restore the backup you made before the update instead).
 
 ### Back up and restore
 
@@ -69,25 +95,26 @@ not in it; they stay in `.ssh`. A Docker Desktop reset, a WSL reset or `docker c
 deletes the volume, so keep a backup. Stop Port-Key first: SQLite keeps recent changes in a
 side file while it runs.
 
-Back up to `portkey-data.tgz` in the current folder (PowerShell, in the `Port-Key` folder):
+Back up to `portkey-data.tgz` in the current folder:
 
 ```powershell
 docker compose stop portkey
-docker run --rm --entrypoint tar -v portkey_portkey-data:/data:ro -v "${PWD}:/backup" portkey:local czf /backup/portkey-data.tgz -C /data .
+docker compose run --rm --no-deps --entrypoint tar -v "${PWD}:/backup" portkey czf /backup/portkey-data.tgz -C /data .
 docker compose start portkey
 ```
 
-Restore it (this replaces what the volume holds now):
+Restore it (this replaces what the volume holds now; it also works on a new PC before the
+first start):
 
 ```powershell
 docker compose stop portkey
-docker run --rm --entrypoint sh -v portkey_portkey-data:/data -v "${PWD}:/backup" portkey:local -c "rm -f /data/portkey.db /data/portkey.db-wal /data/portkey.db-shm && tar xzf /backup/portkey-data.tgz -C /data"
-docker compose start portkey
+docker compose run --rm --no-deps --entrypoint sh -v "${PWD}:/backup" portkey -c "rm -f /data/portkey.db /data/portkey.db-wal /data/portkey.db-shm && tar xzf /backup/portkey-data.tgz -C /data"
+docker compose up -d
 ```
 
-Both use the Port-Key image itself, so nothing else is downloaded. After a restore, browsers
-that were signed in stay signed in only if their token is in the backup; otherwise sign in
-again.
+Both run a one-off container of the `portkey` service, with the same image and volume, so
+nothing else is downloaded. After a restore, browsers that were signed in stay signed in only
+if their token is in the backup; otherwise sign in again.
 
 ### Stop
 
@@ -116,6 +143,34 @@ passwords, passphrases, tokens or terminal contents (only the setup code, until 
 set). To report a problem, open an issue on GitHub with what the "What to send back" section
 of `docs/windows-smoke.md` lists (never a private key or the contents of your `.ssh` folder).
 
+## Build from source
+
+Instead of downloading the image you can build it from this repository; you need Git for
+Windows as well. `compose.build.yaml` adds the build to `compose.yaml` and tags the result
+`portkey:local`, so it is never mistaken for a downloaded release:
+
+```powershell
+git clone https://github.com/Wayto0blivion/Port-Key.git
+cd Port-Key
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
+docker compose logs portkey
+```
+
+To make the other PowerShell commands in this README work unchanged in the clone (backup and restore
+included, which otherwise would download the release image), create a `.env` file in the
+`Port-Key` folder with these two lines (git ignores `.env`):
+
+```
+COMPOSE_PATH_SEPARATOR=;
+COMPOSE_FILE=compose.yaml;compose.build.yaml
+```
+
+Update with `git pull`, then `docker compose up -d --build` (with that `.env`; otherwise give
+both `-f` options again). `docker compose pull` does not apply here, and `PORTKEY_VERSION` has
+no effect: check out a tag instead (`git checkout v0.1.0`). The clone and a downloaded
+`compose.yaml` share the project name `portkey` and the `portkey_portkey-data` volume, so moving
+from one to the other keeps your data; run only one of them at a time.
+
 ## Develop and run checks (Linux dev box)
 
 Everything runs in containers; nothing is installed on the host. If the box has no `make`, use
@@ -133,11 +188,12 @@ Everything runs in containers; nothing is installed on the host. If the box has 
 
 `P` is the compose project name; pick your own so parallel runs do not collide. The source is
 bind-mounted into the dev containers, so code changes need no rebuild; `./mk e2e` builds the app
-image from the tree. In e2e the browser opens `http://localhost:8822` as on the PC (Chromium maps
-`localhost` to the app container), and the specs read the setup code from the app container's
-log (`tests/e2e/harness/app_log.py`). Screenshots of the real app: see `tests/e2e/screens.py`.
-Dependencies are hash-locked: change `pyproject.toml`, then `./mk lock` and `./mk build`.
-Narrower runs, conventions and what to run before a pull request: `CONTRIBUTING.md`.
+image from the tree (`portkey:local`, as `compose.build.yaml` does). In e2e the browser opens
+`http://localhost:8822` as on the PC (Chromium maps `localhost` to the app container), and the
+specs read the setup code from the app container's log (`tests/e2e/harness/app_log.py`).
+Screenshots of the real app: see `tests/e2e/screens.py`. Dependencies are hash-locked: change
+`pyproject.toml`, then `./mk lock` and `./mk build`. Narrower runs, conventions, what to run
+before a pull request and how a release is cut: `CONTRIBUTING.md`.
 
 ## Licence
 

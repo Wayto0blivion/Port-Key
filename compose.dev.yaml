@@ -116,6 +116,8 @@ services:
   # It runs with the PC's own Host/Origin allowlist (localhost:8822 and friends) and listens on
   # 8822, so the e2e browser opens http://localhost:8822 exactly as the owner's browser does
   # (a secure context, the real ws:// origin) with "localhost" mapped to this container.
+  # It is built from the tree as portkey:local, the same image compose.build.yaml builds: the
+  # owner's compose.yaml pulls the released image instead, which these tests never touch.
   app:
     profiles: ["e2e"]
     build:

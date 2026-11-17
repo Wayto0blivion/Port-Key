@@ -1,0 +1,20 @@
+# Build Port-Key from this source tree instead of downloading the release image. An override
+# for compose.yaml, run from the repository root:
+#
+#   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+#
+# Or put these two lines in .env next to compose.yaml, and every plain `docker compose` command
+# (up, logs, exec, run, the backup and restore in README.md) uses both files, on any OS:
+#
+#   COMPOSE_PATH_SEPARATOR=;
+#   COMPOSE_FILE=compose.yaml;compose.build.yaml
+#
+# The build is tagged portkey:local, never ghcr.io/wayto0blivion/port-key, so it cannot pass for
+# a downloaded release (its version label reads "dev"), and `docker compose pull` cannot replace
+# it: update with `git pull`, then `up -d --build`.
+services:
+  portkey:
+    build:
+      context: .
+      target: runtime
+    image: portkey:local

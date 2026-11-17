@@ -1,23 +1,29 @@
-# Port-Key on Windows (Docker Desktop, WSL2 backend).
+# Port-Key: a browser-based SSH connection manager, for Docker Desktop on Windows (WSL2 backend).
+# This file is all you need. Put it in an empty folder, open PowerShell there and run:
 #
-#   docker compose up -d        then open http://localhost:8822
+#   docker compose up -d            downloads the image and starts Port-Key
+#   docker compose logs portkey     shows the one-time setup code for the first visit
+#
+# then open http://localhost:8822 (only this PC can reach it). Update: `docker compose pull`,
+# then `docker compose up -d`. Help: https://github.com/Wayto0blivion/Port-Key
 #
 # Mounts:
 #   %USERPROFILE%\.ssh            -> /ssh             read-only; Port-Key never edits your files
-#   %USERPROFILE%\.ssh\port-key   -> /keys-generated  keys generated in Port-Key (create-only)
+#   %USERPROFILE%\.ssh\port-key   -> /keys-generated  keys generated in Port-Key (create-only); Docker
+#                                                     makes the folder on first start
 #   named volume portkey-data     -> /data            SQLite database (never on a Windows bind mount);
 #                                                     Docker names it portkey_portkey-data
 #
-# To use a different .ssh folder, put PORTKEY_SSH_DIR=D:\keys\.ssh in a .env file next to this
-# file (compose reads it on every run). Backup and restore: README.md.
+# Settings go in a file named .env next to this one (compose reads it on every run):
+#   PORTKEY_VERSION=0.1.0           stay on one release instead of the newest (default: latest)
+#   PORTKEY_SSH_DIR=D:\keys\.ssh    use a different .ssh folder
+#
+# Building from source instead of downloading the image: compose.build.yaml in the repository.
 name: portkey
 
 services:
   portkey:
-    build:
-      context: .
-      target: runtime
-    image: portkey:local
+    image: ghcr.io/wayto0blivion/port-key:${PORTKEY_VERSION:-latest}
     restart: unless-stopped
     ports:
       - "127.0.0.1:8822:8000"

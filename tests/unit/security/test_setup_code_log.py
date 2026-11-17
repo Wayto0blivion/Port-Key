@@ -174,8 +174,9 @@ async def test_other_log_lines_scrub_the_code_as_a_backstop(
         assert not [v for v in forms(code) if v in record.getMessage()]
 
 
-def test_the_compose_service_name_matches_messages_and_the_form() -> None:
-    compose = (REPO / "compose.yaml").read_text()
+@pytest.mark.parametrize("file", ["compose.yaml", "compose.build.yaml"])
+def test_the_compose_service_name_matches_messages_and_the_form(file: str) -> None:
+    compose = (REPO / file).read_text()
     services = compose.split("\nservices:\n", 1)[1].split("\n\n", 1)[0]
     names = re.findall(r"^  ([A-Za-z0-9_.-]+):$", services, re.MULTILINE)
     assert names == [sc.COMPOSE_SERVICE]
