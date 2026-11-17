@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 #
 # Port-Key images.
-#   runtime  the app as it runs on the Windows PC (default target, used by compose.yaml)
+#   runtime  the app as it runs on the Windows PC (default target). Released as
+#            ghcr.io/wayto0blivion/port-key by .github/workflows/release.yml, which compose.yaml
+#            pulls; compose.build.yaml and compose.dev.yaml build it locally as portkey:local.
 #   dev      runtime dependencies plus test, lint and type-check tools (compose.dev.yaml);
 #            the source is bind-mounted at /src, so code changes need no rebuild.
 
@@ -64,4 +66,15 @@ VOLUME ["/data"]
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["python", "-m", "portkey.healthcheck"]
+# Standard OCI labels. The release workflow passes VERSION (pyproject.toml's version) and
+# REVISION (the tagged commit); a local build keeps the defaults, so it never claims to be a
+# release. Declared last so a new commit does not invalidate the layers above.
+ARG VERSION=dev
+ARG REVISION=unknown
+LABEL org.opencontainers.image.source="https://github.com/Wayto0blivion/Port-Key" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="Port-Key" \
+      org.opencontainers.image.description="Browser-based SSH connection manager for one person" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"
 CMD ["python", "-m", "portkey"]

@@ -1,0 +1,144 @@
+# Release Port-Key: push a tag vX.Y.Z (CONTRIBUTING.md, "Cutting a release").
+#
+#   1. version  the tag must be "v" + pyproject.toml's version (scripts/release-check.sh)
+#   2. image    build linux/amd64 and linux/arm64; smoke-test the amd64 image read-only with
+#               every capability dropped (scripts/release-smoke.sh); only then push
+#               ghcr.io/wayto0blivion/port-key:X.Y.Z, :X.Y and :latest
+#   3. release  the GitHub release for the tag: notes from CHANGELOG.md, compose.yaml attached
+#
+# Each job gets only the permissions it needs; the only credential is the workflow's
+# GITHUB_TOKEN. Third-party actions are pinned to commits (the version is in the comment).
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/wayto0blivion/port-key
+
+jobs:
+  version:
+    name: Check the tag against the version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      minor: ${{ steps.check.outputs.minor }}
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare the tag with pyproject.toml, portkey/__init__.py and CHANGELOG.md
+        id: check
+        env:
+          TAG: ${{ github.ref_name }}
+        run: scripts/release-check.sh "$TAG"
+
+  image:
+    name: Build, smoke-test and push the image
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up QEMU for arm64
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the amd64 image for the smoke test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runtime
+          platforms: linux/amd64
+          build-args: |
+            VERSION=${{ needs.version.outputs.version }}
+            REVISION=${{ github.sha }}
+          tags: portkey:smoke
+          load: true
+          push: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke-test it read-only with all capabilities dropped
+        run: scripts/release-smoke.sh portkey:smoke "$VERSION"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The amd64 half comes from the cache the smoke-test build just filled.
+      - name: Build amd64 and arm64 and push the three tags
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runtime
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ needs.version.outputs.version }}
+            REVISION=${{ github.sha }}
+          tags: |
+            ${{ env.IMAGE }}:${{ needs.version.outputs.version }}
+            ${{ env.IMAGE }}:${{ needs.version.outputs.minor }}
+            ${{ env.IMAGE }}:latest
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: Create the GitHub release
+    needs: [version, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Take the release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: scripts/release-notes.sh "$VERSION" > "$RUNNER_TEMP/notes.md"
+
+      - name: Create the release with compose.yaml attached
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: >-
+          gh release create "$TAG" compose.yaml
+          --verify-tag
+          --title "Port-Key $VERSION"
+          --notes-file "$RUNNER_TEMP/notes.md"
