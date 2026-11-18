@@ -2,7 +2,7 @@
 
 What changed in each Port-Key release. Install and update instructions are in `README.md`.
 
-## [0.1.0] - 2026-11-17
+## [0.1.0] - 2026-11-18
 
 The first release. Port-Key is a browser-based SSH connection manager for one person: it runs
 in a container on your own Windows PC (Docker Desktop), only that PC can reach it, and you use
